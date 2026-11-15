@@ -1,38 +1,38 @@
-import { Check, ShieldCheck, WifiOff } from 'lucide-react'
+import { Clock, MapPin, WifiOff } from 'lucide-react'
+import Logo from '../components/Logo'
+import { go } from '../lib/router'
+import { chooseRole, getState } from '../lib/store'
 
 const points = [
-  { Icon: Check, text: 'No reports or check-ins needed' },
-  { Icon: WifiOff, text: 'Keeps working when the signal drops' },
-  { Icon: ShieldCheck, text: 'Only counts, never your location history' },
+  { Icon: Clock, text: 'One clear answer in under ten seconds: head home now, or wait.' },
+  { Icon: MapPin, text: 'If you should wait, see the nearest safe spot with space, power and water.' },
+  { Icon: WifiOff, text: 'Keeps working offline with the last saved copy. No account, no tracking.' },
 ]
 
-export default function Welcome({ onContinue }: { onContinue: () => void }) {
+export default function Welcome() {
   return (
-    <div className="screen fade-in" style={{ display: 'flex', flexDirection: 'column', paddingTop: 56 }}>
-      <div className="row" style={{ gap: 10 }}>
-        <img src="/favicon.svg" width={28} height={28} alt="" />
-        <span style={{ fontWeight: 600, letterSpacing: '0.08em' }}>BIYAHE</span>
+    <main id="main" tabIndex={-1} className="solo">
+      <Logo size={44} />
+      <div className="stack">
+        <h1 className="hero-title">Know when to head home, and where to wait if you shouldn't.</h1>
+        <p className="body">For BatStateU Alangilan commuters and the campus team that looks after them.</p>
       </div>
-
-      <div style={{ marginTop: 'auto' }} className="stack">
-        <h1 className="h1" style={{ fontSize: 32 }}>Safer trips home, without lifting a finger.</h1>
-        <p className="body">
-          BIYAHE watches the road between campus and home using your class schedule and official advisories.
-        </p>
-        <ul className="stack" style={{ listStyle: 'none', marginTop: 12, gap: 10 }}>
-          {points.map(({ Icon, text }) => (
-            <li key={text} className="row" style={{ gap: 10, fontSize: 14, color: 'var(--ink-2)' }}>
-              <Icon size={16} strokeWidth={2} color="var(--ink)" />
-              {text}
-            </li>
-          ))}
-        </ul>
+      <ul className="stack">
+        {points.map(({ Icon, text }) => (
+          <li key={text} className="row" style={{ minHeight: 0, padding: 0, alignItems: 'flex-start' }}>
+            <Icon size={22} aria-hidden="true" style={{ marginTop: 2, color: 'var(--sky)' }} />
+            <span>{text}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="solo-actions">
+        <button className="btn btn-primary btn-block" onClick={() => { chooseRole('student'); go(getState().corridorId ? 'home' : 'setup') }}>
+          Continue as Student
+        </button>
+        <button className="btn btn-secondary btn-block" onClick={() => { chooseRole('staff'); go('staff') }}>
+          Staff / DRRMO Demo
+        </button>
       </div>
-
-      <div className="stack" style={{ marginTop: 40, alignItems: 'center' }}>
-        <button className="btn btn-primary btn-block" onClick={onContinue}>Continue with BatStateU account</button>
-        <button className="link">How BIYAHE uses your data</button>
-      </div>
-    </div>
+    </main>
   )
 }

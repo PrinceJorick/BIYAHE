@@ -1,116 +1,100 @@
-import { CloudRain, GraduationCap, Info, Navigation, Users } from 'lucide-react'
-import { fmtMin, route, spots, student, type Scenario } from '../data'
+import { Bell, ChevronRight, CircleCheck, Clock, CloudRain, CloudSun, MapPin, RefreshCw, Send, TriangleAlert } from 'lucide-react'
+import Badge from '../components/Badge'
+import { ago, amenityList, clock, concernsStudent, fmtMin, fmtRange, spacesLeft, studentView } from '../lib/derive'
+import { refresh, toast, useApp, useNow } from '../lib/store'
 
-export default function Home({ scenario, onShowWay }: { scenario: Scenario; onShowWay: () => void }) {
-  const disrupted = scenario !== 'clear'
-  const spot = spots[0]
+export default function Home() {
+  const s = useApp()
+  const now = useNow()
+  const v = studentView(s, now)
+  const { cs, corridor, spot } = v
+  const saved = v.provenance === 'saved'
+  const wait = v.decision === 'wait'
+  const tone = saved ? 'saved' : wait ? 'danger' : cs.status === 'slow' ? 'warn' : 'ok'
+  const StatusIcon = wait ? TriangleAlert : cs.status === 'slow' ? Clock : CircleCheck
+  const routeWord = wait ? 'route disrupted' : cs.status === 'slow' ? 'route slow' : 'route clear'
+  const status = saved ? `Last known: ${routeWord}` : routeWord[0].toUpperCase() + routeWord.slice(1)
+  const WeatherIcon = s.weather.precipMm > 0 ? CloudRain : CloudSun
+  const alerts = s.snapshot.advisories.filter((a) => concernsStudent(a, s.corridorId))
+
+  const meta = v.offline
+    ? `${fmtMin(v.ageMin)} old · reconnect to refresh`
+    : v.stale
+      ? `${fmtMin(v.ageMin)} old · waiting for a fresh update`
+      : `Updated ${ago(s.snapshot.updatedAt, now)} · ${cs.source}`
+
+  const whereToWait = <a className={`btn btn-block ${wait ? 'btn-primary' : 'btn-secondary'}`} href="#/map"><MapPin size={20} aria-hidden="true" />See Where to Wait</a>
+  const share = (
+    <a className={`btn btn-block ${wait ? 'btn-secondary' : 'btn-primary'}`} href="#/share">
+      <Send size={20} aria-hidden="true" />{wait ? "Share I'm Safe" : "Share I'm heading home"}
+    </a>
+  )
 
   return (
-    <div className="stack" style={{ gap: 20 }}>
-      <header className="row between">
-        <div>
-          <p className="eyebrow">{student.campus} · Tue {disrupted ? '3:04' : '2:10'} PM</p>
-          <h1 className="h2">{disrupted ? `Stay put for now, ${student.name}` : `Good afternoon, ${student.name}`}</h1>
+    <div className="page">
+      <section className={`hero tone-${tone}`} aria-labelledby="decision">
+        <div className="between">
+          <span className="status"><StatusIcon size={20} aria-hidden="true" />{status}</span>
+          <Badge kind={v.provenance} />
         </div>
-        <div className="avatar" aria-hidden>{student.initial}</div>
-      </header>
-
-      {scenario === 'offline' && (
-        <div className="banner">
-          <Info size={16} />
-          <span>You're offline. Showing what BIYAHE knew at 3:04 PM.</span>
-        </div>
-      )}
-
-      {disrupted ? (
-        <section className="card stack" style={{ gap: 16 }}>
-          <div className="status warn">
-            <span className="status-dot" />
-            <div>
-              <h2 className="h2">Delay your departure</h2>
-              <p className="body" style={{ marginTop: 4 }}>
-                Flooding on your usual route near Batangas City proper. Classes are suspended from 3:30 PM.
-              </p>
-            </div>
+        <h1 id="decision" className="hero-title">{wait ? 'Wait on Campus for Now' : 'Head Home Now'}</h1>
+        <p>{cs.note}</p>
+        <dl className="times">
+          <div>
+            <dt>{corridor.name}, {saved ? 'last known' : 'right now'}</dt>
+            <dd className="num">{fmtRange(cs.minLo, cs.minHi)}</dd>
           </div>
-          <div className="compare">
-            <div>
-              <p className="meta">If you leave now</p>
-              <p className="num tone-warn" style={{ fontSize: 28 }}>{fmtMin(route.disruptedMin)}</p>
-            </div>
-            <div>
-              <p className="meta">Usual</p>
-              <p className="num" style={{ fontSize: 28, color: 'var(--ink-2)' }}>{fmtMin(route.usualMin)}</p>
-            </div>
+          <div>
+            <dt>Usual</dt>
+            <dd>{fmtMin(corridor.usualMin)}</dd>
           </div>
-          <p className="meta">Updated 1 min ago · PAGASA and 3 LGU road reports</p>
-        </section>
-      ) : (
-        <section className="card">
-          <div className="status ok">
-            <span className="status-dot" />
-            <div>
-              <h2 className="h2">You're clear to go</h2>
-              <p className="body" style={{ marginTop: 4 }}>No disruptions on your usual route right now.</p>
-              <p className="meta" style={{ marginTop: 8 }}>Updated 2 min ago · PAGASA and LGU advisories</p>
-            </div>
-          </div>
-        </section>
-      )}
+        </dl>
+        <p className="meta">{meta}</p>
+      </section>
 
-      {disrupted ? (
-        <section className="stack" style={{ gap: 12 }}>
-          <p className="label">Wait safely here</p>
-          <div className="card stack" style={{ gap: 16 }}>
-            <div>
-              <h3 className="h2" style={{ fontSize: 17 }}>{spot.name}</h3>
-              <p className="meta">{spot.walkMin} min walk · {spot.left} of {spot.capacity} spaces left</p>
-            </div>
-            <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
-              {spot.amenities.map((a) => <span key={a} className="tag">{a}</span>)}
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <button className="btn btn-primary" onClick={onShowWay}><Navigation size={16} />Directions</button>
-              <button className="btn btn-ghost"><Users size={16} />Tell family</button>
-            </div>
-          </div>
-        </section>
-      ) : (
-        <>
-          <section className="card stack" style={{ gap: 16 }}>
-            <div className="row between">
-              <p className="label">Your usual route</p>
-              <span className="tag">{route.modes}</span>
-            </div>
-            <div className="route">
-              <div><p className="meta">From</p><p className="h3">{route.from}</p></div>
-              <div className="route-line" />
-              <div style={{ textAlign: 'right' }}><p className="meta">To</p><p className="h3">{route.to}</p></div>
-            </div>
-            <div className="divider" style={{ margin: 0 }} />
-            <div className="row" style={{ alignItems: 'baseline', gap: 8 }}>
-              <span className="num" style={{ fontSize: 40, lineHeight: 1 }}>{route.usualMin}</span>
-              <span className="body">min travel time now</span>
-            </div>
-            <p className="meta">Leave after your {route.lastClass} class and you'll be home by about {route.eta}.</p>
-          </section>
-          <section className="card list" style={{ padding: '0 20px' }}>
-            <div className="item">
-              <CloudRain size={18} color="var(--ink-3)" style={{ marginTop: 2 }} />
-              <div><p className="h3">Light rain, 26°C</p><p className="meta">No rainfall warning in Batangas</p></div>
-            </div>
-            <div className="item">
-              <GraduationCap size={18} color="var(--ink-3)" style={{ marginTop: 2 }} />
-              <div><p className="h3">Classes on</p><p className="meta">As scheduled at Alangilan</p></div>
-            </div>
-          </section>
-        </>
-      )}
+      <div className="actions">
+        {wait ? whereToWait : share}
+        {wait ? share : whereToWait}
+        {v.stale && !v.offline && (
+          <button className="btn btn-quiet" onClick={async () => { if (!(await refresh())) toast('No newer update yet. Showing the saved copy.') }}>
+            <RefreshCw size={18} aria-hidden="true" />Check for an update
+          </button>
+        )}
+      </div>
 
-      <p className="meta row" style={{ alignItems: 'flex-start', gap: 8 }}>
-        <Info size={14} style={{ flex: 'none', marginTop: 3 }} />
-        You don't need to report anything. BIYAHE estimates this from your schedule and official advisories.
-      </p>
+      <ul className="rows">
+        {wait && spot && (
+          <li>
+            <a className="row tone-ok" href="#/map">
+              <MapPin className="row-icon" size={22} aria-hidden="true" />
+              <span className="row-body">
+                <span className="row-title">{spot.name} · {spot.walkMin} min walk</span>
+                <span className="meta">{spacesLeft(spot)} of {spot.capacity} spaces left{amenityList(spot) && ` · ${amenityList(spot)}`}</span>
+              </span>
+              <ChevronRight size={20} aria-hidden="true" />
+            </a>
+          </li>
+        )}
+        <li>
+          <div className="row">
+            <WeatherIcon className="row-icon" size={22} aria-hidden="true" />
+            <span className="row-body">
+              <span className="row-title">{s.weather.label}, {s.weather.tempC}°C{s.weather.precipMm > 0 && ` · ${s.weather.precipMm} mm rain`}</span>
+              <span className="meta">Open-Meteo · {s.weather.live && !v.offline ? `live, ${ago(s.weather.fetchedAt, now)}` : `saved ${clock(s.weather.fetchedAt)}`}</span>
+            </span>
+          </div>
+        </li>
+        <li>
+          <a className={`row ${alerts.length ? 'tone-danger' : ''}`} href="#/alerts">
+            <Bell className="row-icon" size={22} aria-hidden="true" />
+            <span className="row-body">
+              <span className="row-title">{alerts.length ? `${alerts.length} active ${alerts.length === 1 ? 'alert' : 'alerts'}` : 'No active alerts'}</span>
+              {alerts[0] && <span className="meta">{alerts[0].title}</span>}
+            </span>
+            <ChevronRight size={20} aria-hidden="true" />
+          </a>
+        </li>
+      </ul>
     </div>
   )
 }
