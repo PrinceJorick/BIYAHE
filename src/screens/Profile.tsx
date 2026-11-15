@@ -1,62 +1,88 @@
-import { CalendarDays, Check, Layers, MessageSquare, WifiOff } from 'lucide-react'
-import { student, type Scenario } from '../data'
+import { BatteryLow, Database, MapPin, Radio, ShieldCheck } from 'lucide-react'
+import Badge from '../components/Badge'
+import Toggle from '../components/Toggle'
+import { clock, studentView } from '../lib/derive'
+import { go } from '../lib/router'
+import { chooseRole, isLowBattery, setLowBattery, setScenario, useApp, useNow, type Scenario } from '../lib/store'
 
-const cached = [
-  { Icon: Layers, text: 'Campus map and safe spots' },
-  { Icon: CalendarDays, text: 'Your class schedule' },
-  { Icon: Check, text: 'Last 12 hours of alerts' },
+const scenarios: { id: Scenario; label: string; hint: string }[] = [
+  { id: 'clear', label: 'Clear', hint: 'All corridors open. Home says head home now.' },
+  { id: 'disrupted', label: 'Disrupted', hint: 'Flooding closes JP Laurel Hwy. Lipa commuters are told to wait.' },
+  { id: 'stale', label: 'Stale >30m', hint: 'The last update is 38 minutes old, so everything is marked Saved copy.' },
+  { id: 'offline', label: 'Offline Saved Copy', hint: 'Simulates no signal. The app runs from the copy saved on this phone.' },
+  { id: 'lowbattery', label: 'Low Battery', hint: 'Simulates a battery under 20%: text-first screens and a simplified map.' },
 ]
 
-export default function Profile({ scenario, onScenario }: { scenario: Scenario; onScenario: (s: Scenario) => void }) {
+export default function Profile() {
+  const s = useApp()
+  const v = studentView(s, useNow())
+  const active = scenarios.find((x) => x.id === s.scenario)!
+
   return (
-    <div className="stack" style={{ gap: 24 }}>
-      <header className="row">
-        <div className="avatar" style={{ width: 48, height: 48 }}>{student.initial}</div>
-        <div>
-          <h1 className="h2">{student.name}</h1>
-          <p className="meta">BatStateU · {student.campus}</p>
-        </div>
-      </header>
+    <div className="page">
+      <h1 className="h1">Profile &amp; Offline</h1>
+      <ul className="rows">
+        <li>
+          <div className="row">
+            <Database className="row-icon" size={22} aria-hidden="true" />
+            <span className="row-body">
+              <span className="row-title">Saved for offline</span>
+              <span className="meta">Corridor status, safe spots and alerts, saved {clock(s.savedAt)}</span>
+            </span>
+            <Badge kind="saved" />
+          </div>
+        </li>
+        <li>
+          <div className="row">
+            <BatteryLow className="row-icon" size={22} aria-hidden="true" />
+            <span className="row-body">
+              <span className="row-title">Low-Battery Mode</span>
+              <span className="meta">Text-first guidance and a simpler map. Suggested under 20%.</span>
+            </span>
+            <Toggle label="Low-Battery Mode" hideLabel checked={isLowBattery(s)} onChange={setLowBattery} />
+          </div>
+        </li>
+        <li>
+          <div className="row">
+            <MapPin className="row-icon" size={22} aria-hidden="true" />
+            <span className="row-body">
+              <span className="row-title">Home corridor</span>
+              <span className="meta">{v.corridor.name} via {v.corridor.via}</span>
+            </span>
+            <a className="btn btn-quiet" href="#/setup">Change<span className="sr-only"> home corridor</span></a>
+          </div>
+        </li>
+        <li>
+          <div className="row">
+            <Radio className="row-icon" size={22} aria-hidden="true" />
+            <span className="row-body">
+              <span className="row-title">Data connection</span>
+              <span className="meta">{s.backend === 'supabase' ? 'Live from Supabase Realtime, with a saved copy on this phone.' : 'Demo data on this device. Staff updates sync between open tabs.'}</span>
+            </span>
+          </div>
+        </li>
+        <li>
+          <div className="row">
+            <ShieldCheck className="row-icon" size={22} aria-hidden="true" />
+            <span className="row-body">
+              <span className="row-title">Privacy</span>
+              <span className="meta">No account, no location tracking. Staff see only how many students use each corridor (RA 10173).</span>
+            </span>
+          </div>
+        </li>
+      </ul>
 
-      {scenario === 'offline' && (
-        <section className="card stack">
-          <div className="row"><WifiOff size={18} /><h2 className="h3">You're offline</h2></div>
-          <p className="body" style={{ fontSize: 14 }}>
-            Showing what BIYAHE knew at 3:04 PM. Your recommendation is saved on this phone: stay on campus at the CICS Building lobby.
-          </p>
-        </section>
-      )}
-
-      <section className="stack" style={{ gap: 8 }}>
-        <p className="label">Available offline</p>
-        <ul className="card list" style={{ listStyle: 'none', padding: '0 20px' }}>
-          {cached.map(({ Icon, text }) => (
-            <li key={text} className="item" style={{ alignItems: 'center' }}>
-              <Icon size={18} color="var(--ink-3)" />
-              <span style={{ flex: 1 }}>{text}</span>
-              <span className="meta tone-ok">Saved</span>
-            </li>
+      <section className="stack" aria-labelledby="demo">
+        <h2 id="demo" className="h2">Demo scenario</h2>
+        <div className="chips" role="group" aria-labelledby="demo">
+          {scenarios.map((x) => (
+            <button key={x.id} className="chip" aria-pressed={s.scenario === x.id} onClick={() => setScenario(x.id)}>{x.label}</button>
           ))}
-        </ul>
+        </div>
+        <p className="meta" role="status">{active.hint}</p>
       </section>
 
-      <section className="card row" style={{ alignItems: 'flex-start' }}>
-        <MessageSquare size={18} color="var(--ink-3)" style={{ marginTop: 2 }} />
-        <div>
-          <p className="h3">Critical alerts by SMS</p>
-          <p className="meta">If the campus network goes down too, urgent updates can still reach you by text.</p>
-        </div>
-      </section>
-
-      <section className="stack" style={{ gap: 8 }}>
-        <p className="label">Demo scenario</p>
-        <div className="segmented" role="group" aria-label="Demo scenario">
-          {(['clear', 'disrupted', 'offline'] as const).map((s) => (
-            <button key={s} aria-pressed={scenario === s} onClick={() => onScenario(s)} style={{ textTransform: 'capitalize' }}>{s}</button>
-          ))}
-        </div>
-        <p className="meta">Campus data is simulated for the MVP.</p>
-      </section>
+      <button className="btn btn-secondary btn-block" onClick={() => { chooseRole(null); go('welcome') }}>Switch role</button>
     </div>
   )
 }
