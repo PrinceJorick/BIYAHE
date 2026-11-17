@@ -7,7 +7,7 @@ import { fixture } from './data'
 const MIN = 60_000
 const NOW = Date.UTC(2026, 10, 16, 7, 0)
 
-const OPEN_NOTE = 'No hazards reported on your corridor.'
+const OPEN_NOTE = 'No hazards reported on your route.'
 const OPEN_SOURCE = 'PAGASA, Batangas City DRRMO'
 
 describe("fixture('clear')", () => {

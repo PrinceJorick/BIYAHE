@@ -14,7 +14,7 @@ export default function Setup() {
           <p className="body">This is the only thing we ask. It stays on this phone and you can change it any time.</p>
         </div>
         <fieldset className="choices">
-          <legend className="sr-only">Your usual corridor home</legend>
+          <legend className="sr-only">Your usual route home</legend>
           {corridors.map((c) => (
             <label key={c.id} className="choice">
               <input type="radio" name="corridor" value={c.id} checked={picked === c.id} onChange={() => setPicked(c.id)} />
@@ -26,7 +26,7 @@ export default function Setup() {
           ))}
         </fieldset>
         <div className="solo-actions">
-          <button type="submit" className="btn btn-primary btn-block">Use this corridor</button>
+          <button type="submit" className="btn btn-primary btn-block">Use this route</button>
         </div>
       </form>
     </main>

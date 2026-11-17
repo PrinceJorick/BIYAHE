@@ -23,7 +23,7 @@ const round5 = (n: number) => Math.max(5, Math.round(n / 5) * 5)
 // slow and closed are hazard-adjusted estimates.
 export function corridorStateFor(c: Corridor, status: CorridorStatus, note = '', source?: string): CorridorState {
   if (status === 'open') {
-    return { status, minLo: round5(c.usualMin * 0.9), minHi: round5(c.usualMin * 1.1), note: note || 'No hazards reported on your corridor.',
+    return { status, minLo: round5(c.usualMin * 0.9), minHi: round5(c.usualMin * 1.1), note: note || 'No hazards reported on your route.',
       source: source ?? 'PAGASA, Batangas City DRRMO', provenance: 'official' }
   }
   if (status === 'slow') {

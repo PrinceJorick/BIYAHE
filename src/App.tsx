@@ -25,7 +25,7 @@ const tabs = [
 ] as const
 
 const titles: Record<Route, string> = {
-  welcome: 'Welcome', setup: 'Choose your corridor', home: 'Home', map: 'Where to wait', share: "Share I'm safe",
+  welcome: 'Welcome', setup: 'Choose your route', home: 'Home', map: 'Where to wait', share: "Share I'm safe",
   alerts: 'Alerts', profile: 'Profile & Offline', staff: 'Staff quick access', coordinator: 'Coordinator Command',
 }
 
