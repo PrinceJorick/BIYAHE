@@ -2,7 +2,7 @@
 
 **Know when to head home, and where to wait if you shouldn't.**
 
-A zero-input, offline-first disaster-commute PWA for BatStateU Alangilan. Students get one answer in under ten seconds. Campus staff and the DRRMO triage corridors and safe spots in three clicks.
+A zero-input, offline-first disaster-commute PWA for BatStateU Alangilan. Students get one answer in under ten seconds. Campus staff and the DRRMO triage routes and safe spots in three clicks.
 
 ![Overview](docs/screens/overview.png)
 
@@ -10,7 +10,7 @@ A zero-input, offline-first disaster-commute PWA for BatStateU Alangilan. Studen
 
 **Student (zero input, ≤10-second decision)**
 
-`Welcome` → `1-step corridor setup` → `Home`. Home says **Head Home Now** or **Wait on Campus for Now**, with the hazard-adjusted travel time against the usual one and a provenance badge (`Official`, `Estimate`, `Saved copy`). One tap from there:
+`Welcome` → `1-step route setup` → `Home`. Home says **Head Home Now** or **Wait on Campus for Now**, with the hazard-adjusted travel time against the usual one and a provenance badge (`Official`, `Estimate`, `Saved copy`). One tap from there:
 
 - **See Where to Wait**: map and list of safe spots with live capacity, power / water / food, and walking time.
 - **Share I'm Safe**: a pre-written family message (share sheet, SMS, or copy).
@@ -19,7 +19,9 @@ A zero-input, offline-first disaster-commute PWA for BatStateU Alangilan. Studen
 
 **Staff / DRRMO (3-click triage)**
 
-`Welcome` → `Staff / DRRMO quick access` → `Coordinator Command` (`#/coordinator`): corridor risk map, estimated stranded students per corridor (aggregated only, RA 10173), `−10 / +10` occupancy steppers and amenity toggles for CICS Lobby, Gymnasium and Library, and a one-click **Publish Campus / Corridor Advisory** dialog that reaches student views immediately.
+`Welcome` → `Staff / DRRMO quick access` → `Coordinator Command` (`#/coordinator`): route risk map, estimated stranded students per route (aggregated only, RA 10173), `−10 / +10` occupancy steppers and amenity toggles for CICS Lobby, Gymnasium and Library, and a one-click **Publish Campus / Route Advisory** dialog that reaches student views immediately.
+
+In the code and database a route is called a corridor (`Corridor`, `corridor_status`); the UI says "route".
 
 ## Run the demo
 
@@ -29,9 +31,9 @@ npm run dev        # http://localhost:5173
 ```
 
 1. Open the app in **two tabs**.
-2. Tab A: **Continue as Student**, pick a corridor, stay on Home.
+2. Tab A: **Continue as Student**, pick a route, stay on Home.
 3. Tab B: **Staff / DRRMO Demo** → **Open Command Dashboard**.
-4. In tab B press `+10` on a safe spot, toggle an amenity, or publish an advisory that sets a corridor to Closed. Tab A updates at once and announces the new advisory.
+4. In tab B press `+10` on a safe spot, toggle an amenity, or publish an advisory that sets a route to Closed. Tab A updates at once and announces the new advisory.
 5. In tab A, **Profile → Demo scenario** switches between `Clear`, `Disrupted`, `Stale >30m`, `Offline Saved Copy` and `Low Battery`.
 
 Each tab remembers its own role, so the two can sit side by side. Without Supabase the tabs sync through `BroadcastChannel`, so they must be in the same browser.
@@ -56,7 +58,7 @@ The write policies in the schema are open for the demo. Put them behind staff au
 
 | Source | Used for | Fallback |
 |---|---|---|
-| Supabase (PostgreSQL + PostGIS + Realtime) | Corridor status, safe spots, advisories | IndexedDB snapshot, fixtures in `src/data.ts` |
+| Supabase (PostgreSQL + PostGIS + Realtime) | Route status, safe spots, advisories | IndexedDB snapshot, fixtures in `src/data.ts` |
 | Open-Meteo (13.7842, 121.0744) | Current weather | Last saved reading |
 | PAGASA / Batangas City LGU | Advisory schemas (`PagasaAdvisory`, `LguAdvisory`) | Simulated fixtures; no live feed is wired |
 

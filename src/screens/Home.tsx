@@ -12,7 +12,7 @@ export default function Home() {
   const wait = v.decision === 'wait'
   const tone = saved ? 'saved' : wait ? 'danger' : cs.status === 'slow' ? 'warn' : 'ok'
   const StatusIcon = wait ? TriangleAlert : cs.status === 'slow' ? Clock : CircleCheck
-  const routeWord = wait ? 'route disrupted' : cs.status === 'slow' ? 'route slow' : 'route clear'
+  const routeWord = wait ? 'route disrupted' : cs.status === 'slow' ? 'route slow' : 'route open'
   const status = saved ? `Last known: ${routeWord}` : routeWord[0].toUpperCase() + routeWord.slice(1)
   const WeatherIcon = s.weather.precipMm > 0 ? CloudRain : CloudSun
   const alerts = s.snapshot.advisories.filter((a) => concernsStudent(a, s.corridorId))

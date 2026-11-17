@@ -10,7 +10,7 @@ import { useMedia } from '../lib/router'
 import { adjustOccupancy, chooseRole, getState, isOffline, publishAdvisory, toggleAmenity, useApp, useNow } from '../lib/store'
 
 const statusView: Record<CorridorStatus, { tone: string; Icon: typeof Clock; label: string; unit: string }> = {
-  open: { tone: 'ok', Icon: CircleCheck, label: 'Clear', unit: 'affected' },
+  open: { tone: 'ok', Icon: CircleCheck, label: 'Open', unit: 'affected' },
   slow: { tone: 'warn', Icon: Clock, label: 'Slow', unit: 'delayed' },
   closed: { tone: 'danger', Icon: TriangleAlert, label: 'Closed', unit: 'stranded' },
 }
@@ -51,13 +51,13 @@ export default function Coordinator() {
             </p>
           </div>
           <button className="btn btn-danger" onClick={() => setPublishing(true)}>
-            <Megaphone size={20} aria-hidden="true" />Publish Campus / Corridor Advisory
+            <Megaphone size={20} aria-hidden="true" />Publish Campus / Route Advisory
           </button>
         </header>
 
         <div className="coord-split">
           <section className="section" aria-labelledby="risk">
-            <h2 id="risk" className="h2">Corridor risk</h2>
+            <h2 id="risk" className="h2">Route risk</h2>
             <CorridorMap mode="staff" />
             <ul className="rows">
               {corridors.map((c) => {
@@ -78,7 +78,7 @@ export default function Coordinator() {
                 )
               })}
             </ul>
-            <p className="meta">Estimates come from corridor selections only. Aggregated, never per student (RA 10173).</p>
+            <p className="meta">Estimates come from route selections only. Aggregated, never per student (RA 10173).</p>
           </section>
 
           <section className="section" aria-labelledby="shelters">
@@ -171,8 +171,8 @@ function PublishForm({ onDone }: { onDone: () => void }) {
         <label htmlFor={`${id}-scope`}>Who sees it</label>
         <select id={`${id}-scope`} className="input" value={scope} onChange={(e) => setScope(e.target.value)}>
           <option value="campus">Whole campus</option>
-          <option value="all">All corridors</option>
-          {corridors.map((c) => <option key={c.id} value={c.id}>{c.name} corridor ({c.via})</option>)}
+          <option value="all">All routes</option>
+          {corridors.map((c) => <option key={c.id} value={c.id}>{c.name} route ({c.via})</option>)}
         </select>
       </div>
 
@@ -189,7 +189,7 @@ function PublishForm({ onDone }: { onDone: () => void }) {
           <div className="chips">
             {statuses.map((x) => <button key={x.id} type="button" className="chip" aria-pressed={status === x.id} onClick={() => setStatus(x.id)}>{x.label}</button>)}
           </div>
-          <p className="meta">Closed tells students on this corridor to wait on campus.</p>
+          <p className="meta">Closed tells students on this route to wait on campus.</p>
         </div>
       )}
 
@@ -206,7 +206,7 @@ function PublishForm({ onDone }: { onDone: () => void }) {
         <textarea id={`${id}-body`} className="input" value={body} maxLength={280} onChange={(e) => setBody(e.target.value)} />
       </div>
 
-      <p className="meta"><Users size={16} aria-hidden="true" style={{ verticalAlign: '-3px', marginRight: 6 }} />Reaches about {reach} students{corridor ? ` on the ${corridor.name} corridor first` : ''}. It appears in their app straight away.</p>
+      <p className="meta"><Users size={16} aria-hidden="true" style={{ verticalAlign: '-3px', marginRight: 6 }} />Reaches about {reach} students{corridor ? ` on the ${corridor.name} route first` : ''}. It appears in their app straight away.</p>
 
       <div className="dialog-actions">
         <button type="button" className="btn btn-secondary" onClick={onDone}>Cancel</button>
