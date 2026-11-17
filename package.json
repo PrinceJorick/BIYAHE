@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "routes:alangilan": "vitest run src/lib/geo.test.ts src/lib/routeChecks.test.ts && node scripts/build-routes.mjs"
   },
   "dependencies": {
     "@fontsource/poppins": "^5.3.0",
