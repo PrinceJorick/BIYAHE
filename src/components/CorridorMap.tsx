@@ -2,6 +2,7 @@ import L from 'leaflet'
 import { useEffect } from 'react'
 import { MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import { BatteryLow } from 'lucide-react'
+import { DEFAULT_CAMPUS } from '../campuses'
 import { CAMPUS, corridors, type CorridorStatus, type LatLng } from '../data'
 import { spacesLeft, studentView } from '../lib/derive'
 import { isLowBattery, selectSpot, useApp, useNow } from '../lib/store'
@@ -69,7 +70,7 @@ export default function CorridorMap({ mode }: { mode: 'student' | 'staff' }) {
               eventHandlers={mode === 'student' && !full ? { click: () => selectSpot(x.id) } : undefined} />
           )
         })}
-        <Marker position={CAMPUS} icon={youIcon} title="BatStateU Alangilan" alt="BatStateU Alangilan" keyboard={false} />
+        <Marker position={CAMPUS} icon={youIcon} title={DEFAULT_CAMPUS.shortName} alt={DEFAULT_CAMPUS.shortName} keyboard={false} />
       </MapContainer>
       {plain && (
         <p className="map-plain"><BatteryLow size={18} aria-hidden="true" />Simple map. Street tiles are off to save battery.</p>

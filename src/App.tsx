@@ -1,5 +1,6 @@
 import { BatteryLow, Bell, House, Info, Map as MapIcon, TriangleAlert, User, WifiOff } from 'lucide-react'
 import { useEffect, useRef } from 'react'
+import { DEFAULT_CAMPUS } from './campuses'
 import CorridorMap from './components/CorridorMap'
 import Logo from './components/Logo'
 import Toggle from './components/Toggle'
@@ -89,7 +90,7 @@ export default function App() {
                 </li>
               ))}
             </ul>
-            <p className="nav-foot">BatStateU Alangilan<br />No account. No tracking.</p>
+            <p className="nav-foot">{DEFAULT_CAMPUS.shortName}<br />No account. No tracking.</p>
           </nav>
 
           <main id="main" tabIndex={-1} className="main">

@@ -1,85 +1,19 @@
-// Domain types and the simulated fixtures used when Supabase is unconfigured or unreachable.
+// Campus reference data access and the simulated fixtures used when Supabase is unconfigured or unreachable.
 
-export type LatLng = [number, number]
+import type {
+  Advisory, Corridor, CorridorState, CorridorStatus, LatLng, Severity, Snapshot, Spot, Weather,
+} from './types'
+import { DEFAULT_CAMPUS } from './campuses'
 
-// BatStateU Alangilan, Batangas City
-export const CAMPUS: LatLng = [13.7842, 121.0744]
+// The domain types live in ./types; re-exported so existing `import type … from '../data'` keeps working.
+export type {
+  Advisory, AdvisorySource, Amenity, Corridor, CorridorState, CorridorStatus, LatLng, Provenance, Severity, Snapshot, Spot, Weather,
+} from './types'
 
-export type CorridorStatus = 'open' | 'slow' | 'closed'
-export type Provenance = 'official' | 'estimate' | 'saved'
-export type Amenity = 'power' | 'water' | 'food'
-export type AdvisorySource = 'PAGASA' | 'LGU' | 'Campus'
-export type Severity = 'info' | 'warning' | 'critical'
+// Compatibility aliases for the default campus (Alangilan). The data itself lives in src/campuses.
+export const CAMPUS: LatLng = DEFAULT_CAMPUS.location
 
-export type Corridor = {
-  id: string
-  name: string
-  via: string
-  usualMin: number
-  // Students who picked this corridor. An aggregate count only, never a list of people (RA 10173).
-  commuters: number
-  path: LatLng[]
-}
-
-export type CorridorState = {
-  status: CorridorStatus
-  minLo: number
-  minHi: number
-  note: string
-  source: string
-  provenance: Exclude<Provenance, 'saved'>
-}
-
-export type Spot = {
-  id: string
-  name: string
-  walkMin: number
-  capacity: number
-  occupied: number
-  amenities: Record<Amenity, boolean>
-  pos: LatLng
-}
-
-export type Advisory = {
-  id: string
-  source: AdvisorySource
-  issuer: string
-  title: string
-  body: string
-  severity: Severity
-  // a corridor id, 'campus', or 'all'
-  scope: string
-  issuedAt: number
-}
-
-export type Snapshot = {
-  corridors: Record<string, CorridorState>
-  spots: Spot[]
-  advisories: Advisory[]
-  updatedAt: number
-}
-
-export type Weather = {
-  tempC: number
-  precipMm: number
-  windKph: number
-  label: string
-  fetchedAt: number
-  live: boolean
-}
-
-export const corridors: Corridor[] = [
-  { id: 'lipa', name: 'Lipa City', via: 'JP Laurel Hwy', usualMin: 50, commuters: 140,
-    path: [CAMPUS, [13.7875, 121.0705], [13.7935, 121.0655], [13.8, 121.064], [13.81, 121.07]] },
-  { id: 'batangas', name: 'Batangas City proper', via: 'P. Burgos', usualMin: 20, commuters: 210,
-    path: [CAMPUS, [13.778, 121.069], [13.77, 121.064], [13.7575, 121.058]] },
-  { id: 'bauan', name: 'Bauan / San Pascual', via: 'Diversion Rd', usualMin: 35, commuters: 60,
-    path: [CAMPUS, [13.783, 121.062], [13.786, 121.045], [13.79, 121.02]] },
-  { id: 'sanjose', name: 'San Jose / Ibaan', via: 'Batangas–Lipa Rd', usualMin: 30, commuters: 85,
-    path: [CAMPUS, [13.792, 121.085], [13.805, 121.1], [13.82, 121.115]] },
-  { id: 'tanauan', name: 'Tanauan / Sto. Tomas', via: 'STAR Tollway', usualMin: 65, commuters: 45,
-    path: [CAMPUS, [13.795, 121.078], [13.82, 121.085], [13.85, 121.095]] },
-]
+export const corridors: Corridor[] = DEFAULT_CAMPUS.corridors
 
 export const corridorById = (id: string | null) => corridors.find((c) => c.id === id) ?? corridors[0]
 
@@ -145,14 +79,14 @@ export const fromLgu = (a: LguAdvisory, id: string): Advisory => ({
 
 const MIN = 60_000
 
-const baseSpots = (occupied: [number, number, number]): Spot[] => [
-  { id: 'cics', name: 'CICS Lobby', walkMin: 3, capacity: 180, occupied: occupied[0],
-    amenities: { power: true, water: true, food: true }, pos: [13.7849, 121.0745] },
-  { id: 'gym', name: 'Gymnasium', walkMin: 6, capacity: 500, occupied: occupied[1],
-    amenities: { power: true, water: true, food: false }, pos: [13.7838, 121.0727] },
-  { id: 'library', name: 'Library', walkMin: 4, capacity: 150, occupied: occupied[2],
-    amenities: { power: true, water: false, food: false }, pos: [13.7832, 121.0752] },
-]
+// Snapshot spots from the campus seeds (cics, gym, library), with occupancy assigned by position.
+// Nested amenities/pos are copied so a snapshot never shares objects with the registry, and the
+// key order matches the spot literals this replaced.
+const baseSpots = (occupied: [number, number, number]): Spot[] =>
+  DEFAULT_CAMPUS.spots.map((s, i) => ({
+    id: s.id, name: s.name, walkMin: s.walkMin, capacity: s.capacity, occupied: occupied[i],
+    amenities: { ...s.amenities }, pos: [s.pos[0], s.pos[1]],
+  }))
 
 export function fixture(kind: 'clear' | 'disrupted', now = Date.now()): Snapshot {
   const states: Record<string, CorridorState> = {}
