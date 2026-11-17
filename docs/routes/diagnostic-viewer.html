@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  BIYAHE route DIAGNOSTIC viewer — developer tool, not part of the app.
+  Opens diagnostic GeoJSON from docs/routes/diagnostics/ through a local file picker.
+  The file is read in the browser with FileReader and is never uploaded: connect-src 'none' below
+  blocks every fetch/XHR/WebSocket. The only network requests are Leaflet (pinned, SRI-checked)
+  and OpenStreetMap map tiles.
+-->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://unpkg.com; style-src 'unsafe-inline' https://unpkg.com; img-src https://tile.openstreetmap.org data:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<title>Route Diagnostic Viewer</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+<style>
+  :root { --warn-bg: #7f1d1d; --warn-fg: #fff; --ink: #0f172a; --muted: #475569; --line: #cbd5e1; --panel: #f8fafc;
+          --failed: #b91c1c; --review: #b45309; --candidate: #1d4ed8; --match: #16a34a; --other: #64748b; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { display: grid; grid-template-rows: auto 1fr; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: #fff; }
+  .banner { padding: 10px 16px; background: var(--warn-bg); color: var(--warn-fg); font-weight: 700; letter-spacing: .02em; }
+  .banner small { display: block; font-weight: 400; opacity: .9; }
+  .layout { display: grid; grid-template-columns: 400px 1fr; min-height: 0; }
+  aside { overflow: auto; border-right: 1px solid var(--line); background: var(--panel); padding: 12px 16px 24px; }
+  #map { min-height: 300px; }
+  h1 { font-size: 16px; margin: 4px 0 8px; }
+  h2 { font-size: 14px; margin: 0; }
+  .meta, .note { color: var(--muted); font-size: 12px; }
+  .meta div { overflow-wrap: anywhere; }
+  .controls { display: grid; gap: 6px; margin: 10px 0; }
+  .error { color: var(--failed); font-weight: 600; }
+  .card { border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 10px; margin-top: 10px; }
+  .card header { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+  .card label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+  .swatch { width: 12px; height: 12px; border-radius: 2px; flex: none; }
+  .badge { font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px; color: #fff; white-space: nowrap; }
+  .b-failed { background: var(--failed); } .b-review { background: var(--review); } .b-candidate { background: var(--candidate); }
+  .partial { font-size: 11px; font-weight: 700; color: var(--review); }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 8px 0; font-size: 12px; }
+  dt { color: var(--muted); } dd { margin: 0; overflow-wrap: anywhere; }
+  ul { margin: 4px 0; padding-left: 18px; font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
+  th, td { text-align: left; padding: 2px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td.num { text-align: right; white-space: nowrap; }
+  button { font: inherit; padding: 2px 8px; }
+  .legend { font-size: 12px; display: grid; gap: 3px; margin-top: 8px; }
+  .legend span { display: inline-block; width: 22px; height: 0; vertical-align: middle; margin-right: 6px; border-top: 4px solid; }
+  @media (max-width: 760px) {
+    .layout { grid-template-columns: 1fr; grid-template-rows: 55vh auto; }
+    aside { order: 2; border-right: 0; border-top: 1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+<div class="banner" role="alert">
+  DIAGNOSTIC — NOT APPROVED
+  <small>Candidate route geometry for human inspection only. Not BIYAHE application data. Routes shown here are not verified, not confirmed, not approved and not production-ready.</small>
+</div>
+<div class="layout">
+  <aside>
+    <h1>BIYAHE route diagnostic viewer</h1>
+    <div class="controls">
+      <label for="file">Open a diagnostic GeoJSON (docs/routes/diagnostics/*.geojson):</label>
+      <input id="file" type="file" accept=".geojson,.json,application/geo+json,application/json">
+      <div class="note">The file is read locally in this browser and never uploaded.</div>
+      <label><input id="showSteps" type="checkbox" checked> Show OSRM steps (coloured by primary-road name match)</label>
+      <label><input id="showZones" type="checkbox" checked> Show 100 m endpoint zones, zone entry and final 150 m</label>
+      <label><input id="showSimplified" type="checkbox"> Show simplified path (candidate data shape)</label>
+      <div id="error" class="error" role="status"></div>
+    </div>
+    <div class="legend" aria-label="Legend">
+      <div><span style="border-color: var(--match)"></span>Step whose road name matches a primary road (refs never count)</div>
+      <div><span style="border-color: var(--other)"></span>Step that does not match</div>
+      <div><span style="border-color: #000; border-top-style: dashed"></span>Campus → first road point (connector)</div>
+      <div><span style="border-color: #db2777"></span>Final 150 m (actual final approach direction)</div>
+      <div>○ requested destination · ● snapped destination · ◆ campus · ✕ zone entry</div>
+    </div>
+    <div id="meta" class="meta"></div>
+    <div id="cards"></div>
+  </aside>
+  <div id="map" role="region" aria-label="Map of diagnostic candidate routes"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+<script>
+'use strict'
+const CAMPUS = [13.7842, 121.0744]
+const STATUS_CLASS = { 'FAILED': 'b-failed', 'NEEDS REVIEW': 'b-review', 'CANDIDATE — NOT APPROVED': 'b-candidate' }
+const $ = (id) => document.getElementById(id)
+
+const map = L.map('map').setView(CAMPUS, 13)
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors (ODbL) · DIAGNOSTIC — NOT APPROVED',
+}).addTo(map)
+
+let loaded = [] // [{ id, group, steps, simplified, zones, bounds }]
+const campusLayer = L.featureGroup().addTo(map)
+
+// Build DOM with textContent only: nothing from the file is ever parsed as HTML.
+function el(tag, attrs = {}, ...children) {
+  const n = document.createElement(tag)
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') n.className = v
+    else if (k === 'style') n.style.cssText = v
+    else n.setAttribute(k, v)
+  }
+  for (const c of children) if (c != null) n.append(c instanceof Node ? c : String(c))
+  return n
+}
+const fmtM = (v) => (typeof v === 'number' ? `${Math.round(v).toLocaleString('en-US')} m` : '—')
+const fmtPct = (v) => (typeof v === 'number' ? `${(v * 100).toFixed(1)}%` : '—')
+const latLng = (p) => [p[1], p[0]] // GeoJSON [lon, lat] → Leaflet [lat, lng]
+const ring = (g) => g.coordinates[0].map(latLng)
+
+function popup(rows) {
+  const dl = el('dl')
+  for (const [k, v] of rows) dl.append(el('dt', {}, k), el('dd', {}, v == null || v === '' ? '—' : v))
+  return el('div', {}, el('strong', {}, 'DIAGNOSTIC — NOT APPROVED'), dl)
+}
+
+function validate(data) {
+  if (!data || data.type !== 'FeatureCollection' || !Array.isArray(data.features)) throw new Error('Not a GeoJSON FeatureCollection.')
+  if (!String(data.biyahe?.status ?? '').startsWith('DIAGNOSTIC')) throw new Error('This file has no BIYAHE DIAGNOSTIC marker. Only diagnostic GeoJSON from scripts/build-routes.mjs can be opened here.')
+}
+
+function clear() {
+  for (const c of loaded) c.group.remove()
+  loaded = []
+  campusLayer.clearLayers()
+  $('cards').replaceChildren()
+  $('meta').replaceChildren()
+  $('error').textContent = ''
+}
+
+const overshootText = (p) => (p.endpointZoneReached ? `${fmtM(p.destinationOvershootM)} → ${p.destinationOvershootClass}` : 'not measurable — endpoint zone not reached')
+
+function render(data) {
+  clear()
+  const b = data.biyahe
+  $('meta').append(
+    el('div', {}, `Run: ${b.runId ?? '—'}`), el('div', {}, `Generated: ${b.generatedAt ?? '—'}`),
+    el('div', {}, `Source: ${b.source ?? '—'}`), el('div', {}, `Attribution: ${b.attribution ?? '—'}`),
+    el('div', {}, b.warning ?? ''),
+  )
+  const all = L.latLngBounds([])
+  const byCorridor = new Map()
+  for (const f of data.features) {
+    const p = f.properties ?? {}
+    if (p.kind === 'campus' && f.geometry?.type === 'Point') {
+      L.marker(latLng(f.geometry.coordinates), {
+        icon: L.divIcon({ className: '', html: '<div style="width:14px;height:14px;background:#0f172a;transform:rotate(45deg);border:2px solid #fff"></div>', iconSize: [14, 14], iconAnchor: [7, 7] }),
+        title: p.name ?? 'Campus',
+      }).bindPopup(popup([['Campus', p.name]])).addTo(campusLayer)
+      all.extend(latLng(f.geometry.coordinates))
+      continue
+    }
+    if (!p.corridorId) continue
+    if (!byCorridor.has(p.corridorId)) byCorridor.set(p.corridorId, [])
+    byCorridor.get(p.corridorId).push(f)
+  }
+
+  for (const [id, features] of byCorridor) {
+    const summary = features.find((f) => f.properties.kind === 'route-raw')?.properties ?? features[0].properties
+    const color = summary.stroke ?? '#334155'
+    const group = L.featureGroup().addTo(map)
+    const steps = L.featureGroup()
+    const simplified = L.featureGroup()
+    const zones = L.featureGroup()
+    for (const f of features) {
+      const p = f.properties
+      const g = f.geometry
+      if (!g) continue
+      if (p.kind === 'route-raw') {
+        L.polyline(g.coordinates.map(latLng), { color, weight: 9, opacity: 0.35 })
+          .bindPopup(popup([['Corridor', `${id} — ${p.corridorName}`], ['Automated status', p.validation], ['Primary-road share (raw, names only)', fmtPct(p.primaryShareRaw)], ['Road-name evidence', `${p.roadNameEvidence} (inspection aid, not proof)`], ['Destination overshoot', overshootText(p)], ['OSRM distance', fmtM(p.osrmDistanceM)]]))
+          .addTo(group)
+      } else if (p.kind === 'route-simplified') {
+        L.polyline(g.coordinates.map(latLng), { color, weight: 2, dashArray: '6 6' }).bindPopup(popup([['Corridor', id], ['Layer', 'Simplified path (candidate data shape)']])).addTo(simplified)
+      } else if (p.kind === 'step') {
+        L.polyline(g.coordinates.map(latLng), { color: p.matchesPrimaryRoad ? '#16a34a' : '#64748b', weight: 4 })
+          .bindPopup(popup([['Corridor', id], ['Step', p.index], ['Road name', p.roadName ?? '(unnamed)'], ['Ref (metadata only)', p.ref ?? '(none)'], ['Distance', fmtM(p.distanceM)], ['Manoeuvre', p.maneuver], ['Matches a primary road name', p.matchesPrimaryRoad ? 'yes (name match only)' : 'no']]))
+          .addTo(steps)
+      } else if (p.kind === 'connector') {
+        L.polyline(g.coordinates.map(latLng), { color: '#000', weight: 3, dashArray: '4 6' })
+          .bindPopup(popup([['Corridor', id], ['Campus connector', fmtM(p.connectorM)], ['Over 300 m review limit', p.overReviewLimit ? 'YES — needs review' : 'no']]))
+          .addTo(group)
+      } else if (p.kind === 'endpoint-zone' || p.kind === 'snapped-endpoint-zone') {
+        L.polygon(ring(g), { color: p.kind === 'endpoint-zone' ? color : '#db2777', weight: 1.5, dashArray: '3 4', fillOpacity: 0.06 })
+          .bindPopup(popup([['Corridor', id], ['Zone', p.kind === 'endpoint-zone' ? `${p.radiusM} m around the requested destination` : `${p.radiusM} m around the snapped destination (auxiliary)`], ['Reached by route', p.reached ? 'yes' : 'no — not measurable']]))
+          .addTo(zones)
+      } else if (p.kind === 'zone-entry' || p.kind === 'snapped-zone-entry') {
+        L.marker(latLng(g.coordinates), { icon: L.divIcon({ className: '', html: '<div style="font:700 16px/1 system-ui;color:#0f172a;text-shadow:0 0 2px #fff">✕</div>', iconSize: [14, 14], iconAnchor: [7, 8] }) })
+          .bindPopup(popup([['Corridor', id], ['Point', p.kind === 'zone-entry' ? 'Entry into requested-destination zone' : 'Entry into snapped-destination zone (auxiliary)'], ['Excess after entry', fmtM(p.excessM)], ['Remaining', fmtM(p.remainingM)], ['Direct', fmtM(p.directM)]]))
+          .addTo(zones)
+      } else if (p.kind === 'final-approach') {
+        L.polyline(g.coordinates.map(latLng), { color: '#db2777', weight: 5 })
+          .bindPopup(popup([['Corridor', id], ['Actual final approach direction', `${p.bearingDeg}° (${p.compass})`], ['Measured over', fmtM(p.measuredOverM)]]))
+          .addTo(zones)
+      } else if (p.kind === 'original-end') {
+        L.circleMarker(latLng(g.coordinates), { radius: 8, color, weight: 3, fill: false })
+          .bindPopup(popup([['Corridor', id], ['Point', 'Requested destination (src/campuses/alangilan.ts)'], ['Lat, lng', `${g.coordinates[1]}, ${g.coordinates[0]}`]])).addTo(group)
+      } else if (p.kind === 'snapped-end' || p.kind === 'snapped-start') {
+        L.circleMarker(latLng(g.coordinates), { radius: 5, color, weight: 2, fillColor: color, fillOpacity: 1 })
+          .bindPopup(popup([['Corridor', id], ['Point', p.kind === 'snapped-end' ? 'Snapped destination (OSRM)' : 'Snapped start (OSRM)'], ['Snap distance', fmtM(p.snapM)], ['Moved from requested', p.kind === 'snapped-end' ? fmtM(p.movedFromRequestedM) : null], ['Road at snap', p.road], ['Lat, lng', `${g.coordinates[1]}, ${g.coordinates[0]}`]])).addTo(group)
+      }
+    }
+    const entry = { id, group, steps, simplified, zones }
+    loaded.push(entry)
+    applyToggles(entry)
+    const bounds = group.getBounds()
+    if (bounds.isValid()) all.extend(bounds)
+    entry.bounds = bounds
+    $('cards').append(card(id, summary, color, entry))
+  }
+  if (all.isValid()) map.fitBounds(all.pad(0.05))
+}
+
+function applyToggles(entry) {
+  if ($('showSteps').checked) entry.steps.addTo(entry.group); else entry.steps.remove()
+  if ($('showSimplified').checked) entry.simplified.addTo(entry.group); else entry.simplified.remove()
+  if ($('showZones').checked) entry.zones.addTo(entry.group); else entry.zones.remove()
+}
+
+function card(id, p, color, entry) {
+  const status = p.validation ?? '—'
+  const toggle = el('input', { type: 'checkbox' })
+  toggle.checked = true
+  toggle.addEventListener('change', () => { if (toggle.checked) entry.group.addTo(map); else entry.group.remove() })
+  const zoom = el('button', { type: 'button' }, 'Zoom')
+  zoom.addEventListener('click', () => { if (entry.bounds?.isValid()) map.fitBounds(entry.bounds.pad(0.1)) })
+
+  const roads = el('table', {}, el('thead', {}, el('tr', {}, el('th', {}, 'Road name'), el('th', {}, 'Ref (metadata)'), el('th', {}, 'Distance'))))
+  const tbody = el('tbody')
+  for (const r of p.roads ?? []) tbody.append(el('tr', {}, el('td', {}, r.name ?? '(unnamed)'), el('td', {}, r.ref ?? ''), el('td', { class: 'num' }, fmtM(r.distanceM))))
+  roads.append(tbody)
+
+  const perRoad = Object.entries(p.perRoadM ?? {}).map(([k, v]) => `${k}: ${fmtM(v)}`).join('; ')
+  const snapBearing = p.destinationSnapBearingConstraint
+  const list = (title, items) => (items?.length ? el('div', {}, el('strong', {}, title), el('ul', {}, ...items.map((x) => el('li', {}, x)))) : null)
+  return el('section', { class: 'card', 'aria-label': `Corridor ${id}` },
+    el('header', {},
+      el('label', {}, toggle, el('span', { class: 'swatch', style: `background:${color}` }), el('h2', {}, id)),
+      el('span', { class: `badge ${STATUS_CLASS[status] ?? 'b-review'}` }, status),
+    ),
+    el('div', { class: 'note' }, `${p.corridorName ?? ''} · app via label (unchanged): ${p.appViaLabel ?? '—'}`),
+    p.pathEnds === 'partial' ? el('div', { class: 'partial' }, 'PARTIAL ROUTE — ends before the destination town; not a full journey') : null,
+    el('dl', {},
+      el('dt', {}, 'Primary roads (names)'), el('dd', {}, (p.primaryRoads ?? []).join('; ') || '—'),
+      el('dt', {}, 'Primary-road share (raw)'), el('dd', {}, `${fmtPct(p.primaryShareRaw)}${perRoad ? ` — ${perRoad}` : ''}`),
+      el('dt', {}, 'Road-name evidence'), el('dd', {}, `${p.roadNameEvidence ?? '—'} — inspection aid, not proof`),
+      el('dt', {}, 'Destination snap bearing constraint'), el('dd', {}, snapBearing ? `${snapBearing.bearingDeg}° ± ${snapBearing.rangeDeg}° (bearings=${snapBearing.osrmBearingsParam}); affects only where OSRM snaps the destination` : 'none'),
+      el('dt', {}, 'Actual final approach (final 150 m)'), el('dd', {}, p.finalApproachBearingDeg != null ? `${p.finalApproachBearingDeg}° (${p.finalApproachCompass}); last road: ${p.lastRoadName ?? '(unnamed)'}${p.lastRoadRef ? ` [ref ${p.lastRoadRef}]` : ''}` : '—'),
+      el('dt', {}, 'Snapped destination'), el('dd', {}, `${p.snappedDestination ? p.snappedDestination.join(', ') : '—'} (snap ${fmtM(p.endSnapM)}; road: ${p.endSnapRoad ?? '—'})`),
+      el('dt', {}, 'Destination overshoot'), el('dd', {}, overshootText(p)),
+      p.snappedEndpointLoopClass ? el('dt', {}, 'Snapped-endpoint loop (auxiliary)') : null,
+      p.snappedEndpointLoopClass ? el('dd', {}, `${p.snappedEndpointLoopM != null ? fmtM(p.snappedEndpointLoopM) : 'not measurable'} → ${p.snappedEndpointLoopClass} (warning only; cannot fail or clear warnings)`) : null,
+      el('dt', {}, 'OSRM distance'), el('dd', {}, fmtM(p.osrmDistanceM)),
+      el('dt', {}, 'Campus connector'), el('dd', {}, fmtM(p.connectorM)),
+      el('dt', {}, 'Campus exit (unresolved)'), el('dd', {}, p.campusExit?.steps?.length ? `${fmtM(p.campusExit.distanceM)} via ${p.campusExit.steps.map((s) => s.name ?? '(unnamed)').join(' → ')} — public access and usability require on-site verification` : '—'),
+    ),
+    list('Blocking failures', p.failures),
+    list('Unresolved warnings', p.reviewFlags),
+    el('details', {}, el('summary', {}, 'Roads used (OSRM steps: names and refs as returned)'), roads),
+    zoom,
+  )
+}
+
+$('file').addEventListener('change', () => {
+  const file = $('file').files?.[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(String(reader.result))
+      validate(data)
+      render(data)
+    } catch (e) {
+      clear()
+      $('error').textContent = `Could not open file: ${e.message}`
+    }
+  }
+  reader.onerror = () => { $('error').textContent = 'Could not read the file.' }
+  reader.readAsText(file)
+})
+for (const id of ['showSteps', 'showSimplified', 'showZones']) $(id).addEventListener('change', () => loaded.forEach(applyToggles))
+</script>
+</body>
+</html>
