@@ -52,7 +52,7 @@ export default function Alerts() {
                     {a.body && <p className="body">{a.body}</p>}
                     <div className="cluster" style={{ gap: 12 }}>
                       <span className={`tag tone-${sev.tone}`}><sev.Icon size={16} aria-hidden="true" />{sev.label}</span>
-                      {a.scope === s.corridorId && <span className="tag">Your corridor</span>}
+                      {a.scope === s.corridorId && <span className="tag">Your route</span>}
                       <Badge kind={v.offline ? 'saved' : 'official'} />
                     </div>
                   </div>
