@@ -5,11 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "vitest run src/lib/reviewedGeometry.test.ts src/campuses/roads.test.ts src/lib/isolation.test.ts",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",
-    "routes:alangilan": "vitest run src/lib/geo.test.ts src/lib/routeChecks.test.ts && node scripts/build-routes.mjs"
+    "routes:alangilan": "vitest run src/lib/geo.test.ts src/lib/routeChecks.test.ts src/lib/routeVersions.test.ts src/lib/buildRoutes.test.ts && node scripts/build-routes.mjs",
+    "routes:preview": "node scripts/build-preview-roads.mjs",
+    "routes:approve": "vitest run src/lib/routeChecks.test.ts src/lib/routeVersions.test.ts src/lib/approveRoutes.test.ts && node scripts/approve-routes.mjs"
   },
   "dependencies": {
     "@fontsource/poppins": "^5.3.0",
