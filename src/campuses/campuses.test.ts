@@ -6,6 +6,7 @@ import { studentView } from '../lib/derive'
 import type { State } from '../lib/store'
 import { alangilan } from './alangilan'
 import { campuses, DEFAULT_CAMPUS, DEFAULT_CAMPUS_ID, getCampus } from './index'
+import { pabloBorbon } from './pabloBorbon'
 
 const NOW = Date.UTC(2026, 10, 16, 7, 0)
 
@@ -127,5 +128,87 @@ describe('spot seeds and fixture snapshots', () => {
     fixture('clear', NOW)
 
     expect(campuses).toEqual(before)
+  })
+})
+
+// Stage 2A: Pablo Borbon is registered as an identity-only campus. Malvar is not registered
+// until its entrance coordinate is verified.
+describe('Stage 2A: Pablo Borbon identity-only registration', () => {
+  it('registers exactly Alangilan and Pablo Borbon', () => {
+    expect(Object.keys(campuses)).toEqual(['alangilan', 'pablo-borbon'])
+    expect(getCampus('pablo-borbon')).toBe(pabloBorbon)
+  })
+
+  it('pins Pablo Borbon identity', () => {
+    expect(pabloBorbon.id).toBe('pablo-borbon')
+    expect(pabloBorbon.name).toBe('Batangas State University - Pablo Borbon Campus')
+    expect(pabloBorbon.shortName).toBe('BatStateU Pablo Borbon')
+  })
+
+  it('pins Pablo Borbon location (OSM node 8345194517)', () => {
+    expect(pabloBorbon.location).toEqual([13.7554660, 121.0536404])
+  })
+
+  it('has no corridors or safe spots yet (identity-only)', () => {
+    expect(pabloBorbon.corridors).toEqual([])
+    expect(pabloBorbon.spots).toEqual([])
+  })
+
+  it('keeps Alangilan as a usable default campus', () => {
+    expect(DEFAULT_CAMPUS_ID).toBe('alangilan')
+    expect(DEFAULT_CAMPUS).toBe(alangilan)
+    expect(DEFAULT_CAMPUS.corridors.length).toBeGreaterThan(0)
+    expect(DEFAULT_CAMPUS.spots.length).toBeGreaterThan(0)
+  })
+
+  it('has globally unique corridor and spot ids, and no reserved corridor ids', () => {
+    const all = Object.values(campuses)
+    const corridorIds = all.flatMap((c) => c.corridors.map((x) => x.id))
+    const spotIds = all.flatMap((c) => c.spots.map((x) => x.id))
+    expect(new Set(corridorIds).size).toBe(corridorIds.length)
+    expect(new Set(spotIds).size).toBe(spotIds.length)
+    for (const id of corridorIds) expect(['campus', 'all']).not.toContain(id)
+  })
+
+  it('places every campus inside Batangas province at a distinct location', () => {
+    const locations = Object.values(campuses).map((c) => c.location)
+    for (const [lat, lng] of locations) {
+      expect(Number.isFinite(lat) && Number.isFinite(lng)).toBe(true)
+      expect(lat).toBeGreaterThanOrEqual(13.4)
+      expect(lat).toBeLessThanOrEqual(14.3)
+      expect(lng).toBeGreaterThanOrEqual(120.5)
+      expect(lng).toBeLessThanOrEqual(121.6)
+    }
+    expect(new Set(locations.map((l) => l.join(','))).size).toBe(locations.length)
+  })
+
+  it('leaves Alangilan exactly as in Stage 1', () => {
+    const L: [number, number] = [13.7842, 121.0744]
+    expect(alangilan).toEqual({
+      id: 'alangilan',
+      name: 'Batangas State University - Alangilan Campus',
+      shortName: 'BatStateU Alangilan',
+      location: L,
+      corridors: [
+        { id: 'lipa', name: 'Lipa City', via: 'JP Laurel Hwy', usualMin: 50, commuters: 140,
+          path: [L, [13.7875, 121.0705], [13.7935, 121.0655], [13.8, 121.064], [13.81, 121.07]] },
+        { id: 'batangas', name: 'Batangas City proper', via: 'P. Burgos', usualMin: 20, commuters: 210,
+          path: [L, [13.778, 121.069], [13.77, 121.064], [13.7575, 121.058]] },
+        { id: 'bauan', name: 'Bauan / San Pascual', via: 'Diversion Rd', usualMin: 35, commuters: 60,
+          path: [L, [13.783, 121.062], [13.786, 121.045], [13.79, 121.02]] },
+        { id: 'sanjose', name: 'San Jose / Ibaan', via: 'Batangas–Lipa Rd', usualMin: 30, commuters: 85,
+          path: [L, [13.792, 121.085], [13.805, 121.1], [13.82, 121.115]] },
+        { id: 'tanauan', name: 'Tanauan / Sto. Tomas', via: 'STAR Tollway', usualMin: 65, commuters: 45,
+          path: [L, [13.795, 121.078], [13.82, 121.085], [13.85, 121.095]] },
+      ],
+      spots: [
+        { id: 'cics', name: 'CICS Lobby', walkMin: 3, capacity: 180,
+          amenities: { power: true, water: true, food: true }, pos: [13.7849, 121.0745] },
+        { id: 'gym', name: 'Gymnasium', walkMin: 6, capacity: 500,
+          amenities: { power: true, water: true, food: false }, pos: [13.7838, 121.0727] },
+        { id: 'library', name: 'Library', walkMin: 4, capacity: 150,
+          amenities: { power: true, water: false, food: false }, pos: [13.7832, 121.0752] },
+      ],
+    })
   })
 })
