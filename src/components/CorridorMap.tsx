@@ -1,10 +1,11 @@
 import L from 'leaflet'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import { BatteryLow } from 'lucide-react'
 import { DEFAULT_CAMPUS } from '../campuses'
 import { CAMPUS, corridors, type CorridorStatus, type LatLng } from '../data'
 import { spacesLeft, studentView } from '../lib/derive'
+import { fitKey, mapFitPoints } from '../lib/mapView'
 import { isLowBattery, selectSpot, useApp, useNow } from '../lib/store'
 
 const glyph = {
@@ -27,11 +28,16 @@ const word: Record<CorridorStatus, string> = { open: 'Open', slow: 'Slow', close
 
 function Fit({ points }: { points: LatLng[] }) {
   const map = useMap()
-  const key = JSON.stringify(points)
+  const key = fitKey(points)
+  // Refit only when the map or the point list actually changes, as before; `points` is a new
+  // array every render, so the last fitted map + key are remembered.
+  const fitted = useRef<{ map: L.Map; key: string } | null>(null)
   useEffect(() => {
+    if (fitted.current?.map === map && fitted.current.key === key) return
+    fitted.current = { map, key }
     map.invalidateSize()
-    map.fitBounds(L.latLngBounds(JSON.parse(key)).pad(0.18), { animate: false })
-  }, [map, key])
+    map.fitBounds(L.latLngBounds(points).pad(0.18), { animate: false })
+  }, [map, key, points])
   return null
 }
 
@@ -42,9 +48,7 @@ export default function CorridorMap({ mode }: { mode: 'student' | 'staff' }) {
   const v = studentView(s, useNow())
   const plain = isLowBattery(s)
   const shown = mode === 'staff' ? corridors : [v.corridor]
-  const points: LatLng[] = mode === 'staff'
-    ? corridors.flatMap((c) => c.path.slice(0, 3))
-    : [CAMPUS, ...s.snapshot.spots.map((x) => x.pos), ...v.corridor.path.slice(1, 3)]
+  const points = mapFitPoints(mode, { campus: CAMPUS, corridors, corridor: v.corridor, spots: s.snapshot.spots })
 
   return (
     <div className="map" role="group" aria-label={mode === 'staff' ? 'Corridor risk map. The same information is listed below.' : 'Map of your corridor and campus safe spots. The same information is listed in text.'}>
