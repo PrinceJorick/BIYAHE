@@ -51,7 +51,7 @@ export default function CorridorMap({ mode }: { mode: 'student' | 'staff' }) {
   const points = mapFitPoints(mode, { campus: CAMPUS, corridors, corridor: v.corridor, spots: s.snapshot.spots })
 
   return (
-    <div className="map" role="group" aria-label={mode === 'staff' ? 'Corridor risk map. The same information is listed below.' : 'Map of your corridor and campus safe spots. The same information is listed in text.'}>
+    <div className="map" role="group" aria-label={mode === 'staff' ? 'Route risk map. The same information is listed below.' : 'Map of your route and campus safe spots. The same information is listed in text.'}>
       <MapContainer key={plain ? 'plain' : 'tiles'} center={CAMPUS} zoom={15} scrollWheelZoom={!plain} zoomAnimation={!plain} fadeAnimation={!plain} markerZoomAnimation={!plain}>
         {!plain && <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' maxZoom={18} />}
         <Fit points={points} />
