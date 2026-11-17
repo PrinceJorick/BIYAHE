@@ -1,6 +1,7 @@
 import { Bell, ChevronRight, CircleCheck, Clock, CloudRain, CloudSun, MapPin, RefreshCw, Send, TriangleAlert } from 'lucide-react'
 import Badge from '../components/Badge'
 import { ago, amenityList, clock, concernsStudent, fmtMin, fmtRange, spacesLeft, studentView } from '../lib/derive'
+import { walkEstimate } from '../lib/mapView'
 import { refresh, toast, useApp, useNow } from '../lib/store'
 
 export default function Home() {
@@ -68,7 +69,7 @@ export default function Home() {
             <a className="row tone-ok" href="#/map">
               <MapPin className="row-icon" size={22} aria-hidden="true" />
               <span className="row-body">
-                <span className="row-title">{spot.name} · {spot.walkMin} min walk</span>
+                <span className="row-title">{spot.name} · {walkEstimate(spot.walkMin)}</span>
                 <span className="meta">{spacesLeft(spot)} of {spot.capacity} spaces left{amenityList(spot) && ` · ${amenityList(spot)}`}</span>
               </span>
               <ChevronRight size={20} aria-hidden="true" />
