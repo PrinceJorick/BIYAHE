@@ -6,6 +6,7 @@ import { studentView } from '../lib/derive'
 import type { State } from '../lib/store'
 import { alangilan } from './alangilan'
 import { campuses, DEFAULT_CAMPUS, DEFAULT_CAMPUS_ID, getCampus } from './index'
+import { malvar } from './malvar'
 import { pabloBorbon } from './pabloBorbon'
 
 const NOW = Date.UTC(2026, 10, 16, 7, 0)
@@ -131,11 +132,11 @@ describe('spot seeds and fixture snapshots', () => {
   })
 })
 
-// Stage 2A: Pablo Borbon is registered as an identity-only campus. Malvar is not registered
-// until its entrance coordinate is verified.
+// Stage 2A: Pablo Borbon and Malvar are registered as identity-only campuses. Malvar's location
+// is a proposed, map-derived coordinate that has not been verified on-site.
 describe('Stage 2A: Pablo Borbon identity-only registration', () => {
-  it('registers exactly Alangilan and Pablo Borbon', () => {
-    expect(Object.keys(campuses)).toEqual(['alangilan', 'pablo-borbon'])
+  it('registers exactly Alangilan, Pablo Borbon and Malvar', () => {
+    expect(Object.keys(campuses)).toEqual(['alangilan', 'pablo-borbon', 'malvar'])
     expect(getCampus('pablo-borbon')).toBe(pabloBorbon)
   })
 
@@ -210,5 +211,31 @@ describe('Stage 2A: Pablo Borbon identity-only registration', () => {
           amenities: { power: true, water: false, food: false }, pos: [13.7832, 121.0752] },
       ],
     })
+  })
+})
+
+describe('Stage 2A: Malvar identity-only registration', () => {
+  it('is registered under its id', () => {
+    expect(getCampus('malvar')).toBe(malvar)
+  })
+
+  it('pins Malvar identity', () => {
+    expect(malvar.id).toBe('malvar')
+    expect(malvar.name).toBe('Batangas State University - JPLPC-Malvar Campus')
+    expect(malvar.shortName).toBe('BatStateU JPLPC-Malvar')
+  })
+
+  it('pins Malvar location (team-supplied map pin, not the polygon center)', () => {
+    expect(malvar.location).toEqual([14.0449, 121.1569])
+  })
+
+  it('has no corridors or safe spots yet (identity-only)', () => {
+    expect(malvar.corridors).toEqual([])
+    expect(malvar.spots).toEqual([])
+  })
+
+  it('does not become the default campus', () => {
+    expect(DEFAULT_CAMPUS_ID).toBe('alangilan')
+    expect(DEFAULT_CAMPUS).not.toBe(malvar)
   })
 })

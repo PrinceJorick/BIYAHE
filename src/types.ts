@@ -69,7 +69,7 @@ export type Weather = {
 
 // ── Campus registry ────────────────────────────────────────────────────────
 
-export type CampusId = 'alangilan' | 'pablo-borbon'
+export type CampusId = 'alangilan' | 'pablo-borbon' | 'malvar'
 
 // A safe spot's fixed attributes. Occupancy is live snapshot data, so it is not part of the seed.
 export type SpotSeed = Omit<Spot, 'occupied'>
