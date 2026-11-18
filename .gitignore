@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Diagnostic-only route geometry from scripts/build-routes.mjs (never app data).
+# docs/routes/diagnostic-viewer.html stays tracked.
+docs/routes/diagnostics/*.geojson
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
