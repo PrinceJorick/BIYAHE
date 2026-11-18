@@ -1,4 +1,5 @@
 import { Clock, MapPin, WifiOff } from 'lucide-react'
+import { DEFAULT_CAMPUS } from '../campuses'
 import Logo from '../components/Logo'
 import { go } from '../lib/router'
 import { chooseRole, getState } from '../lib/store'
@@ -15,7 +16,7 @@ export default function Welcome() {
       <Logo size={44} />
       <div className="stack">
         <h1 className="hero-title">Know when to head home, and where to wait if you shouldn't.</h1>
-        <p className="body">For BatStateU Alangilan commuters and the campus team that looks after them.</p>
+        <p className="body">For {DEFAULT_CAMPUS.shortName} commuters and the campus team that looks after them.</p>
       </div>
       <ul className="stack">
         {points.map(({ Icon, text }) => (
