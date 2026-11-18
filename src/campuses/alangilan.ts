@@ -1,3 +1,4 @@
+import { straightLineWalkMin } from '../lib/coords'
 import { selectCorridorGeometry } from '../lib/previewGeometry'
 import type { Campus, Corridor, LatLng } from '../types'
 import { ALANGILAN_PREVIEW_ROADS } from './alangilan.preview.roads'
@@ -46,6 +47,14 @@ if (alangilanRoadStatus.supplied && !alangilanRoadStatus.active) {
   else console.warn('Reviewed road data could not be used; showing hand-drawn routes.')
 }
 
+// Safe-spot positions: supplied by the project owner (Iteration 3, 2026-11-18), kept at full precision.
+// They are owner-provided map points, not an on-site survey and not independently verified.
+const SPOT_POS = {
+  lounge: [13.78393267903075, 121.07417575704717],
+  gym: [13.784276340529747, 121.07413074951742],
+  library: [13.784168707874697, 121.0749349027738],
+} satisfies Record<string, LatLng>
+
 export const alangilan: Campus = {
   id: 'alangilan',
   name: 'Batangas State University - Alangilan Campus',
@@ -54,15 +63,22 @@ export const alangilan: Campus = {
   corridors: alangilanRouteGeometry.corridors,
   // Fixed attributes only; occupancy comes from the snapshot. Positions and capacities: see the notes below.
   spots: [
-    { id: 'gym', name: 'Sparta Gymnasium', walkMin: 1, capacity: 1030,
-      amenities: { power: true, water: true, food: false }, pos: [13.78422, 121.07394] },
-    { id: 'library', name: 'Einstein Bldg Library, 2nd floor', walkMin: 2, capacity: 250,
-      amenities: { power: true, water: false, food: false }, pos: [13.78412, 121.07481] },
+    { id: 'gym', name: 'Sparta Gymnasium', walkMin: straightLineWalkMin(LOCATION, SPOT_POS.gym), capacity: 1030,
+      amenities: { power: true, water: true, food: false }, pos: SPOT_POS.gym },
+    { id: 'library', name: 'Einstein Bldg Library, 2nd Floor', walkMin: straightLineWalkMin(LOCATION, SPOT_POS.library), capacity: 250,
+      amenities: { power: true, water: false, food: false }, pos: SPOT_POS.library },
+    // Capacity and amenities have not been supplied or assessed: null capacity ("not yet assessed") and no
+    // amenities until a coordinator confirms them, rather than invented values.
+    { id: 'lounge', name: 'Student Lounge', walkMin: straightLineWalkMin(LOCATION, SPOT_POS.lounge), capacity: null,
+      amenities: { power: false, water: false, food: false }, pos: SPOT_POS.lounge },
   ],
 }
 
-// Where each waiting area's position and capacity come from. Capacity = usable floor area ÷ 2 m² per person
-// (see SPOT_CAPACITY_RULE in ./index.ts), rounded down to 10.
+// Where each waiting area's capacity comes from (positions: SPOT_POS above). Capacity = usable floor area ÷ 2 m²
+// per person (see SPOT_CAPACITY_RULE in ./index.ts), rounded down to 10. The capacity estimates below were made
+// from building footprints; the owner-supplied points fall inside the same buildings (within ~20 m of the
+// earlier footprint-derived points), so the estimates still apply.
+// walkMin: straight-line estimate from LOCATION (src/lib/coords.ts, WALK_M_PER_MIN), shown as an estimate.
 // - Sparta Gymnasium: OpenStreetMap way 489736297 (leisure=sports_centre), footprint 2,766 m², which matches the
 //   ~64 × 42 m curved roof in Esri World Imagery. 2,766 × 0.75 usable ÷ 2 = 1,037 → 1,030. BatStateU's
 //   Fitness Development Center is reported to hold up to 4,000 for events (PIA, Jan 2023); that is event seating,
@@ -71,4 +87,5 @@ export const alangilan: Campus = {
 //   (library.batstateu.edu.ph/about), formerly the engineering (CEAFACS) building. Its four-storey U-shaped
 //   red roof east of the gym is matched from the Wikimedia Commons photo and satellite imagery; the point is
 //   its centre. Area is an estimate: a third of the ~2,600 m² floor plate ≈ 860 m² × 0.6 usable ÷ 2 = 258 → 250.
-// - Student Lounge: not added. No public source or map data gives its location.
+// - Student Lounge (renamed in Iteration 3; records saved under the old ID are migrated by src/lib/spotData.ts):
+//   position supplied by the project owner. No capacity or amenity source exists yet.

@@ -1,4 +1,4 @@
-/* BIYAHE design system. Brand: Concept A (deep / sky / sun on cloud), Poppins, tabular numerals. */
+/* BIYAHE design system. Brand: Locator b mark (deep / cloud / sun), sky for interaction, Poppins, tabular numerals. */
 
 :root {
   --deep: #0B2D5B;
@@ -7,7 +7,8 @@
   --sun: #FBBF24;
   --cloud: #F8FAFC;
   --slate: #64748B;
-  --ok: #15803D;
+  /* #147A3A: 4.8:1 on --ok-soft and 5.4:1 on white (the earlier #15803D was 4.47:1 on --ok-soft). */
+  --ok: #147A3A;
   --warn: #B45309;
   --danger: #B91C1C;
 
@@ -17,6 +18,8 @@
   --saved: #475569;
   --saved-soft: #EEF2F7;
   --sky-soft: #EFF4FF;
+  /* Sky as text on white: #1D4ED8 is 6.7:1 (the --sky fill is 5.2:1). */
+  --sky-ink: #1D4ED8;
 
   --surface: #FFFFFF;
   --sunken: #EEF2F7;
@@ -95,7 +98,7 @@ main:focus { outline: none; }
 
 /* ── Logo ── */
 .logo { display: inline-flex; align-items: center; gap: 10px; }
-.logo-word { font-weight: 700; letter-spacing: -.5px; line-height: 1; }
+.logo-word { display: block; }
 
 /* ── Student shell: single column + glass bottom nav; ≥900px side rail + panel + map ── */
 .app { min-height: 100dvh; }
@@ -140,7 +143,7 @@ main:focus { outline: none; }
     position: sticky; inset: 0 auto auto 0; height: 100dvh; flex-direction: column; justify-content: flex-start; gap: 24px;
     padding: 24px 16px; background: var(--deep); border: 0; -webkit-backdrop-filter: none; backdrop-filter: none;
   }
-  .nav-logo { display: inline-flex; padding: 0 8px; text-decoration: none; border-radius: var(--r-sm); }
+  .nav-logo { display: inline-flex; align-items: center; min-height: var(--touch); padding: 0 8px; text-decoration: none; border-radius: var(--r-sm); }
   .nav-list { flex-direction: column; gap: 4px; max-width: none; }
   .tab { flex-direction: row; justify-content: flex-start; gap: 12px; min-height: var(--touch); padding: 0 12px; font-size: .9375rem; color: #C7D5EA; }
   .tab:hover { color: #fff; background: rgb(255 255 255 / .08); }
@@ -182,6 +185,7 @@ main:focus { outline: none; }
 .btn-danger:hover { background: #991B1B; }
 .btn-quiet { min-height: var(--touch); padding: 0 12px; background: none; color: var(--sky); }
 .btn-quiet:hover { background: var(--sky-soft); }
+.btn-inline { min-height: 44px; padding: 0 10px; font-size: .875rem; }
 .btn:active { transform: translateY(1px); }
 .btn:disabled, .btn[aria-disabled='true'] { background: var(--sunken); color: var(--slate); border-color: var(--line); cursor: not-allowed; transform: none; }
 .actions { display: flex; flex-direction: column; gap: 12px; }
@@ -194,11 +198,13 @@ main:focus { outline: none; }
 .badge-official { color: var(--ok); border-style: solid; }
 .badge-estimate { color: var(--warn); border-style: dotted; }
 .badge-saved { color: var(--saved); border-style: dashed; }
+.badge-live { color: var(--sky-ink); border-style: solid; }
 .status { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
 .tone-ok { --tone: var(--ok); --tone-soft: var(--ok-soft); --tone-line: solid; }
 .tone-warn { --tone: var(--warn); --tone-soft: var(--warn-soft); --tone-line: dotted; }
 .tone-danger { --tone: var(--danger); --tone-soft: var(--danger-soft); --tone-line: dashed; }
 .tone-saved { --tone: var(--saved); --tone-soft: var(--saved-soft); --tone-line: dashed; }
+.tone-walk { --tone: var(--sky-ink); --tone-soft: var(--sky-soft); --tone-line: solid; }
 .status, .tag { color: var(--tone, var(--ink)); }
 .tag { display: inline-flex; align-items: center; gap: 6px; font-size: .875rem; font-weight: 600; }
 
@@ -279,6 +285,7 @@ textarea.input { resize: vertical; min-height: 96px; }
 .map-attribution { position: absolute; z-index: 1001; right: 0; bottom: 0; margin: 0; padding: 2px 6px; font-size: .6875rem; line-height: 1.4; background: rgb(255 255 255 / .85); border-top-left-radius: 6px; }
 .map-attribution a { color: var(--deep); }
 /* "Demo routes" indicator (prototype route preview): small, bottom-left, opposite the OSM credit. Opens details. */
+.map-demo-badge::before { content: ''; position: absolute; inset: -10px -4px; } /* 44px touch target, small visual */
 .map-demo-badge { position: absolute; z-index: 1001; left: 6px; bottom: 6px; display: inline-flex; align-items: center; gap: 4px; min-height: 24px; padding: 2px 8px; border: 1px solid #b45309; border-radius: 999px; background: rgb(255 251 235 / .92); color: #78350f; font: 600 .75rem/1.2 var(--font); cursor: pointer; }
 .map-demo-badge:hover { background: #fffbeb; }
 .map-demo-badge:focus-visible { outline: 2px solid var(--deep); outline-offset: 2px; }
@@ -295,6 +302,18 @@ textarea.input { resize: vertical; min-height: 96px; }
 .legend svg.stroke { width: 30px; height: 6px; }
 
 .line-open { stroke: var(--ok); }
+/* Walking route to a safe spot (mapped OSM geometry only). Sky, so it never reads as a route status colour. */
+.line-footpath { stroke: var(--sky); }
+.line-footpath-cached { stroke-opacity: .7; }
+.map-spot-label.leaflet-tooltip { --tone: var(--deep); background: rgb(255 255 255 / .94); width: max-content; max-width: 168px; white-space: normal; font-size: .75rem; line-height: 1.25; }
+
+/* Walking panel (Where to wait) */
+.walk { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); }
+.walk .h2 { font-size: 1rem; }
+.walk-figure { display: flex; align-items: center; gap: 8px; min-height: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.campus-line { font-weight: 500; }
+.spin { animation: spin 1s linear infinite; color: var(--sky); }
+@keyframes spin { to { transform: rotate(360deg); } }
 .line-slow { stroke: var(--warn); stroke-dasharray: 1 11; stroke-linecap: round; }
 .line-closed { stroke: var(--danger); stroke-dasharray: 14 10; stroke-linecap: butt; }
 
@@ -344,15 +363,25 @@ textarea.input { resize: vertical; min-height: 96px; }
 .toast svg { color: var(--sun); }
 @media (min-width: 900px) { .toast-region { bottom: 24px; } }
 
+/* Profile → About this build */
+.diag { display: block; padding: 0; }
+.diag summary { display: flex; align-items: center; gap: 14px; min-height: 64px; padding: 12px 0; cursor: pointer; list-style: none; }
+.diag summary::-webkit-details-marker { display: none; }
+.diag summary::after { content: '+'; font-size: 1.25rem; font-weight: 600; color: var(--ink-2); padding-inline: 8px; }
+.diag[open] summary::after { content: '−'; }
+.diag-list { display: flex; flex-direction: column; gap: 8px; padding: 0 0 16px 36px; font-size: .875rem; }
+.diag-list dt { font-weight: 600; }
+.diag-list dd { color: var(--ink-2); overflow-wrap: anywhere; }
+
 .empty { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 24px 0; }
 .empty svg { color: var(--ok); }
 
 @media (prefers-reduced-motion: reduce) {
-  .page, .toast, .dialog[open] { animation: none; }
+  .page, .toast, .dialog[open], .spin { animation: none; }
   .toggle-track::after, .meter i { transition: none; }
   .btn:active { transform: none; }
 }
-:root[data-lowbatt] :is(.page, .toast, .dialog[open]) { animation: none; }
+:root[data-lowbatt] :is(.page, .toast, .dialog[open], .spin) { animation: none; }
 :root[data-lowbatt] * { transition: none !important; }
 :root[data-lowbatt] :is(.toast, .pin) { box-shadow: none; }
 

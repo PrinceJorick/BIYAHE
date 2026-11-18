@@ -1,9 +1,10 @@
-import { BatteryLow, Building2, Database, MapPin, Radio, ShieldCheck } from 'lucide-react'
+import { BatteryLow, Building2, Database, Info, MapPin, Radio, ShieldCheck } from 'lucide-react'
 import { ACTIVE_CAMPUS } from '../campuses/active'
 import { corridors } from '../data'
 import Badge from '../components/Badge'
 import Toggle from '../components/Toggle'
 import { clock, studentView } from '../lib/derive'
+import { buildInfo } from '../lib/buildInfo'
 import { go } from '../lib/router'
 import { chooseRole, isLowBattery, setLowBattery, setScenario, useApp, useNow, type Scenario } from '../lib/store'
 
@@ -19,6 +20,7 @@ export default function Profile() {
   const s = useApp()
   const v = studentView(s, useNow())
   const active = scenarios.find((x) => x.id === s.scenario)!
+  const d = buildInfo()
 
   return (
     <div className="page">
@@ -72,6 +74,22 @@ export default function Profile() {
               <span className="meta">{s.backend === 'supabase' ? 'Live from Supabase Realtime, with a saved copy on this phone.' : 'Demo data on this device. Staff updates sync between open tabs.'}</span>
             </span>
           </div>
+        </li>
+        <li>
+          <details className="row diag">
+            <summary>
+              <Info className="row-icon" size={22} aria-hidden="true" />
+              <span className="row-body">
+                <span className="row-title">About this build</span>
+                <span className="meta">For comparing two phones or computers</span>
+              </span>
+            </summary>
+            <dl className="diag-list">
+              {Object.entries({ Build: d.build, 'Supabase configuration': d.supabase, 'Walking router': d.walkRouter, 'Map tiles': d.tiles, 'Data versions': d.dataVersions }).map(([k, x]) => (
+                <div key={k}><dt>{k}</dt><dd>{x}</dd></div>
+              ))}
+            </dl>
+          </details>
         </li>
         <li>
           <div className="row">

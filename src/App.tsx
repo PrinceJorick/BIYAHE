@@ -80,7 +80,7 @@ export default function App() {
       {shell ?? (
         <div className="app">
           <nav className="nav" aria-label="Primary">
-            <a className="nav-logo" href="#/home" aria-label="BIYAHE home"><Logo size={32} onDark /></a>
+            <a className="nav-logo" href="#/home" aria-label="BIYAHE home"><Logo size={32} onDark label={null} /></a>
             <ul className="nav-list">
               {tabs.map(({ id, label, Icon }) => (
                 <li key={id}>

@@ -1,12 +1,29 @@
+import { execSync } from 'node:child_process'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// Which code a build contains (Profile → About this build). Vercel provides the commit; locally git does.
+function buildStamp() {
+  const git = (cmd: string) => {
+    try {
+      return execSync(cmd, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
+    } catch {
+      return ''
+    }
+  }
+  const commit = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || git('git rev-parse --short HEAD') || 'unknown'
+  return { commit, dirty: !process.env.VERCEL && git('git status --porcelain') !== '', builtAt: new Date().toISOString() }
+}
+
 export default defineConfig({
+  define: { __BUILD__: JSON.stringify(buildStamp()) },
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Registered from src/lib/pwa.ts (reloads open pages once after an update; removes stray workers in dev).
+      injectRegister: false,
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'BIYAHE',
@@ -24,8 +41,14 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // App shell + self-hosted Poppins are precached; the hash router needs no navigation fallback rewrite.
+        // App shell + self-hosted Poppins are precached. New versions take over at once and old precaches are
+        // removed; incompatible data (snapshots, walking routes) is versioned in IndexedDB, not here.
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
+        // Offline: any path (e.g. a /map deep link) gets the app shell; the router turns it into #/map.
+        navigateFallback: 'index.html',
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/tile\.openstreetmap\.org\/.*/,

@@ -1,3 +1,4 @@
+import { straightLineWalkMin } from '../lib/coords'
 import { selectCorridorGeometry } from '../lib/previewGeometry'
 import type { Campus, Corridor, LatLng } from '../types'
 import { PABLO_BORBON_PREVIEW_ROADS } from './pablo-borbon.preview.roads'
@@ -37,6 +38,13 @@ export const pabloBorbonRouteGeometry = selectCorridorGeometry({
   ctx: { campusId: 'pablo-borbon', anchor: LOCATION },
 })
 
+// Safe-spot positions and names: supplied by the project owner (Iteration 3, 2026-11-18), at full precision.
+// Owner-provided map points, not an on-site survey and not independently verified.
+const SPOT_POS = {
+  gym: [13.753079262668649, 121.05277271784234],
+  library: [13.754549329790514, 121.0525887000107],
+} satisfies Record<string, LatLng>
+
 export const pabloBorbon: Campus = {
   id: 'pablo-borbon',
   name: 'Batangas State University - Pablo Borbon Campus',
@@ -44,16 +52,18 @@ export const pabloBorbon: Campus = {
   location: LOCATION,
   corridors: pabloBorbonRouteGeometry.corridors,
   spots: [
-    { id: 'pb-gym', name: 'Leviste Multi-Purpose Gymnasium', walkMin: 4, capacity: 570,
-      amenities: { power: true, water: true, food: false }, pos: [13.75302, 121.05289] },
-    { id: 'pb-library', name: 'Main Library', walkMin: 3, capacity: 230,
-      amenities: { power: true, water: false, food: false }, pos: [13.75453, 121.0526] },
+    { id: 'pb-gym', name: 'Felistiano "Sanoy" Leviste Multi-Purpose Gymnasium', walkMin: straightLineWalkMin(LOCATION, SPOT_POS.gym), capacity: 570,
+      amenities: { power: true, water: true, food: false }, pos: SPOT_POS.gym },
+    { id: 'pb-library', name: 'Main Library', walkMin: straightLineWalkMin(LOCATION, SPOT_POS.library), capacity: 230,
+      amenities: { power: true, water: false, food: false }, pos: SPOT_POS.library },
   ],
 }
 
-// Where each waiting area's position and capacity come from (rule: SPOT_CAPACITY_RULE in ./index.ts).
-// - Leviste Gymnasium: Governor Feliciano "Sanoy" Leviste Memorial Multi-Purpose Gymnasium, OpenStreetMap way
+// Where each waiting area's capacity comes from (rule: SPOT_CAPACITY_RULE in ./index.ts). The owner-supplied
+// points fall inside the same footprints (within ~15 m of the earlier points), so the estimates still apply.
+// - Gymnasium: the name is written exactly as the project owner supplied it. OpenStreetMap names the building
+//   Governor Feliciano "Sanoy" Leviste Memorial Multi-Purpose Gymnasium; way
 //   334825726, footprint 1,533 m²; facade on Wikimedia Commons. 1,533 × 0.75 ÷ 2 = 574 → 570. An arena list
 //   gives about 4,000 for basketball events; that is spectator seating, not space to wait for hours.
 // - Main Library: OpenStreetMap way 489731778 (amenity=library), footprint 774 m². 774 × 0.6 ÷ 2 = 232 → 230.
-// Walking times: straight-line distance from LOCATION at about 75 m per minute, rounded up.
+// Walking times: straight-line estimate from LOCATION (src/lib/coords.ts, WALK_M_PER_MIN), rounded up.

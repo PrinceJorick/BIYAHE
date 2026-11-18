@@ -89,10 +89,12 @@ export const fromLgu = (a: LguAdvisory, id: string): Advisory => ({
 const MIN = 60_000
 
 // Snapshot spots from the campus seeds, with occupancy as a share of each spot's capacity (by position,
-// repeating). Nested amenities/pos are copied so a snapshot never shares objects with the registry.
+// repeating). A spot whose capacity is not assessed starts empty. Nested amenities/pos are copied so a snapshot
+// never shares objects with the registry.
 const baseSpots = (share: number[]): Spot[] =>
   spotSeeds.map((s, i) => ({
-    id: s.id, name: s.name, walkMin: s.walkMin, capacity: s.capacity, occupied: Math.round(s.capacity * share[i % share.length]),
+    id: s.id, name: s.name, walkMin: s.walkMin, capacity: s.capacity,
+    occupied: s.capacity == null ? 0 : Math.round(s.capacity * share[i % share.length]),
     amenities: { ...s.amenities }, pos: [s.pos[0], s.pos[1]],
   }))
 

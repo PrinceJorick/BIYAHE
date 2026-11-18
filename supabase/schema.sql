@@ -1,6 +1,9 @@
 -- BIYAHE live backend: PostgreSQL + PostGIS + Realtime.
--- Run once in the Supabase SQL editor, then set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.
+-- Run once in the Supabase SQL editor, then every file in supabase/migrations/ in name order, then set
+-- VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.
 -- The app seeds corridor_status / safe_spots from its fixtures on first connect if they are empty.
+-- Safe-spot names, positions and capacities are owned by the app's campus registry (src/campuses); rows supply
+-- live occupancy and amenities (src/lib/spotData.ts).
 
 create extension if not exists postgis;
 
@@ -30,7 +33,8 @@ create table if not exists safe_spots (
   id         text primary key,
   name       text not null,
   walk_min   int  not null,
-  capacity   int  not null check (capacity >= 0),
+  -- null = not yet assessed (never guessed)
+  capacity   int  check (capacity >= 0),
   occupied   int  not null default 0 check (occupied >= 0),
   power      boolean not null default false,
   water      boolean not null default false,
@@ -73,7 +77,7 @@ language sql stable as $$
   select s.id, s.name, s.capacity - s.occupied,
          st_distance(s.geom, st_point(lon, lat)::geography)
   from safe_spots s
-  where s.occupied < s.capacity
+  where (s.capacity is null or s.occupied < s.capacity)
     and st_dwithin(s.geom, st_point(lon, lat)::geography, meters)
   order by 4;
 $$;

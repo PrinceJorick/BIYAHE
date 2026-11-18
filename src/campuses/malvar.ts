@@ -1,3 +1,4 @@
+import { straightLineWalkMin } from '../lib/coords'
 import { selectCorridorGeometry } from '../lib/previewGeometry'
 import type { Campus, Corridor, LatLng } from '../types'
 import { MALVAR_PREVIEW_ROADS } from './malvar.preview.roads'
@@ -36,6 +37,12 @@ export const malvarRouteGeometry = selectCorridorGeometry({
   ctx: { campusId: 'malvar', anchor: LOCATION },
 })
 
+// Safe-spot position: supplied by the project owner (Iteration 3, 2026-11-18), at full precision.
+// An owner-provided map point, not an on-site survey and not independently verified.
+const SPOT_POS = {
+  gym: [14.044572113490197, 121.15574880496467],
+} satisfies Record<string, LatLng>
+
 export const malvar: Campus = {
   id: 'malvar',
   name: 'Batangas State University - JPLPC-Malvar Campus',
@@ -43,14 +50,15 @@ export const malvar: Campus = {
   location: LOCATION,
   corridors: malvarRouteGeometry.corridors,
   spots: [
-    { id: 'mv-gym', name: 'Gymnasium', walkMin: 1, capacity: 280,
-      amenities: { power: true, water: true, food: false }, pos: [14.04492, 121.15685] },
+    { id: 'mv-gym', name: 'Gymnasium', walkMin: straightLineWalkMin(LOCATION, SPOT_POS.gym), capacity: null,
+      amenities: { power: true, water: true, food: false }, pos: SPOT_POS.gym },
   ],
 }
 
-// Where the waiting area's position and capacity come from (rule: SPOT_CAPACITY_RULE in ./index.ts).
-// - Gymnasium: the campus facilities page lists a gymnasium. OpenStreetMap has no buildings here, so the point is
-//   the only barrel-roofed hall on campus in Esri World Imagery (2026-11-18), about 22 × 35 m = 770 m².
-//   770 × 0.75 ÷ 2 = 289 → 280. Not confirmed on site.
+// Capacity (rule: SPOT_CAPACITY_RULE in ./index.ts).
+// - Gymnasium: capacity is null ("not yet assessed"). The earlier 280 estimate measured a barrel-roofed hall in
+//   Esri World Imagery at [14.04492, 121.15685] (about 22 × 35 m). The owner-supplied gymnasium point is about
+//   125 m west of that hall, so the measurement may describe a different building and is no longer used.
+//   Re-measure the pinned building (usable area × 0.75 ÷ 2) before entering a capacity.
 // - The library is in the Administration Building (library.batstateu.edu.ph/about), but which roof that is
 //   could not be told from imagery, so it is not listed yet.

@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ACTIVE_CAMPUS, campusKeyPrefix } from '../campuses/active'
 import { corridors, isCampusAdvisoryId, spotSeeds, type Advisory, type CorridorState, type Snapshot, type Spot } from '../data'
+import { wktPoint } from './coords'
+import { canonicalSpotId, reconcileSpots } from './spotData'
 
 // Live backend. Configured through VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY (see .env.example
 // and supabase/schema.sql). Every call resolves to null/false instead of throwing so the store
@@ -27,7 +29,7 @@ const iso = (t: number) => new Date(t).toISOString()
 const spotRow = (s: Spot) => ({
   id: s.id, name: s.name, walk_min: s.walkMin, capacity: s.capacity, occupied: s.occupied,
   power: s.amenities.power, water: s.amenities.water, food: s.amenities.food,
-  geom: `SRID=4326;POINT(${s.pos[1]} ${s.pos[0]})`, updated_at: iso(Date.now()),
+  geom: wktPoint(s.pos), updated_at: iso(Date.now()),
 })
 
 const corridorRow = (id: string, c: CorridorState) => ({
@@ -90,7 +92,8 @@ export async function fetchSnapshot(): Promise<Snapshot | 'empty' | null> {
     ])
     if (cs.error || sp.error || ad.error) throw cs.error ?? sp.error ?? ad.error
     const csRows = cs.data.filter((r) => corridors.some((c) => c.id === r.corridor_id))
-    const spRows = sp.data.filter((r) => spotSeeds.some((x) => x.id === r.id))
+    // Rows of legacy IDs (renamed spots) count as this campus's; supabase/migrations renames them in place.
+    const spRows = sp.data.filter((r) => spotSeeds.some((x) => x.id === canonicalSpotId(r.id)))
     if (!csRows.length || !spRows.length) return 'empty'
     let updatedAt = 0
     const states: Record<string, CorridorState> = {}
@@ -98,11 +101,14 @@ export async function fetchSnapshot(): Promise<Snapshot | 'empty' | null> {
       states[r.corridor_id] = { status: r.status, minLo: r.min_lo, minHi: r.min_hi, note: r.note ?? '', source: r.source ?? '', provenance: r.provenance }
       updatedAt = Math.max(updatedAt, ms(r.updated_at))
     }
-    const spots: Spot[] = spRows.map((r) => {
+    const rows: Spot[] = spRows.map((r) => {
       updatedAt = Math.max(updatedAt, ms(r.updated_at))
       return { id: r.id, name: r.name, walkMin: r.walk_min, capacity: r.capacity, occupied: r.occupied,
         amenities: { power: r.power, water: r.water, food: r.food }, pos: [r.lat, r.lon] }
     })
+    // Rows supply occupancy and amenities only. Name, position, capacity and walking estimate come from the campus
+    // registry, so a database seeded before a rename or a coordinate correction cannot show stale values.
+    const spots = reconcileSpots(spotSeeds, rows)
     const advisories: Advisory[] = ad.data.filter((r: AdvisoryDbRow) => isCampusAdvisoryId(r.id)).map((r: AdvisoryDbRow) => {
       const a = advisoryFromRow(r)
       updatedAt = Math.max(updatedAt, a.issuedAt, a.updatedAt ?? 0)

@@ -32,8 +32,10 @@ export type CorridorState = {
 export type Spot = {
   id: string
   name: string
+  // Straight-line walking estimate from the campus point, in minutes (src/lib/coords.ts). Always shown as an estimate.
   walkMin: number
-  capacity: number
+  // People the spot can hold for a few hours; null = not yet assessed (never guessed). See SPOT_CAPACITY_RULE.
+  capacity: number | null
   occupied: number
   amenities: Record<Amenity, boolean>
   pos: LatLng

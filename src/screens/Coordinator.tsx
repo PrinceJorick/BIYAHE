@@ -1,5 +1,6 @@
-import { Check, CircleCheck, Clock, LayoutDashboard, LogOut, Megaphone, Pencil, Send, Smartphone, TriangleAlert, Users, X } from 'lucide-react'
+import { Building2, Check, CircleCheck, Clock, LayoutDashboard, LogOut, Megaphone, Pencil, Send, Smartphone, TriangleAlert, Users, X } from 'lucide-react'
 import { useId, useState } from 'react'
+import { ACTIVE_CAMPUS } from '../campuses/active'
 import Badge from '../components/Badge'
 import CorridorMap from '../components/CorridorMap'
 import Dialog from '../components/Dialog'
@@ -9,7 +10,8 @@ import {
   BODY_MAX, coordinatorGroups, endedAt, EXPIRY_HOURS, isCorridorScope, isManaged, phaseOf, scopeLabel, TITLE_MAX,
   validateAdvisoryInput, type AdvisoryInput, type AdvisoryPhase, type InputErrors,
 } from '../lib/advisories'
-import { amenityLabel, clock, spacesLeft } from '../lib/derive'
+import { amenityLabel, clock, isFull, spacesLeft } from '../lib/derive'
+import { walkEstimate } from '../lib/mapView'
 import { useMedia } from '../lib/router'
 import {
   adjustOccupancy, canManageAdvisories, chooseRole, createAdvisory, editAdvisory, getState, isOffline, publishDraft,
@@ -41,7 +43,7 @@ export default function Coordinator() {
   return (
     <div className="coord">
       <nav className="coord-nav" aria-label="Staff">
-        {wide ? <Logo size={32} onDark /> : <LogoMark size={36} />}
+        {wide ? <Logo size={32} onDark /> : <LogoMark size={36} variant="light" label="BIYAHE" />}
         <ul>
           <li><a className="tab" href="#/coordinator" aria-current="page"><LayoutDashboard size={20} aria-hidden="true" /><span>Command</span></a></li>
           <li><a className="tab" href="#/home" onClick={() => chooseRole('student')}><Smartphone size={20} aria-hidden="true" /><span>Student view</span></a></li>
@@ -53,6 +55,10 @@ export default function Coordinator() {
         <header className="coord-head">
           <div className="stack" style={{ gap: 6 }}>
             <h1 className="h1">Coordinator Command</h1>
+            <p className="cluster meta" style={{ gap: 4 }}>
+              <Building2 size={16} aria-hidden="true" /><span className="strong" style={{ color: 'var(--ink)' }}>{ACTIVE_CAMPUS.shortName}</span>
+              <a className="btn btn-quiet btn-inline" href="#/staff">Change<span className="sr-only"> campus</span></a>
+            </p>
             <p className="cluster meta">
               <Badge kind={offline ? 'saved' : 'official'} />
               {offline
@@ -101,21 +107,28 @@ export default function Coordinator() {
             <ul className="rows">
               {s.snapshot.spots.map((x) => {
                 const left = spacesLeft(x)
-                const tone = left <= 0 ? 'danger' : left / x.capacity < 0.2 ? 'warn' : 'ok'
+                const full = isFull(x)
+                const low = left != null && x.capacity != null && !full && left / x.capacity < 0.2
+                const tone = full ? 'danger' : low ? 'warn' : x.capacity == null ? 'saved' : 'ok'
                 return (
                   <li key={x.id} className={`shelter tone-${tone}`}>
-                    <div className="between">
-                      <h3 className="row-title">{x.name}</h3>
-                      <span className="tag">{left <= 0 ? 'Full' : left / x.capacity < 0.2 ? 'Nearly full' : 'Has space'}</span>
+                    <div className="between" style={{ alignItems: 'flex-start' }}>
+                      <span className="stack" style={{ gap: 2, minWidth: 0 }}>
+                        <h3 className="row-title">{x.name}</h3>
+                        <span className="meta">{walkEstimate(x.walkMin)}</span>
+                      </span>
+                      <span className="tag" style={{ flex: 'none' }}>{full ? 'Full' : low ? 'Nearly full' : x.capacity == null ? 'Capacity not assessed' : 'Has space'}</span>
                     </div>
-                    <div className="meter" aria-hidden="true"><i style={{ width: `${(x.occupied / x.capacity) * 100}%` }} /></div>
+                    {x.capacity != null && <div className="meter" aria-hidden="true"><i style={{ width: `${Math.min(100, (x.occupied / x.capacity) * 100)}%` }} /></div>}
                     <div className="between" style={{ flexWrap: 'wrap' }}>
                       <div className="stepper" role="group" aria-label={`${x.name} occupancy`}>
                         <button type="button" disabled={x.occupied <= 0} aria-label={`Remove 10 people from ${x.name}`} onClick={() => adjustOccupancy(x.id, -10)}>−10</button>
-                        <output aria-live="polite" aria-label={`${x.occupied} of ${x.capacity} in ${x.name}`}>{x.occupied} / {x.capacity}</output>
-                        <button type="button" disabled={left <= 0} aria-label={`Add 10 people to ${x.name}`} onClick={() => adjustOccupancy(x.id, 10)}>+10</button>
+                        <output aria-live="polite" aria-label={x.capacity == null ? `${x.occupied} in ${x.name}, capacity not assessed` : `${x.occupied} of ${x.capacity} in ${x.name}`}>
+                          {x.occupied} / {x.capacity ?? '—'}
+                        </output>
+                        <button type="button" disabled={full} aria-label={`Add 10 people to ${x.name}`} onClick={() => adjustOccupancy(x.id, 10)}>+10</button>
                       </div>
-                      <span className="meta">{left} spaces left</span>
+                      <span className="meta">{left == null ? 'Counting people; no capacity set' : `${left} spaces left`}</span>
                     </div>
                     <div className="chips" role="group" aria-label={`${x.name} amenities`}>
                       {(Object.keys(amenityLabel) as Amenity[]).map((a) => (
