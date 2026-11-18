@@ -1,4 +1,4 @@
-import { DEFAULT_CAMPUS } from '../campuses'
+import { ACTIVE_CAMPUS } from '../campuses/active'
 import { corridorById, type Amenity, type Corridor, type CorridorState, type Provenance, type Spot } from '../data'
 import { isOffline, type State } from './store'
 
@@ -64,13 +64,13 @@ export { concernsStudent } from './advisories'
 export function shareMessage(v: StudentView, mode: 'campus' | 'home') {
   const { corridor, cs, spot } = v
   if (mode === 'home') {
-    return `I'm heading home from ${DEFAULT_CAMPUS.shortName} via ${corridor.via}. Travel time looks like ${fmtRange(cs.minLo, cs.minHi)}. I'll message you when I arrive.`
+    return `I'm heading home from ${ACTIVE_CAMPUS.shortName} via ${corridor.via}. Travel time looks like ${fmtRange(cs.minLo, cs.minHi)}. I'll message you when I arrive.`
   }
   const why = cs.status === 'closed' ? `${corridor.via} is closed right now` : cs.status === 'slow' ? `${corridor.via} is slow right now` : 'I am staying on campus for now'
   const where = spot
     ? `, so I'm waiting at ${spot.name}${amenityList(spot) ? ` (${amenityList(spot)})` : ''}`
     : ', so I am waiting on campus'
-  return `I'm safe at ${DEFAULT_CAMPUS.shortName}. ${why}${where}. I'll head home when the road clears.`
+  return `I'm safe at ${ACTIVE_CAMPUS.shortName}. ${why}${where}. I'll head home when the road clears.`
 }
 
 export const amenityList = (s: Spot) =>

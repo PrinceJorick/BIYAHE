@@ -94,17 +94,17 @@ describe('studentView freshness', () => {
 
 describe('studentView safe spot', () => {
   it('defaults to the nearest spot with room', () => {
-    expect(studentView(makeState(), NOW).spot?.id).toBe('cics')
-    expect(studentView(makeState({ snapshot: fixture('clear', NOW) }), NOW).spot?.id).toBe('cics')
+    expect(studentView(makeState(), NOW).spot?.id).toBe('gym')
+    expect(studentView(makeState({ snapshot: fixture('clear', NOW) }), NOW).spot?.id).toBe('gym')
   })
 
   it('honors a chosen spot that has room', () => {
-    expect(studentView(makeState({ spotId: 'gym' }), NOW).spot?.id).toBe('gym')
+    expect(studentView(makeState({ snapshot: fixture('clear', NOW), spotId: 'library' }), NOW).spot?.id).toBe('library')
   })
 
   it('falls back to the nearest spot with room when the chosen one is full', () => {
-    // Library is at 150/150 in the disrupted fixture.
-    expect(studentView(makeState({ spotId: 'library' }), NOW).spot?.id).toBe('cics')
+    // Library is at 250/250 in the disrupted fixture.
+    expect(studentView(makeState({ spotId: 'library' }), NOW).spot?.id).toBe('gym')
   })
 
   it('has no spot when every spot is full', () => {
@@ -189,27 +189,27 @@ describe('shareMessage', () => {
   })
 
   describe("'campus'", () => {
-    it('closed corridor, waiting at CICS Lobby', () => {
+    it('closed corridor, waiting at Sparta Gymnasium', () => {
       expect(shareMessage(view(), 'campus')).toBe(
-        "I'm safe at BatStateU Alangilan. JP Laurel Hwy is closed right now, so I'm waiting at CICS Lobby (power, water, food). I'll head home when the road clears.",
+        "I'm safe at BatStateU Alangilan. JP Laurel Hwy is closed right now, so I'm waiting at Sparta Gymnasium (power, water). I'll head home when the road clears.",
       )
     })
 
     it('slow corridor', () => {
       expect(shareMessage(view({ corridorId: 'bauan' }), 'campus')).toBe(
-        "I'm safe at BatStateU Alangilan. Diversion Rd is slow right now, so I'm waiting at CICS Lobby (power, water, food). I'll head home when the road clears.",
+        "I'm safe at BatStateU Alangilan. Diversion Rd is slow right now, so I'm waiting at Sparta Gymnasium (power, water). I'll head home when the road clears.",
       )
     })
 
     it('open corridor, waiting at the Gymnasium', () => {
       expect(shareMessage(view({ corridorId: 'batangas', spotId: 'gym' }), 'campus')).toBe(
-        "I'm safe at BatStateU Alangilan. I am staying on campus for now, so I'm waiting at Gymnasium (power, water). I'll head home when the road clears.",
+        "I'm safe at BatStateU Alangilan. I am staying on campus for now, so I'm waiting at Sparta Gymnasium (power, water). I'll head home when the road clears.",
       )
     })
 
     it('single amenity (Library)', () => {
       expect(shareMessage(view({ snapshot: clear, spotId: 'library' }), 'campus')).toBe(
-        "I'm safe at BatStateU Alangilan. I am staying on campus for now, so I'm waiting at Library (power). I'll head home when the road clears.",
+        "I'm safe at BatStateU Alangilan. I am staying on campus for now, so I'm waiting at Einstein Bldg Library, 2nd floor (power). I'll head home when the road clears.",
       )
     })
 
@@ -217,7 +217,7 @@ describe('shareMessage', () => {
       const v = view()
       const bare: Spot = { ...v.spot!, amenities: { power: false, water: false, food: false } }
       expect(shareMessage({ ...v, spot: bare }, 'campus')).toBe(
-        "I'm safe at BatStateU Alangilan. JP Laurel Hwy is closed right now, so I'm waiting at CICS Lobby. I'll head home when the road clears.",
+        "I'm safe at BatStateU Alangilan. JP Laurel Hwy is closed right now, so I'm waiting at Sparta Gymnasium. I'll head home when the road clears.",
       )
     })
 

@@ -43,16 +43,16 @@ describe('MapFrame: persistent OpenStreetMap attribution', () => {
   })
 })
 
-describe('prototype preview: subtle "Demo routes" indicator', () => {
+describe('road-following routes: subtle "About routes" indicator', () => {
   const routes = ALANGILAN_PREVIEW_ROADS.routes
   const all = ALANGILAN_HAND_DRAWN_CORRIDORS
   const onMap = (shown = all) => renderToStaticMarkup(createElement(MapFrame, { label: 'Test map', notice: createElement(DemoRoutes, { routes, shown }) }, null))
 
-  it('shows only a small "Demo routes" button on the map; no banner and no limitations list over the map', () => {
+  it('shows only a small "About routes" button on the map; no banner and no limitations list over the map', () => {
     const html = onMap()
     expect(html).toContain('class="map-demo-badge"')
-    expect(html).toContain('aria-haspopup="dialog" aria-label="Demo routes: unverified prototype preview. Show details and route limitations."')
-    expect(html).toContain('Demo routes</button>')
+    expect(html).toContain('aria-haspopup="dialog" aria-label="About routes: generated from OpenStreetMap, not checked on site. Show details and route limitations."')
+    expect(html).toContain('About routes</button>')
     expect(html).not.toContain(PREVIEW_NOTICE)                 // the large banner paragraph
     expect(html).not.toContain('Route limitations')
     expect(html).not.toMatch(/<details|<ul|<li/)
@@ -89,9 +89,16 @@ describe('prototype preview: subtle "Demo routes" indicator', () => {
     expect(html).toContain(CAMPUS_EXIT_NOTE)
   })
 
-  it('CorridorMap shows the indicator whenever preview routes are drawn, and only in preview builds', () => {
-    expect(corridorMapSource).toContain('const preview = alangilanRouteGeometry.previewRoutes')
-    expect(corridorMapSource).toContain('const notice = PREVIEW_ON && preview && <DemoRoutes routes={preview} shown={shown} />')
+  it('a campus without a campus-wide limitation lists none under "All routes"', () => {
+    const html = renderToStaticMarkup(createElement(DemoRoutesDetails, { routes: routes.map((r) => ({ ...r, pathEnds: null, warnings: [] })), shown: all, exitNote: null }))
+    expect(html).toContain(PREVIEW_NOTICE)
+    expect(html).not.toContain('All routes:')
+    expect(html).not.toContain(CAMPUS_EXIT_NOTE)
+  })
+
+  it('CorridorMap shows the indicator whenever road-following routes are drawn, for the active campus', () => {
+    expect(corridorMapSource).toContain('const preview = routes.selection.previewRoutes')
+    expect(corridorMapSource).toContain('const notice = preview && <DemoRoutes routes={preview} shown={shown} exitNote={routes.exitNote} />')
     expect(corridorMapSource).toContain('notice={notice}')
     expect(corridorMapSource).not.toMatch(/PREVIEW_NOTICE|<details|Route limitations|map-preview/)
   })

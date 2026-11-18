@@ -1,7 +1,11 @@
 import { ShieldCheck } from 'lucide-react'
+import { useState } from 'react'
+import { campuses, CAMPUS_IDS } from '../campuses'
+import { ACTIVE_CAMPUS, switchCampus } from '../campuses/active'
 import Logo from '../components/Logo'
 import { go } from '../lib/router'
 import { chooseRole, getState, setStaffRole, useApp, type StaffRole } from '../lib/store'
+import type { CampusId } from '../types'
 
 const roles: { id: StaffRole; hint: string }[] = [
   { id: 'DRRMO Coordinator', hint: 'Route risk, shelter capacity, campus advisories' },
@@ -11,16 +15,26 @@ const roles: { id: StaffRole; hint: string }[] = [
 
 export default function StaffAccess() {
   const s = useApp()
+  const [campusId, setCampusId] = useState<CampusId>(ACTIVE_CAMPUS.id)
   return (
     <main id="main" tabIndex={-1} className="solo">
       <Logo size={36} />
-      <form className="stack" style={{ gap: 28, flex: 1 }} onSubmit={(e) => { e.preventDefault(); go('coordinator') }}>
+      <form className="stack" style={{ gap: 28, flex: 1 }} onSubmit={(e) => { e.preventDefault(); if (!switchCampus(campusId, '#/coordinator')) go('coordinator') }}>
         <div className="stack">
           <h1 className="h1">Staff / DRRMO quick access</h1>
           <p className="body">Demo access, no sign-in. Pick the role you are covering today.</p>
         </div>
         <fieldset className="choices">
-          <legend className="sr-only">Your role</legend>
+          <legend className="h2">Campus</legend>
+          {CAMPUS_IDS.map((id) => (
+            <label key={id} className="choice">
+              <input type="radio" name="campus" checked={campusId === id} onChange={() => setCampusId(id)} />
+              <span className="row-body"><span className="row-title">{campuses[id].shortName}</span></span>
+            </label>
+          ))}
+        </fieldset>
+        <fieldset className="choices">
+          <legend className="h2">Your role</legend>
           {roles.map((r) => (
             <label key={r.id} className="choice">
               <input type="radio" name="role" checked={s.staffRole === r.id} onChange={() => setStaffRole(r.id)} />

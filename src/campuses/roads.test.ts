@@ -35,7 +35,9 @@ describe('build gate: the repository road data', () => {
 
   it('the app uses exactly what the build check allows', () => {
     if (alangilanRoads === null) {
-      expect(alangilan.corridors).toBe(ALANGILAN_HAND_DRAWN_CORRIDORS)
+      // No formal reviewed set: the validated road-following preview is drawn instead (src/campuses/alangilan.ts).
+      expect(alangilan.corridors).not.toBe(ALANGILAN_HAND_DRAWN_CORRIDORS)
+      expect(alangilan.corridors.map(({ path: _p, ...c }) => c)).toEqual(ALANGILAN_HAND_DRAWN_CORRIDORS.map(({ path: _p, ...c }) => c))
     } else {
       expect(alangilan.corridors.map((c) => c.path)).toEqual(alangilanRoads.routes.map((r) => r.path))
     }

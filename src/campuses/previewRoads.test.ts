@@ -90,7 +90,8 @@ describe('generated preview module', () => {
 })
 
 describe('the app in this test build', () => {
-  it('uses the original hand-drawn paths (preview is off outside development and route-preview builds)', () => {
-    expect(alangilan.corridors).toBe(ALANGILAN_HAND_DRAWN_CORRIDORS)
+  it('uses the road-following paths in every build (no formal reviewed set exists yet)', () => {
+    expect(alangilan.corridors).not.toBe(ALANGILAN_HAND_DRAWN_CORRIDORS)
+    expect(alangilan.corridors.map((c) => c.path)).toEqual(ALANGILAN_PREVIEW_ROADS.routes.map((r) => r.path))
   })
 })

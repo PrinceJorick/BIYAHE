@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import { corridors, fallbackWeather, fixture, type Amenity, type Snapshot, type Weather } from '../data'
+import { ACTIVE_CAMPUS } from '../campuses/active'
+import { advisoryId, corridors, fallbackWeather, fixture, spotSeeds, type Amenity, type Snapshot, type Weather } from '../data'
 import * as adv from './advisories'
 import { idbGet, idbSet } from './idb'
 import * as remote from './supabase'
@@ -33,14 +34,27 @@ type Prefs = Pick<State, 'role' | 'staffRole' | 'corridorId' | 'scenario' | 'low
 
 const PREFS = 'biyahe-prefs'
 const MIN = 60_000
+// Offline copies and tab sync are per campus, so switching campus never shows another campus's data.
+const SNAPSHOT_KEY = `snapshot:${ACTIVE_CAMPUS.id}`
+const WEATHER_KEY = `weather:${ACTIVE_CAMPUS.id}`
 
 // Each tab keeps its own copy first, so a staff tab and a student tab can sit side by side.
 function readPrefs(): Partial<Prefs> {
   try {
-    return JSON.parse(sessionStorage.getItem(PREFS) ?? localStorage.getItem(PREFS) ?? '{}')
+    const prefs: Partial<Prefs> = JSON.parse(sessionStorage.getItem(PREFS) ?? localStorage.getItem(PREFS) ?? '{}')
+    // A route saved for another campus does not apply here.
+    if (prefs.corridorId && !corridors.some((c) => c.id === prefs.corridorId)) prefs.corridorId = null
+    return prefs
   } catch {
     return {}
   }
+}
+
+// A saved snapshot is used only if it describes this campus's routes and safe spots.
+export function matchesCampus(snapshot: Snapshot) {
+  const ids = (xs: string[]) => [...xs].sort().join('|')
+  return ids(Object.keys(snapshot.corridors ?? {})) === ids(corridors.map((c) => c.id))
+    && ids((snapshot.spots ?? []).map((x) => x.id)) === ids(spotSeeds.map((x) => x.id))
 }
 
 let state: State = {
@@ -97,7 +111,7 @@ export const isOffline = (s: State) => !s.online || s.scenario === 'offline'
 // Device backend: BroadcastChannel keeps the coordinator tab and student tabs in step.
 // Supabase backend: Realtime does the same across devices. Both paths end in receive().
 
-const bc = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel('biyahe-sync')
+const bc = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(`biyahe-sync:${ACTIVE_CAMPUS.id}`)
 // Updates that arrive while the Offline scenario is simulated; applied on "reconnect".
 let held: Snapshot | null = null
 let toastTimer: ReturnType<typeof setTimeout> | undefined
@@ -111,7 +125,7 @@ export function toast(text: string, urgent = false) {
 function persist(snapshot: Snapshot) {
   const savedAt = Date.now()
   set({ snapshot, savedAt })
-  void idbSet('snapshot', { snapshot, savedAt })
+  void idbSet(SNAPSHOT_KEY, { snapshot, savedAt })
 }
 
 function receive(next: Snapshot) {
@@ -161,7 +175,7 @@ async function refreshWeather() {
   try {
     const weather = await fetchWeather()
     set({ weather })
-    void idbSet('weather', weather)
+    void idbSet(WEATHER_KEY, weather)
   } catch {
     set({ weather: { ...state.weather, live: false } })
   }
@@ -173,10 +187,10 @@ export async function init() {
   if (started) return
   started = true
 
-  const saved = await idbGet<{ snapshot: Snapshot; savedAt: number }>('snapshot')
-  const weather = await idbGet<Weather>('weather')
-  if (saved) set({ snapshot: saved.snapshot, savedAt: saved.savedAt })
-  else void idbSet('snapshot', { snapshot: state.snapshot, savedAt: state.savedAt })
+  const saved = await idbGet<{ snapshot: Snapshot; savedAt: number }>(SNAPSHOT_KEY)
+  const weather = await idbGet<Weather>(WEATHER_KEY)
+  if (saved && matchesCampus(saved.snapshot)) set({ snapshot: saved.snapshot, savedAt: saved.savedAt })
+  else void idbSet(SNAPSHOT_KEY, { snapshot: state.snapshot, savedAt: state.savedAt })
   if (weather) set({ weather: { ...weather, live: false } })
   set({ ready: true })
 
@@ -301,7 +315,7 @@ export function toggleAmenity(spotId: string, amenity: Amenity) {
 export const canManageAdvisories = (s: Pick<State, 'role' | 'staffRole'>) => s.role === 'staff' && s.staffRole === 'DRRMO Coordinator'
 
 const NOT_ALLOWED = 'Only the DRRMO Coordinator can create or change campus advisories.'
-const newAdvisoryId = (now: number) => `campus-${now}-${Math.random().toString(36).slice(2, 8)}`
+const newAdvisoryId = (now: number) => advisoryId(`campus-${now}-${Math.random().toString(36).slice(2, 8)}`)
 
 function applyAdvisory(change: () => adv.ChangeResult, success: string): adv.ChangeResult {
   if (!canManageAdvisories(state)) {

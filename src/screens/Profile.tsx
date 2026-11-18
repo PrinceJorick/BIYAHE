@@ -1,4 +1,6 @@
-import { BatteryLow, Database, MapPin, Radio, ShieldCheck } from 'lucide-react'
+import { BatteryLow, Building2, Database, MapPin, Radio, ShieldCheck } from 'lucide-react'
+import { ACTIVE_CAMPUS } from '../campuses/active'
+import { corridors } from '../data'
 import Badge from '../components/Badge'
 import Toggle from '../components/Toggle'
 import { clock, studentView } from '../lib/derive'
@@ -7,7 +9,7 @@ import { chooseRole, isLowBattery, setLowBattery, setScenario, useApp, useNow, t
 
 const scenarios: { id: Scenario; label: string; hint: string }[] = [
   { id: 'clear', label: 'Clear', hint: 'All routes open. Home says head home now.' },
-  { id: 'disrupted', label: 'Disrupted', hint: 'Flooding closes JP Laurel Hwy. Lipa commuters are told to wait.' },
+  { id: 'disrupted', label: 'Disrupted', hint: `Flooding closes ${corridors[0].via}. ${corridors[0].name} commuters are told to wait.` },
   { id: 'stale', label: 'Stale >30m', hint: 'The last update is 38 minutes old, so everything is marked Saved copy.' },
   { id: 'offline', label: 'Offline Saved Copy', hint: 'Simulates no signal. The app runs from the copy saved on this phone.' },
   { id: 'lowbattery', label: 'Low Battery', hint: 'Simulates a battery under 20%: text-first screens and a simplified map.' },
@@ -40,6 +42,16 @@ export default function Profile() {
               <span className="meta">Text-first guidance and a simpler map. Suggested under 20%.</span>
             </span>
             <Toggle label="Low-Battery Mode" hideLabel checked={isLowBattery(s)} onChange={setLowBattery} />
+          </div>
+        </li>
+        <li>
+          <div className="row">
+            <Building2 className="row-icon" size={22} aria-hidden="true" />
+            <span className="row-body">
+              <span className="row-title">Campus</span>
+              <span className="meta">{ACTIVE_CAMPUS.shortName}</span>
+            </span>
+            <a className="btn btn-quiet" href="#/setup">Change<span className="sr-only"> campus</span></a>
           </div>
         </li>
         <li>
