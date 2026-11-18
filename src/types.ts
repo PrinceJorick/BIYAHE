@@ -39,6 +39,9 @@ export type Spot = {
   pos: LatLng
 }
 
+// Lifecycle of a campus advisory. Absent means 'published' (issuer feeds and older records).
+export type AdvisoryStatus = 'draft' | 'published' | 'resolved'
+
 export type Advisory = {
   id: string
   source: AdvisorySource
@@ -48,7 +51,16 @@ export type Advisory = {
   severity: Severity
   // a corridor id, 'campus', or 'all'
   scope: string
+  // when it was published (for a draft: when it was created)
   issuedAt: number
+  status?: AdvisoryStatus
+  // last edit, publication or resolution
+  updatedAt?: number
+  // no longer current after this time
+  expiresAt?: number
+  resolvedAt?: number
+  // corridor-scoped advisories: the corridor status applied when the advisory is published
+  corridorStatus?: CorridorStatus
 }
 
 export type Snapshot = {

@@ -1,8 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import {
-  corridorById, corridorStateFor, fallbackWeather, fixture,
-  type Advisory, type Amenity, type CorridorStatus, type Severity, type Snapshot, type Weather,
-} from '../data'
+import { corridors, fallbackWeather, fixture, type Amenity, type Snapshot, type Weather } from '../data'
+import * as adv from './advisories'
 import { idbGet, idbSet } from './idb'
 import * as remote from './supabase'
 import { fetchWeather } from './weather'
@@ -121,8 +119,11 @@ function receive(next: Snapshot) {
     held = next
     return
   }
-  const known = new Set(state.snapshot.advisories.map((a) => a.id))
-  const fresh = next.advisories.filter((a) => !known.has(a.id))
+  // Notify a student only about advisories that have just become current for them (newly published,
+  // not drafts, edits of ones already shown, resolved or expired ones).
+  const now = Date.now()
+  const known = new Set(adv.studentAdvisories(state.snapshot.advisories, state.corridorId, now).map((a) => a.id))
+  const fresh = adv.studentAdvisories(next.advisories, state.corridorId, now).filter((a) => !known.has(a.id))
   persist(next)
   if (state.scenario === 'stale') set({ scenario: 'disrupted' })
   if (fresh.length && state.role === 'student') {
@@ -290,30 +291,61 @@ export function toggleAmenity(spotId: string, amenity: Amenity) {
   commit({ ...state.snapshot, spots, updatedAt: Date.now() }, () => remote.pushSpot(spot))
 }
 
-export type AdvisoryDraft = {
-  scope: string
-  severity: Severity
-  title: string
-  body: string
-  // only for corridor-scoped advisories
-  status?: CorridorStatus
-}
+// ── Campus advisories (coordinator) ─────────────────────────────────────────
+// Every change goes through the same path as the rest of the shared state: the snapshot on this device,
+// BroadcastChannel to open tabs, and an upsert of the one advisory row (plus its corridor, if changed) to
+// Supabase. IDs are fixed when an advisory is created, so publishing or editing never creates a second row.
+// Nothing is deleted: resolved advisories stay in the record.
 
-export function publishAdvisory(d: AdvisoryDraft) {
-  const now = Date.now()
-  const advisory: Advisory = {
-    id: `campus-${now}`, source: 'Campus', issuer: `Campus DRRMO · ${state.staffRole}`,
-    title: d.title, body: d.body, severity: d.severity, scope: d.scope, issuedAt: now,
+/** Only the DRRMO Coordinator manages campus advisories. Building marshals and guards see them read-only. */
+export const canManageAdvisories = (s: Pick<State, 'role' | 'staffRole'>) => s.role === 'staff' && s.staffRole === 'DRRMO Coordinator'
+
+const NOT_ALLOWED = 'Only the DRRMO Coordinator can create or change campus advisories.'
+const newAdvisoryId = (now: number) => `campus-${now}-${Math.random().toString(36).slice(2, 8)}`
+
+function applyAdvisory(change: () => adv.ChangeResult, success: string): adv.ChangeResult {
+  if (!canManageAdvisories(state)) {
+    toast(NOT_ALLOWED)
+    return { ok: false, error: NOT_ALLOWED }
   }
-  const next: Snapshot = { ...state.snapshot, advisories: [advisory, ...state.snapshot.advisories], updatedAt: now }
-  const corridorChanged = d.status && d.scope !== 'campus' && d.scope !== 'all'
-  if (corridorChanged) {
-    next.corridors = { ...next.corridors, [d.scope]: corridorStateFor(corridorById(d.scope), d.status!, d.title, 'Campus DRRMO advisory') }
-  }
+  const result = change()
+  if (!result.ok) return result
+  const { snapshot: next, advisory, corridorChanged } = result
   commit(next, async () => {
     const a = await remote.pushAdvisory(advisory)
-    const c = corridorChanged ? await remote.pushCorridor(d.scope, next.corridors[d.scope]) : true
+    const c = corridorChanged ? await remote.pushCorridor(corridorChanged, next.corridors[corridorChanged]) : true
     return a && c
   })
-  toast('Advisory published. Student views are updated.')
+  toast(success)
+  return result
+}
+
+const issuer = () => `Campus DRRMO · ${state.staffRole}`
+
+export function createAdvisory(input: adv.AdvisoryInput, { publish }: { publish: boolean }) {
+  const now = Date.now()
+  return applyAdvisory(
+    () => adv.createAdvisory(state.snapshot, input, { id: newAdvisoryId(now), now, issuer: issuer(), publish, corridors }),
+    publish ? 'Advisory published. Student views are updated.' : 'Draft saved. Students cannot see it until you publish it.',
+  )
+}
+
+export function editAdvisory(id: string, input: adv.AdvisoryInput) {
+  const wasDraft = state.snapshot.advisories.find((a) => a.id === id)?.status === 'draft'
+  return applyAdvisory(
+    () => adv.updateAdvisory(state.snapshot, id, input, { now: Date.now(), corridors }),
+    wasDraft ? 'Draft updated.' : 'Advisory updated. Student views show the new version.',
+  )
+}
+
+export function publishDraft(id: string) {
+  return applyAdvisory(() => adv.publishAdvisory(state.snapshot, id, { now: Date.now() }), 'Advisory published. Student views are updated.')
+}
+
+export function resolveAdvisory(id: string, opts: { reopenCorridor?: boolean } = {}) {
+  const wasDraft = state.snapshot.advisories.find((a) => a.id === id)?.status === 'draft'
+  return applyAdvisory(
+    () => adv.resolveAdvisory(state.snapshot, id, { now: Date.now(), reopenCorridor: opts.reopenCorridor }),
+    wasDraft ? 'Draft withdrawn. It was never shown to students.' : 'Advisory resolved. Students no longer see it as current.',
+  )
 }
