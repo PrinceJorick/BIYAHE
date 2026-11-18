@@ -1,6 +1,7 @@
 import { Bell, ChevronRight, CircleCheck, Clock, CloudRain, CloudSun, MapPin, RefreshCw, Send, TriangleAlert } from 'lucide-react'
 import Badge from '../components/Badge'
-import { ago, amenityList, clock, concernsStudent, fmtMin, fmtRange, spacesLeft, studentView } from '../lib/derive'
+import { studentAdvisories } from '../lib/advisories'
+import { ago, amenityList, clock, fmtMin, fmtRange, spacesLeft, studentView } from '../lib/derive'
 import { walkEstimate } from '../lib/mapView'
 import { refresh, toast, useApp, useNow } from '../lib/store'
 
@@ -16,7 +17,7 @@ export default function Home() {
   const routeWord = wait ? 'route disrupted' : cs.status === 'slow' ? 'route slow' : 'route clear'
   const status = saved ? `Last known: ${routeWord}` : routeWord[0].toUpperCase() + routeWord.slice(1)
   const WeatherIcon = s.weather.precipMm > 0 ? CloudRain : CloudSun
-  const alerts = s.snapshot.advisories.filter((a) => concernsStudent(a, s.corridorId))
+  const alerts = studentAdvisories(s.snapshot.advisories, s.corridorId, now)
 
   const meta = v.offline
     ? `${fmtMin(v.ageMin)} old · reconnect to refresh`

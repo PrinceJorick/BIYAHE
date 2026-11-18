@@ -41,6 +41,9 @@ create table if not exists safe_spots (
 
 -- PAGASA / LGU Batangas City / Campus advisories. payload keeps the issuer's structured record
 -- (PagasaAdvisory / LguAdvisory in src/data.ts).
+-- Campus advisory lifecycle (draft / published / resolved, updatedAt, expiresAt, resolvedAt, corridorStatus)
+-- is kept in payload.lifecycle (src/lib/supabase.ts advisoryRow / advisoryFromRow); rows are resolved, never
+-- deleted by the coordinator workflow.
 create table if not exists advisories (
   id        text primary key,
   source    text not null check (source in ('PAGASA', 'LGU', 'Campus')),
