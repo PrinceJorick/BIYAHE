@@ -275,7 +275,15 @@ textarea.input { resize: vertical; min-height: 96px; }
 .map { position: relative; z-index: 0; isolation: isolate; height: 44dvh; min-height: 260px; border-radius: var(--r-lg); overflow: hidden; border: 1px solid var(--line); background: var(--sunken); }
 .map .leaflet-container { width: 100%; height: 100%; background: var(--sunken); font-family: var(--font); }
 .map .leaflet-tile-pane { filter: saturate(.55) contrast(.96); }
-.map .leaflet-control-attribution { font-size: .6875rem; background: rgb(255 255 255 / .8); }
+/* Persistent OpenStreetMap credit (MapFrame): bottom-right, above the map, its controls and the low-battery note. */
+.map-attribution { position: absolute; z-index: 1001; right: 0; bottom: 0; margin: 0; padding: 2px 6px; font-size: .6875rem; line-height: 1.4; background: rgb(255 255 255 / .85); border-top-left-radius: 6px; }
+.map-attribution a { color: var(--deep); }
+/* "Demo routes" indicator (prototype route preview): small, bottom-left, opposite the OSM credit. Opens details. */
+.map-demo-badge { position: absolute; z-index: 1001; left: 6px; bottom: 6px; display: inline-flex; align-items: center; gap: 4px; min-height: 24px; padding: 2px 8px; border: 1px solid #b45309; border-radius: 999px; background: rgb(255 251 235 / .92); color: #78350f; font: 600 .75rem/1.2 var(--font); cursor: pointer; }
+.map-demo-badge:hover { background: #fffbeb; }
+.map-demo-badge:focus-visible { outline: 2px solid var(--deep); outline-offset: 2px; }
+.demo-route-notes { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; }
+.map-dev-warning { position: absolute; z-index: 1001; left: 8px; right: 8px; bottom: 26px; margin: 0; padding: 8px 10px; border-radius: var(--r-md); background: #fff7ed; border: 2px dashed #c2410c; color: #7c2d12; font-size: .8125rem; font-weight: 600; }
 .pin { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--surface); border: 2.5px solid var(--tone, var(--deep)); color: var(--tone, var(--deep)); box-shadow: 0 2px 6px rgb(11 45 91 / .25); }
 .pin-selected { background: var(--tone, var(--deep)); color: #fff; }
 .pin-you { width: 22px; height: 22px; background: var(--sky); border: 4px solid #fff; }
@@ -289,7 +297,6 @@ textarea.input { resize: vertical; min-height: 96px; }
 .line-open { stroke: var(--ok); }
 .line-slow { stroke: var(--warn); stroke-dasharray: 1 11; stroke-linecap: round; }
 .line-closed { stroke: var(--danger); stroke-dasharray: 14 10; stroke-linecap: butt; }
-.line-walk { stroke: var(--sky); }
 
 /* ── Coordinator ── */
 .coord { min-height: 100dvh; }

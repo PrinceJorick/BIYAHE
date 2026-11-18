@@ -4,9 +4,10 @@ import { DEFAULT_CAMPUS } from './campuses'
 import CorridorMap from './components/CorridorMap'
 import Logo from './components/Logo'
 import Toggle from './components/Toggle'
-import { clock, concernsStudent } from './lib/derive'
+import { studentAdvisories } from './lib/advisories'
+import { clock } from './lib/derive'
 import { useMedia, useRoute, type Route } from './lib/router'
-import { dismissBatteryHint, isLowBattery, isOffline, setLowBattery, useApp, type State } from './lib/store'
+import { dismissBatteryHint, isLowBattery, isOffline, setLowBattery, useApp, useNow, type State } from './lib/store'
 import Alerts from './screens/Alerts'
 import Coordinator from './screens/Coordinator'
 import Home from './screens/Home'
@@ -43,6 +44,7 @@ const focusMain = () => document.getElementById('main')?.focus()
 
 export default function App() {
   const s = useApp()
+  const now = useNow()
   const raw = useRoute()
   const route = resolve(raw, s)
   const wide = useMedia('(min-width: 900px)')
@@ -70,7 +72,7 @@ export default function App() {
   if (!s.ready) return null
 
   const shell = route === 'welcome' ? <Welcome /> : route === 'setup' ? <Setup /> : route === 'staff' ? <StaffAccess /> : route === 'coordinator' ? <Coordinator /> : null
-  const count = s.snapshot.advisories.filter((a) => concernsStudent(a, s.corridorId)).length
+  const count = studentAdvisories(s.snapshot.advisories, s.corridorId, now).length
 
   return (
     <>

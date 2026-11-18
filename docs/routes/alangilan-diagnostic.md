@@ -2,10 +2,12 @@
 
 > DIAGNOSTIC — NOT APPROVED. Every route below is not verified, not confirmed, not approved and not production-ready. Visual plausibility and road-name shares are not evidence of what students actually ride.
 
-- Run ID: `20261117T064232Z-640d24`
-- Generated: 2026-11-17T06:42:32.962Z
+- Run ID: `20261117T124418Z-45d1ea`
+- Generated: 2026-11-17T12:44:18.761Z
 - Candidate data: not written — 0 FAILED, 5 NEEDS REVIEW (the candidate file is written only when all five are CANDIDATE — NOT APPROVED).
-- Diagnostic geometry: `docs/routes/diagnostics/alangilan-candidates.DIAGNOSTIC.20261117T064232Z-640d24.geojson` (git-ignored), viewed with `docs/routes/diagnostic-viewer.html`
+- Diagnostic geometry: `docs/routes/diagnostics/alangilan-candidates.DIAGNOSTIC.20261117T124418Z-45d1ea.geojson` (git-ignored), viewed with `docs/routes/diagnostic-viewer.html`
+- Diagnostic GeoJSON SHA-256 (exact file bytes, no normalization): `70df8461a670d3113524b524fcde322c030cf542d22202177fc5d51c1f86156e`
+- Versions: routing policy `rp-1`, geometry processing `gp-1`, warning schema `ws-1`, approval schema `as-1`, generator `2.1.0` (informational)
 - Routing: OSRM demo server (https://router.project-osrm.org), profile `driving`, data version: not reported
 - Campus LOCATION: 13.7842, 121.0744
 - Processing: [lon, lat] → [lat, lng]; Douglas–Peucker 5 m; rounded to 5 decimals
@@ -25,15 +27,15 @@ Statuses: **FAILED** = blocking validation failure. **NEEDS REVIEW** = no failur
 
 ## Unresolved warnings
 
-- **lipa**: campus exit unresolved: 814 m via (unnamed) → Neptune Street → Mercury Street; public access and actual usability require on-site verification
-- **batangas**: campus exit unresolved: 814 m via (unnamed) → Neptune Street → Mercury Street; public access and actual usability require on-site verification
-- **bauan**: destination overshoot 430 m > 300 m after entering the 100 m zone around the requested destination
-- **bauan**: campus exit unresolved: 814 m via (unnamed) → Neptune Street → Mercury Street; public access and actual usability require on-site verification
-- **sanjose**: endpoint snap 203 m > 150 m: the snapped destination needs human review
-- **sanjose**: endpoint-zone-not-reached: the route never enters the 100 m zone around the requested destination, so destination overshoot is not measurable
-- **sanjose**: destination snap bearing constraint applied (30° ± 45°): it does not guarantee the final approach direction; verify the approach visually
-- **sanjose**: campus exit unresolved: 814 m via (unnamed) → Neptune Street → Mercury Street; public access and actual usability require on-site verification
-- **tanauan**: campus exit unresolved: 814 m via (unnamed) → Neptune Street → Mercury Street; public access and actual usability require on-site verification
+- **lipa** `campus-exit-unverified`: campus exit unresolved: 814 m via (unnamed) → Neptune Street → Mercury Street; public access and actual usability require on-site verification
+- **batangas** `campus-exit-unverified`: campus exit unresolved: 814 m via (unnamed) → Neptune Street → Mercury Street; public access and actual usability require on-site verification
+- **bauan** `destination-overshoot`: destination overshoot 430 m > 300 m after entering the 100 m zone around the requested destination
+- **bauan** `campus-exit-unverified`: campus exit unresolved: 814 m via (unnamed) → Neptune Street → Mercury Street; public access and actual usability require on-site verification
+- **sanjose** `endpoint-snap`: endpoint snap 203 m > 150 m: the snapped destination needs human review
+- **sanjose** `endpoint-zone-not-reached`: endpoint-zone-not-reached: the route never enters the 100 m zone around the requested destination, so destination overshoot is not measurable
+- **sanjose** `snap-bearing-applied`: destination snap bearing constraint applied (30° ± 45°): it does not guarantee the final approach direction; verify the approach visually
+- **sanjose** `campus-exit-unverified`: campus exit unresolved: 814 m via (unnamed) → Neptune Street → Mercury Street; public access and actual usability require on-site verification
+- **tanauan** `campus-exit-unverified`: campus exit unresolved: 814 m via (unnamed) → Neptune Street → Mercury Street; public access and actual usability require on-site verification
 
 ## How to read this
 
@@ -50,12 +52,12 @@ Statuses: **FAILED** = blocking validation failure. **NEEDS REVIEW** = no failur
 **Automated status: NEEDS REVIEW** · **Partial route:** ends before the destination town; not a full journey.
 
 **Unresolved warnings (human review required):**
-- campus exit unresolved: 814 m via (unnamed) → Neptune Street → Mercury Street; public access and actual usability require on-site verification
+- `campus-exit-unverified` — campus exit unresolved: 814 m via (unnamed) → Neptune Street → Mercury Street; public access and actual usability require on-site verification (value: `{"distanceM":813.6,"roads":["(unnamed)","Neptune Street","Mercury Street"]}`)
 
 | Field | Value |
 |---|---|
 | App via label (unchanged, comparison only) | JP Laurel Hwy |
-| Primary roads (name match only; source: Project team visual review of diagnostic run 20261117T052515Z-1b3f27, 2026-11-17) | Batangas-Balete Road; National Highway 4 |
+| Primary roads (name match only; source: Project team visual inspection of diagnostic run 20261117T052515Z-1b3f27 (2026-11-17). Local-only run: its GeoJSON output is git-ignored and not included in the repository; shares measured from it are recorded in docs/routes/alangilan-review-notes.md) | Batangas-Balete Road; National Highway 4 |
 | Primary-road share (raw) | 68.9% (2.62 km of 3.81 km) — Batangas-Balete Road: 1,409 m; National Highway 4: 1,212 m |
 | Road-name evidence (inspection aid, not proof; not evidence of what students ride) | substantial |
 | Requested destination (alangilan.ts) | 13.81, 121.07 |
@@ -70,6 +72,7 @@ Statuses: **FAILED** = blocking validation failure. **NEEDS REVIEW** = no failur
 | Raw geometry (119 pts) / simplified (23 pts) | 3.82 km (Δ 0.3% vs OSRM) / 3.81 km |
 | Near-straight check (straight ≥ 500 m and ratio < 1.02) | straight 2,914 m, ratio 1.309 → no warning |
 | Longest segment (simplified) | 718 m |
+| Application path geometry hash (`routeGeometrySha256`, 24 pts incl. campus point) | `36fb28d5f5fc2b6d64f63b523807eabcd4a3d1cd82e9c21d061051d7866a18ca` |
 | Campus exit (before first primary road) | (unnamed) 133 m → Neptune Street 410 m → Mercury Street 271 m |
 | Unnamed road distance | 0.39 km |
 
@@ -99,12 +102,12 @@ Statuses: **FAILED** = blocking validation failure. **NEEDS REVIEW** = no failur
 **Automated status: NEEDS REVIEW**
 
 **Unresolved warnings (human review required):**
-- campus exit unresolved: 814 m via (unnamed) → Neptune Street → Mercury Street; public access and actual usability require on-site verification
+- `campus-exit-unverified` — campus exit unresolved: 814 m via (unnamed) → Neptune Street → Mercury Street; public access and actual usability require on-site verification (value: `{"distanceM":813.6,"roads":["(unnamed)","Neptune Street","Mercury Street"]}`)
 
 | Field | Value |
 |---|---|
 | App via label (unchanged, comparison only) | P. Burgos |
-| Primary roads (name match only; source: Project team visual review of diagnostic run 20261117T052515Z-1b3f27, 2026-11-17) | National Highway 4; P. Burgos Street |
+| Primary roads (name match only; source: Project team visual inspection of diagnostic run 20261117T052515Z-1b3f27 (2026-11-17). Local-only run: its GeoJSON output is git-ignored and not included in the repository; shares measured from it are recorded in docs/routes/alangilan-review-notes.md) | National Highway 4; P. Burgos Street |
 | Primary-road share (raw) | 81.8% (3.66 km of 4.47 km) — National Highway 4: 3,138 m; P. Burgos Street: 523 m |
 | Road-name evidence (inspection aid, not proof; not evidence of what students ride) | substantial |
 | Requested destination (alangilan.ts) | 13.7575, 121.058 |
@@ -119,6 +122,7 @@ Statuses: **FAILED** = blocking validation failure. **NEEDS REVIEW** = no failur
 | Raw geometry (185 pts) / simplified (23 pts) | 4.49 km (Δ 0.3% vs OSRM) / 4.49 km |
 | Near-straight check (straight ≥ 500 m and ratio < 1.02) | straight 3,442 m, ratio 1.303 → no warning |
 | Longest segment (simplified) | 526 m |
+| Application path geometry hash (`routeGeometrySha256`, 24 pts incl. campus point) | `0acebf039f49791150704294d99b79e64ab5bf43a30d3e86d25fc53581a7479c` |
 | Campus exit (before first primary road) | (unnamed) 133 m → Neptune Street 410 m → Mercury Street 271 m |
 | Unnamed road distance | 0.13 km |
 
@@ -147,13 +151,13 @@ Statuses: **FAILED** = blocking validation failure. **NEEDS REVIEW** = no failur
 **Automated status: NEEDS REVIEW**
 
 **Unresolved warnings (human review required):**
-- destination overshoot 430 m > 300 m after entering the 100 m zone around the requested destination
-- campus exit unresolved: 814 m via (unnamed) → Neptune Street → Mercury Street; public access and actual usability require on-site verification
+- `destination-overshoot` — destination overshoot 430 m > 300 m after entering the 100 m zone around the requested destination (value: `430.1`)
+- `campus-exit-unverified` — campus exit unresolved: 814 m via (unnamed) → Neptune Street → Mercury Street; public access and actual usability require on-site verification (value: `{"distanceM":813.6,"roads":["(unnamed)","Neptune Street","Mercury Street"]}`)
 
 | Field | Value |
 |---|---|
 | App via label (unchanged, comparison only) | Diversion Rd |
-| Primary roads (name match only; source: Project team visual review of diagnostic run 20261117T052515Z-1b3f27, 2026-11-17) | Batangas City–San Pascual–Bauan Bypass Road; Aquino Avenue |
+| Primary roads (name match only; source: Project team visual inspection of diagnostic run 20261117T052515Z-1b3f27 (2026-11-17). Local-only run: its GeoJSON output is git-ignored and not included in the repository; shares measured from it are recorded in docs/routes/alangilan-review-notes.md) | Batangas City–San Pascual–Bauan Bypass Road; Aquino Avenue |
 | Primary-road share (raw) | 67.1% (6.52 km of 9.72 km) — Batangas City–San Pascual–Bauan Bypass Road: 4,690 m; Aquino Avenue: 1,833 m |
 | Road-name evidence (inspection aid, not proof; not evidence of what students ride) | substantial |
 | Requested destination (alangilan.ts) | 13.79, 121.02 |
@@ -168,6 +172,7 @@ Statuses: **FAILED** = blocking validation failure. **NEEDS REVIEW** = no failur
 | Raw geometry (247 pts) / simplified (57 pts) | 9.73 km (Δ 0.1% vs OSRM) / 9.72 km |
 | Near-straight check (straight ≥ 500 m and ratio < 1.02) | straight 5,932 m, ratio 1.639 → no warning |
 | Longest segment (simplified) | 762 m |
+| Application path geometry hash (`routeGeometrySha256`, 58 pts incl. campus point) | `a739cf3b7e0b6b8fdb1f37dd670fb39b4e96583a342c990ed9fd159f98f62207` |
 | Campus exit (before first primary road) | (unnamed) 133 m → Neptune Street 410 m → Mercury Street 271 m |
 | Unnamed road distance | 0.79 km |
 
@@ -200,15 +205,15 @@ Statuses: **FAILED** = blocking validation failure. **NEEDS REVIEW** = no failur
 **Automated status: NEEDS REVIEW**
 
 **Unresolved warnings (human review required):**
-- endpoint snap 203 m > 150 m: the snapped destination needs human review
-- endpoint-zone-not-reached: the route never enters the 100 m zone around the requested destination, so destination overshoot is not measurable
-- destination snap bearing constraint applied (30° ± 45°): it does not guarantee the final approach direction; verify the approach visually
-- campus exit unresolved: 814 m via (unnamed) → Neptune Street → Mercury Street; public access and actual usability require on-site verification
+- `endpoint-snap` — endpoint snap 203 m > 150 m: the snapped destination needs human review (value: `202.7`)
+- `endpoint-zone-not-reached` — endpoint-zone-not-reached: the route never enters the 100 m zone around the requested destination, so destination overshoot is not measurable (value: `100`)
+- `snap-bearing-applied` — destination snap bearing constraint applied (30° ± 45°): it does not guarantee the final approach direction; verify the approach visually (value: `{"bearingDeg":30,"rangeDeg":45}`)
+- `campus-exit-unverified` — campus exit unresolved: 814 m via (unnamed) → Neptune Street → Mercury Street; public access and actual usability require on-site verification (value: `{"distanceM":813.6,"roads":["(unnamed)","Neptune Street","Mercury Street"]}`)
 
 | Field | Value |
 |---|---|
 | App via label (unchanged, comparison only) | Batangas–Lipa Rd |
-| Primary roads (name match only; source: Project team visual review of diagnostic run 20261117T052515Z-1b3f27, 2026-11-17) | STAR Tollway (Southern Tagalog Arterial Road / E2) |
+| Primary roads (name match only; source: Project team visual inspection of diagnostic run 20261117T052515Z-1b3f27 (2026-11-17). Local-only run: its GeoJSON output is git-ignored and not included in the repository; shares measured from it are recorded in docs/routes/alangilan-review-notes.md) | STAR Tollway (Southern Tagalog Arterial Road / E2) |
 | Primary-road share (raw) | 74.7% (5.98 km of 8.01 km) — STAR Tollway (Southern Tagalog Arterial Road / E2): 5,980 m |
 | Road-name evidence (inspection aid, not proof; not evidence of what students ride) | substantial |
 | Requested destination (alangilan.ts) | 13.82, 121.115 |
@@ -224,6 +229,7 @@ Statuses: **FAILED** = blocking validation failure. **NEEDS REVIEW** = no failur
 | Raw geometry (145 pts) / simplified (29 pts) | 8.02 km (Δ 0.1% vs OSRM) / 8.01 km |
 | Near-straight check (straight ≥ 500 m and ratio < 1.02) | straight 5,999 m, ratio 1.335 → no warning |
 | Longest segment (simplified) | 1,585 m |
+| Application path geometry hash (`routeGeometrySha256`, 30 pts incl. campus point) | `8bd8d0fd894975962374b2ef2299c53cbf9670a5b2024de5e9ed98afe19815d6` |
 | Campus exit (before first primary road) | (unnamed) 133 m → Neptune Street 410 m → Mercury Street 271 m |
 | Unnamed road distance | 0.13 km |
 
@@ -239,7 +245,7 @@ Statuses: **FAILED** = blocking validation failure. **NEEDS REVIEW** = no failur
 
 **Forcing via-points:** none.
 
-**Destination snap bearing provenance:** source: Northbound STAR carriageway geometry nearest the endpoint in diagnostic run 20261117T052515Z-1b3f27 (13.818842, 121.116483); reason: Without it the destination snaps to the southbound carriageway, producing a 4.9 km overshoot and return; added by BIYAHE project team (planning review) on 2026-11-17.
+**Destination snap bearing provenance:** source: Northbound STAR carriageway geometry nearest the endpoint in diagnostic run 20261117T052515Z-1b3f27 (13.818842, 121.116483). Local-only run: its GeoJSON output is git-ignored and not included in the repository; reason: Without it the destination snaps to the southbound carriageway, producing a 4.9 km overshoot and return; added by BIYAHE project team (planning review) on 2026-11-17.
 
 **Reviewer checklist:**
 
@@ -254,12 +260,12 @@ Statuses: **FAILED** = blocking validation failure. **NEEDS REVIEW** = no failur
 **Automated status: NEEDS REVIEW** · **Partial route:** ends before the destination town; not a full journey.
 
 **Unresolved warnings (human review required):**
-- campus exit unresolved: 814 m via (unnamed) → Neptune Street → Mercury Street; public access and actual usability require on-site verification
+- `campus-exit-unverified` — campus exit unresolved: 814 m via (unnamed) → Neptune Street → Mercury Street; public access and actual usability require on-site verification (value: `{"distanceM":813.6,"roads":["(unnamed)","Neptune Street","Mercury Street"]}`)
 
 | Field | Value |
 |---|---|
 | App via label (unchanged, comparison only) | STAR Tollway |
-| Primary roads (name match only; source: Project team visual review of diagnostic run 20261117T052515Z-1b3f27, 2026-11-17) | President Jose P. Laurel Highway |
+| Primary roads (name match only; source: Project team visual inspection of diagnostic run 20261117T052515Z-1b3f27 (2026-11-17). Local-only run: its GeoJSON output is git-ignored and not included in the repository; shares measured from it are recorded in docs/routes/alangilan-review-notes.md) | President Jose P. Laurel Highway |
 | Primary-road share (raw) | 72.1% (6.97 km of 9.67 km) — President Jose P. Laurel Highway: 6,968 m |
 | Road-name evidence (inspection aid, not proof; not evidence of what students ride) | substantial |
 | Requested destination (alangilan.ts) | 13.85, 121.095 |
@@ -274,6 +280,7 @@ Statuses: **FAILED** = blocking validation failure. **NEEDS REVIEW** = no failur
 | Raw geometry (338 pts) / simplified (46 pts) | 9.70 km (Δ 0.4% vs OSRM) / 9.69 km |
 | Near-straight check (straight ≥ 500 m and ratio < 1.02) | straight 7,729 m, ratio 1.254 → no warning |
 | Longest segment (simplified) | 946 m |
+| Application path geometry hash (`routeGeometrySha256`, 47 pts incl. campus point) | `58229959c457faf52902cf8a7f61a660a0e960a0f12d3522de7539430fb3202e` |
 | Campus exit (before first primary road) | (unnamed) 133 m → Neptune Street 410 m → Mercury Street 271 m |
 | Unnamed road distance | 0.13 km |
 
