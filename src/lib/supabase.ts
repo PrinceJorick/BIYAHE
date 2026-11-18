@@ -34,10 +34,42 @@ const corridorRow = (id: string, c: CorridorState) => ({
   source: c.source, provenance: c.provenance, updated_at: iso(Date.now()),
 })
 
-const advisoryRow = (a: Advisory) => ({
-  id: a.id, source: a.source, issuer: a.issuer, title: a.title, body: a.body,
-  severity: a.severity, scope: a.scope, issued_at: iso(a.issuedAt),
-})
+// Advisory lifecycle (draft / published / resolved, edit and end times, corridor status) is stored in the
+// existing `payload` jsonb column under `lifecycle`, so supabase/schema.sql needs no new columns.
+type AdvisoryLifecycle = Pick<Advisory, 'status' | 'updatedAt' | 'expiresAt' | 'resolvedAt' | 'corridorStatus'>
+const LIFECYCLE_KEYS = ['status', 'updatedAt', 'expiresAt', 'resolvedAt', 'corridorStatus'] as const
+
+export function advisoryRow(a: Advisory) {
+  const lifecycle: AdvisoryLifecycle = {}
+  for (const k of LIFECYCLE_KEYS) if (a[k] !== undefined) (lifecycle as Record<string, unknown>)[k] = a[k]
+  return {
+    id: a.id, source: a.source, issuer: a.issuer, title: a.title, body: a.body,
+    severity: a.severity, scope: a.scope, issued_at: iso(a.issuedAt),
+    payload: Object.keys(lifecycle).length ? { lifecycle } : null,
+  }
+}
+
+export type AdvisoryDbRow = {
+  id: string; source: Advisory['source']; issuer: string; title: string; body: string | null
+  severity: Advisory['severity']; scope: string; issued_at: string; payload?: { lifecycle?: Partial<Record<string, unknown>> } | null
+}
+
+const STATUSES = ['draft', 'published', 'resolved']
+const CORRIDOR_STATUSES = ['open', 'slow', 'closed']
+const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)
+
+// Unknown or malformed lifecycle values are dropped, so a bad row reads as a plain published advisory
+// rather than breaking the student view.
+export function advisoryFromRow(r: AdvisoryDbRow): Advisory {
+  const l = r.payload?.lifecycle ?? {}
+  const a: Advisory = { id: r.id, source: r.source, issuer: r.issuer, title: r.title, body: r.body ?? '', severity: r.severity, scope: r.scope, issuedAt: ms(r.issued_at) }
+  if (typeof l.status === 'string' && STATUSES.includes(l.status)) a.status = l.status as Advisory['status']
+  if (num(l.updatedAt) !== undefined) a.updatedAt = num(l.updatedAt)
+  if (num(l.expiresAt) !== undefined) a.expiresAt = num(l.expiresAt)
+  if (num(l.resolvedAt) !== undefined) a.resolvedAt = num(l.resolvedAt)
+  if (typeof l.corridorStatus === 'string' && CORRIDOR_STATUSES.includes(l.corridorStatus)) a.corridorStatus = l.corridorStatus as Advisory['corridorStatus']
+  return a
+}
 
 // Returns null when unreachable, 'empty' when the tables have not been seeded yet.
 export async function fetchSnapshot(): Promise<Snapshot | 'empty' | null> {
@@ -63,9 +95,10 @@ export async function fetchSnapshot(): Promise<Snapshot | 'empty' | null> {
       return { id: r.id, name: r.name, walkMin: r.walk_min, capacity: r.capacity, occupied: r.occupied,
         amenities: { power: r.power, water: r.water, food: r.food }, pos: [r.lat, r.lon] }
     })
-    const advisories: Advisory[] = ad.data.map((r) => {
-      updatedAt = Math.max(updatedAt, ms(r.issued_at))
-      return { id: r.id, source: r.source, issuer: r.issuer, title: r.title, body: r.body ?? '', severity: r.severity, scope: r.scope, issuedAt: ms(r.issued_at) }
+    const advisories: Advisory[] = ad.data.map((r: AdvisoryDbRow) => {
+      const a = advisoryFromRow(r)
+      updatedAt = Math.max(updatedAt, a.issuedAt, a.updatedAt ?? 0)
+      return a
     })
     return { corridors: states, spots, advisories, updatedAt }
   } catch (e) {

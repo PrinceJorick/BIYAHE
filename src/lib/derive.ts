@@ -1,5 +1,5 @@
 import { DEFAULT_CAMPUS } from '../campuses'
-import { corridorById, type Advisory, type Amenity, type Corridor, type CorridorState, type Provenance, type Spot } from '../data'
+import { corridorById, type Amenity, type Corridor, type CorridorState, type Provenance, type Spot } from '../data'
 import { isOffline, type State } from './store'
 
 const MIN = 60_000
@@ -58,7 +58,8 @@ export function studentView(s: State, now: number): StudentView {
   }
 }
 
-export const concernsStudent = (a: Advisory, corridorId: string | null) => a.scope === 'all' || a.scope === 'campus' || a.scope === corridorId
+// Defined with the other advisory rules; re-exported for existing callers.
+export { concernsStudent } from './advisories'
 
 export function shareMessage(v: StudentView, mode: 'campus' | 'home') {
   const { corridor, cs, spot } = v

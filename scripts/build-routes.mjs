@@ -19,19 +19,23 @@
 //
 // Map data © OpenStreetMap contributors, ODbL 1.0 — https://www.openstreetmap.org/copyright
 
-import { createHash, randomBytes } from 'node:crypto'
+import { randomBytes } from 'node:crypto'
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, writeSync } from 'node:fs'
 import { basename, dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
-  dedupeConsecutive, haversineM, isValidLatLng, maxSegmentM, osrmToLatLng, pathLengthM, roundLatLng, simplify,
+  haversineM, isValidLatLng, maxSegmentM, osrmToLatLng, pathLengthM, roundLatLng,
   withinAlangilanRoutingBounds,
 } from '../src/lib/geo.js'
 import {
-  buildBearingsParam, classifyOvershoot, classifySnappedEndLoop, computeZoneExcess, detectCampusExit, ENDPOINT_ZONE_M,
-  finalApproach, findPositiveClaims, localFrame, matchPrimaryRoads, NEAR_STRAIGHT_MIN_M, NEAR_STRAIGHT_RATIO, nearStraight,
-  normalizeRoadName, validateApproach,
+  buildAppPath, buildBearingsParam, classifyOvershoot, classifySnappedEndLoop, computeZoneExcess, detectCampusExit,
+  finalApproach, findPositiveClaims, geojsonSha256, localFrame, matchPrimaryRoads, nearStraight, normalizeRoadName,
+  processRoadPath, recordSha256, routeGeometryHash, validateApproach, validateWarningList,
 } from '../src/lib/routeChecks.js'
+import {
+  deriveRoutingPolicyParams, DIAG_SCHEMA_VERSION, GEOMETRY_PROCESSING_PARAMS, OSRM_REQUEST_POLICY, VERSIONS,
+  WARNING_SCHEMA_PARAMS,
+} from '../src/lib/routeVersions.js'
 import { CAMPUS, CAMPUS_ACCESS_ROADS, CORRIDORS, ROAD_GROUP_SOURCE } from './routes.config.mjs'
 
 // ── Settings ────────────────────────────────────────────────────────────────
@@ -44,19 +48,40 @@ export const DIAGNOSTICS_DIR = join(ROOT, 'docs', 'routes', 'diagnostics')
 const JOURNAL_DIR = join(ROOT, 'scripts')
 const diagnosticGeoJsonTarget = (runId) => join(DIAGNOSTICS_DIR, `alangilan-candidates.DIAGNOSTIC.${runId}.geojson`)
 
-const OSRM_BASE = 'https://router.project-osrm.org'
-const PROFILE = 'driving'
+// OSRM server identifier (from the shared routing policy) → URL. The URL lives only here, in this
+// developer-only script, because the shared policy module is importable by the app. Changing this URL
+// is a routing-policy change: bump ROUTING_POLICY_VERSION (routeVersions.test.ts pins it).
+export const OSRM_SERVER_URLS = Object.freeze({ 'osrm-public-demo-server': 'https://router.project-osrm.org' })
+export function osrmBaseUrl(policy = OSRM_REQUEST_POLICY) {
+  const url = OSRM_SERVER_URLS[policy.server]
+  if (!url) throw new Error(`No URL configured for OSRM server "${policy.server}"`)
+  return url
+}
+const OSRM_BASE = osrmBaseUrl()
+const PROFILE = OSRM_REQUEST_POLICY.profile
 const USER_AGENT = 'BIYAHE-route-generator (developer script)'
 const MIN_REQUEST_GAP_MS = 1100
 const REQUEST_TIMEOUT_MS = 15_000
-const SIMPLIFY_TOLERANCE_M = 5
-const DECIMALS = 5
-const LENGTH_TOLERANCE = 0.02 // raw geometry length vs OSRM distance
-const CONNECTOR_REVIEW_M = 300 // campus LOCATION → first road point
-const SNAP_REVIEW_M = 150 // OSRM endpoint snap distance
-const MAX_SEGMENT_GUARD_M = 3000 // gross-glitch guard only; not a road-following test
-const WEAK_ROAD_SHARE = 0.5 // primary-road share below this → review warning (inspection aid only)
-const FINAL_APPROACH_M = 150
+
+// Geometry processing and warning thresholds come from the shared, version-pinned schemas.
+export const SIMPLIFY_TOLERANCE_M = GEOMETRY_PROCESSING_PARAMS.simplification.toleranceM
+export const DECIMALS = GEOMETRY_PROCESSING_PARAMS.precision.decimals
+export const THRESHOLDS = WARNING_SCHEMA_PARAMS.thresholds
+const LENGTH_TOLERANCE = THRESHOLDS.lengthToleranceRatio // raw geometry length vs OSRM distance
+const CONNECTOR_REVIEW_M = THRESHOLDS.connectorReviewM // campus LOCATION → first road point
+const START_SNAP_REVIEW_M = THRESHOLDS.startSnapReviewM
+const END_SNAP_REVIEW_M = THRESHOLDS.endpointSnapReviewM
+const MAX_SEGMENT_GUARD_M = THRESHOLDS.maxSegmentGuardM // gross-glitch guard only; not a road-following test
+const WEAK_ROAD_SHARE = THRESHOLDS.weakRoadShareBelow // primary-road share below this → review warning (inspection aid only)
+const FINAL_APPROACH_M = THRESHOLDS.finalApproachM
+const ENDPOINT_ZONE_M = THRESHOLDS.endpointZoneM
+const NEAR_STRAIGHT_MIN_M = THRESHOLDS.nearStraightMinStraightM
+const NEAR_STRAIGHT_RATIO = THRESHOLDS.nearStraightMaxRatio
+
+// Version identifiers carried by every diagnostic report, GeoJSON and candidate data file of a run.
+export const versionMetadata = () => ({ ...VERSIONS })
+// Routing-policy parameters this generator runs with (pinned per ROUTING_POLICY_VERSION in tests).
+export const routingPolicyParams = () => deriveRoutingPolicyParams(CAMPUS, CORRIDORS)
 
 // Automated statuses. Each one is not verified, not confirmed, not approved and not production-ready.
 export const STATUS = Object.freeze({
@@ -75,8 +100,9 @@ const km = (n) => (n == null ? '—' : `${(n / 1000).toFixed(2)} km`)
 const pct = (n) => (n == null ? '—' : `${(n * 100).toFixed(1)}%`)
 const fmtPt = (p) => (p ? `${p[0]}, ${p[1]}` : '—')
 const r1 = (n) => (n == null ? null : Math.round(n * 10) / 10)
-// Hash with line endings normalised so a CRLF checkout (core.autocrlf) gives the same value.
-export const contentHash = (text) => createHash('sha256').update(text.replace(/\r\n/g, '\n'), 'utf8').digest('hex')
+// Candidate-data hash for the paired report: the shared record hash (CRLF → LF, so a CRLF checkout
+// gives the same value; byte-order marks and lone CRs rejected).
+export const contentHash = (text) => recordSha256(text)
 
 function checkInvocation() {
   if (process.env.npm_lifecycle_event !== 'routes:alangilan') {
@@ -142,15 +168,27 @@ class Failure extends Error {
   constructor(kind, message) { super(message); this.kind = kind }
 }
 
-const coordinatesFor = (c) => [CAMPUS, ...c.vias.map((v) => [v.lat, v.lon]), c.end]
+// Request coordinates in order: campus, via-points, requested destination ([lat, lng]).
+export const coordinatesFor = (c) => [CAMPUS, ...c.vias.map((v) => [v.lat, v.lon]), c.end]
 
 // One bearings entry per coordinate; only the destination of a corridor with `approach` is constrained.
-function bearingsFor(c) {
+export function bearingsFor(c, build = buildBearingsParam) {
   const count = coordinatesFor(c).length
   const constraints = c.approach ? [{ index: count - 1, bearingDeg: c.approach.bearingDeg, rangeDeg: c.approach.rangeDeg }] : []
-  const param = buildBearingsParam(count, constraints)
+  const param = build(count, constraints)
   if (param !== null && param.split(';').length !== count) throw new Error(`bearings has ${param.split(';').length} entries for ${count} coordinates`)
   return param
+}
+
+// The exact OSRM request for a corridor, built from the shared routing policy:
+//   <server URL>/<service>/<api version>/<profile>/<lon,lat;…>?<policy query>[&bearings=…]
+// OSRM wants lon,lat — converted explicitly from our [lat, lng]. `bearings` is omitted when unconstrained.
+export function buildRequestUrl(c, policy = OSRM_REQUEST_POLICY) {
+  const coords = coordinatesFor(c).map(([lat, lng]) => `${lng},${lat}`).join(';')
+  const bearings = bearingsFor(c)
+  const query = Object.entries(policy.query).map(([k, v]) => `${k}=${v}`).join('&')
+  const url = `${osrmBaseUrl(policy)}/${policy.service}/${policy.apiVersion}/${policy.profile}/${coords}?${query}${bearings ? `&bearings=${bearings}` : ''}`
+  return { url, bearings }
 }
 
 let lastRequestAt = 0
@@ -160,10 +198,7 @@ async function fetchRoute(c) {
   if (wait > 0) await sleep(wait)
   lastRequestAt = Date.now()
 
-  // OSRM wants lon,lat — convert explicitly from our [lat, lng].
-  const coords = coordinatesFor(c).map(([lat, lng]) => `${lng},${lat}`).join(';')
-  const bearings = bearingsFor(c)
-  const url = `${OSRM_BASE}/route/v1/${PROFILE}/${coords}?overview=full&geometries=geojson&steps=true${bearings ? `&bearings=${bearings}` : ''}`
+  const { url, bearings } = buildRequestUrl(c)
 
   let res
   try {
@@ -185,12 +220,21 @@ async function fetchRoute(c) {
 const baseResult = (c) => ({
   id: c.id, appViaLabel: c.appViaLabel, destination: c.destination, originalEnd: c.end, vias: c.vias,
   approach: c.approach ?? null, pathEnds: c.pathEnds ?? null, primaryRoads: c.primaryRoads,
-  failures: [], flags: [], needsReview: [],
+  failures: [], flags: [], warnings: [], needsReview: [],
 })
 
-// Returns everything that could be measured, plus failures (blocking) and flags (unresolved warnings).
+const round3 = (n) => Math.round(n * 1000) / 1000
+
+// A structured warning { code, text, value } (warning schema). The text is also kept in `flags` for the
+// human-readable report. The list is validated against the shared warning schema at the end of analyse().
+export function makeWarning(code, text, value) {
+  return { code, text, value }
+}
+
+// Returns everything that could be measured, plus failures (blocking) and structured warnings.
 export function analyse(c, body, bearings = null) {
   const r = { ...baseResult(c), bearingsParam: bearings }
+  const warn = (code, text, value) => { r.warnings.push(makeWarning(code, text, value)); r.flags.push(text) }
   const route = body.routes[0]
   r.osrmDataVersion = body.data_version ?? null
 
@@ -218,10 +262,21 @@ export function analyse(c, body, bearings = null) {
     if (r.lengthDelta > LENGTH_TOLERANCE) r.failures.push(`Geometry length ${m(r.rawLengthM)} differs from OSRM distance ${m(route.distance)} by ${pct(r.lengthDelta)} (> ${pct(LENGTH_TOLERANCE)})`)
   }
 
-  r.path = dedupeConsecutive(simplify(raw, SIMPLIFY_TOLERANCE_M).map((p) => roundLatLng(p, DECIMALS)))
+  // Shared gp-1 processing (convert → simplify → round → remove consecutive duplicates), also used by the
+  // approval script to reproduce this path from the raw geometry.
+  r.path = processRoadPath(coords)
   r.pathLengthM = pathLengthM(r.path)
   r.maxSegmentM = maxSegmentM(r.path)
   if (r.maxSegmentM > MAX_SEGMENT_GUARD_M) r.failures.push(`A segment of ${m(r.maxSegmentM)} exceeds the ${m(MAX_SEGMENT_GUARD_M)} glitch guard`)
+
+  // Geometry hash of the complete application path [campus, ...road path] (shared serialization).
+  try {
+    r.appPath = buildAppPath(CAMPUS, r.path)
+    r.routeGeometrySha256 = routeGeometryHash(r.appPath, CAMPUS)
+  } catch (e) {
+    r.routeGeometrySha256 = null
+    r.failures.push(`Application path cannot be serialized for hashing: ${e.message}`)
+  }
 
   // Endpoint snapping (OSRM waypoints) and the campus connector.
   const wps = Array.isArray(body.waypoints) ? body.waypoints : []
@@ -229,6 +284,9 @@ export function analyse(c, body, bearings = null) {
   const last = wps[wps.length - 1]
   if (!first || !last) r.failures.push('OSRM returned no waypoints')
   else {
+    // Exact OSRM waypoint data, kept verbatim for the diagnostic (ds-1) so the analysis can be re-run.
+    r.startWaypointRaw = { location: [...first.location], name: typeof first.name === 'string' ? first.name : null }
+    r.endWaypointRaw = { location: [...last.location], name: typeof last.name === 'string' ? last.name : null }
     r.snappedEndExact = osrmToLatLng(last.location)
     r.snappedStart = roundLatLng(osrmToLatLng(first.location), DECIMALS)
     r.snappedEnd = roundLatLng(r.snappedEndExact, DECIMALS)
@@ -236,16 +294,18 @@ export function analyse(c, body, bearings = null) {
     r.endSnapM = last.distance
     r.startSnapRoad = first.name || '(unnamed)'
     r.endSnapRoad = last.name || '(unnamed)'
-    if (r.startSnapM > SNAP_REVIEW_M) r.flags.push(`start snap ${m(r.startSnapM)} > ${m(SNAP_REVIEW_M)}`)
-    if (r.endSnapM > SNAP_REVIEW_M) r.flags.push(`endpoint snap ${m(r.endSnapM)} > ${m(SNAP_REVIEW_M)}: the snapped destination needs human review`)
+    if (r.startSnapM > START_SNAP_REVIEW_M) warn('start-snap', `start snap ${m(r.startSnapM)} > ${m(START_SNAP_REVIEW_M)}`, r1(r.startSnapM))
+    if (r.endSnapM > END_SNAP_REVIEW_M) warn('endpoint-snap', `endpoint snap ${m(r.endSnapM)} > ${m(END_SNAP_REVIEW_M)}: the snapped destination needs human review`, r1(r.endSnapM))
     r.endMovedM = haversineM(c.end, r.snappedEnd)
   }
   r.connectorM = haversineM(CAMPUS, r.path[0])
-  if (r.connectorM > CONNECTOR_REVIEW_M) r.flags.push(`connector ${m(r.connectorM)} > ${m(CONNECTOR_REVIEW_M)}`)
+  if (r.connectorM > CONNECTOR_REVIEW_M) warn('connector-long', `connector ${m(r.connectorM)} > ${m(CONNECTOR_REVIEW_M)}`, r1(r.connectorM))
 
   // Near-straight: straight-line >= 500 m and route length / straight-line < 1.02.
   r.nearStraight = nearStraight(r.path)
-  if (r.nearStraight.warn) r.flags.push(`near-straight route (ratio ${r.nearStraight.ratio.toFixed(3)} < ${NEAR_STRAIGHT_RATIO} over ${m(r.nearStraight.straightM)})`)
+  if (r.nearStraight.warn) {
+    warn('near-straight', `near-straight route (ratio ${r.nearStraight.ratio.toFixed(3)} < ${NEAR_STRAIGHT_RATIO} over ${m(r.nearStraight.straightM)})`, round3(r.nearStraight.ratio))
+  }
 
   // Steps: names and refs as returned. Primary-road matching uses names only.
   const steps = (route.legs ?? []).flatMap((l) => l.steps ?? [])
@@ -277,14 +337,19 @@ export function analyse(c, body, bearings = null) {
   for (const s of r.steps) s.matchesPrimaryRoad = Boolean(s.name) && primaryKeys.has(normalizeRoadName(s.name))
   if (steps.length === 0) r.failures.push('OSRM returned no steps, so road names cannot be checked')
   else if (match.matchedM === 0) r.failures.push(`Primary-road share is 0: no step name matches ${c.primaryRoads.map((p) => `"${p.label}"`).join(', ')}`)
-  else if (match.share < WEAK_ROAD_SHARE) r.flags.push(`weak road-name evidence: ${pct(match.share)} of route on primary-road names (< ${pct(WEAK_ROAD_SHARE)})`)
+  else if (match.share < WEAK_ROAD_SHARE) {
+    warn('weak-road-evidence', `weak road-name evidence: ${pct(match.share)} of route on primary-road names (< ${pct(WEAK_ROAD_SHARE)})`, round3(match.share))
+  }
 
   // Primary destination overshoot, against the ORIGINAL requested destination.
   r.overshoot = computeZoneExcess(raw, c.end, ENDPOINT_ZONE_M)
   r.overshootClass = classifyOvershoot(r.overshoot.excessM)
-  if (r.overshootClass === 'fail') r.failures.push(`Destination overshoot ${m(r.overshoot.excessM)} > 1,000 m after entering the ${ENDPOINT_ZONE_M} m zone around the requested destination`)
-  else if (r.overshootClass === 'review') r.flags.push(`destination overshoot ${m(r.overshoot.excessM)} > 300 m after entering the ${ENDPOINT_ZONE_M} m zone around the requested destination`)
-  else if (r.overshootClass === 'not-measurable') r.flags.push(`endpoint-zone-not-reached: the route never enters the ${ENDPOINT_ZONE_M} m zone around the requested destination, so destination overshoot is not measurable`)
+  if (r.overshootClass === 'fail') r.failures.push(`Destination overshoot ${m(r.overshoot.excessM)} > ${m(THRESHOLDS.destinationOvershootFailM)} after entering the ${ENDPOINT_ZONE_M} m zone around the requested destination`)
+  else if (r.overshootClass === 'review') {
+    warn('destination-overshoot', `destination overshoot ${m(r.overshoot.excessM)} > ${m(THRESHOLDS.destinationOvershootReviewM)} after entering the ${ENDPOINT_ZONE_M} m zone around the requested destination`, r1(r.overshoot.excessM))
+  } else if (r.overshootClass === 'not-measurable') {
+    warn('endpoint-zone-not-reached', `endpoint-zone-not-reached: the route never enters the ${ENDPOINT_ZONE_M} m zone around the requested destination, so destination overshoot is not measurable`, ENDPOINT_ZONE_M)
+  }
 
   // Auxiliary snapped-endpoint loop measure (San Jose only). It can add a review warning; it never
   // replaces the primary measure, never clears a warning and never causes FAILED on its own.
@@ -292,19 +357,31 @@ export function analyse(c, body, bearings = null) {
   if (c.auxSnappedEndExcess && r.snappedEndExact) {
     const aux = computeZoneExcess(raw, r.snappedEndExact, ENDPOINT_ZONE_M)
     r.snappedEndLoop = { ...aux, classification: classifySnappedEndLoop(aux.excessM) }
-    if (r.snappedEndLoop.classification === 'review') r.flags.push(`snapped-endpoint-loop: ${m(aux.excessM)} > 300 m of extra travel after entering the ${ENDPOINT_ZONE_M} m zone around the snapped destination`)
+    if (r.snappedEndLoop.classification === 'review') {
+      warn('snapped-endpoint-loop', `snapped-endpoint-loop: ${m(aux.excessM)} > ${m(THRESHOLDS.snappedEndpointLoopReviewM)} of extra travel after entering the ${ENDPOINT_ZONE_M} m zone around the snapped destination`, r1(aux.excessM))
+    }
   }
 
   // Actual final approach direction from the final 150 m of geometry.
   r.finalApproach = finalApproach(raw, FINAL_APPROACH_M)
   r.finalStep = [...r.steps].reverse().find((s) => s.distanceM > 0) ?? null
-  if (c.approach) r.flags.push(`destination snap bearing constraint applied (${c.approach.bearingDeg}° ± ${c.approach.rangeDeg}°): it does not guarantee the final approach direction; verify the approach visually`)
+  if (c.approach) {
+    warn('snap-bearing-applied', `destination snap bearing constraint applied (${c.approach.bearingDeg}° ± ${c.approach.rangeDeg}°): it does not guarantee the final approach direction; verify the approach visually`,
+      { bearingDeg: c.approach.bearingDeg, rangeDeg: c.approach.rangeDeg })
+  }
 
-  // Shared campus exit: unresolved until on-site verification.
+  // Shared campus exit: unresolved until on-site verification. Unnamed segments are named "(unnamed)"
+  // in the warning value, the same form the shared evidence must use in segmentsInspected.
   r.campusExit = detectCampusExit(r.steps, CAMPUS_ACCESS_ROADS, c.primaryRoads)
   if (r.campusExit.usesAccessRoads) {
-    r.flags.push(`campus exit unresolved: ${m(r.campusExit.distanceM)} via ${r.campusExit.steps.map((s) => s.name ?? '(unnamed)').join(' → ')}; public access and actual usability require on-site verification`)
+    const names = r.campusExit.steps.map((s) => s.name ?? '(unnamed)')
+    warn('campus-exit-unverified', `campus exit unresolved: ${m(r.campusExit.distanceM)} via ${names.join(' → ')}; public access and actual usability require on-site verification`,
+      { distanceM: r1(r.campusExit.distanceM), roads: [...new Set(names)] })
   }
+
+  // Every warning must satisfy the shared warning schema; a mismatch is a generator bug, not a route issue.
+  const problems = validateWarningList(r.warnings, `${c.id} warnings`)
+  if (problems.length) throw new Error(`Generator produced invalid warnings:\n  ${problems.join('\n  ')}`)
 
   r.needsReview = r.flags.slice()
   return r
@@ -344,10 +421,11 @@ export function buildDataFile(results, meta) {
     "  pathEnds: 'partial' | null", '  primaryRoads: string[]', '  primaryShare: number', '  perRoadM: Record<string, number>',
     '  originalEnd: LatLng', '  snappedStart: LatLng', '  snappedEnd: LatLng', '  startSnapM: number', '  endSnapM: number',
     '  connectorM: number', '  osrmDistanceM: number', '  osrmDurationS: number', '  destinationOvershootM: number | null',
-    '  roads: { name: string | null; ref: string | null; distanceM: number }[]', '  needsReview: string[]', '  path: LatLng[]',
+    '  roads: { name: string | null; ref: string | null; distanceM: number }[]', '  needsReview: string[]',
+    '  routeGeometrySha256: string', '  path: LatLng[]',
     '}',
     '',
-    `export const ROUTES_META = { runId: ${ts(meta.runId)}, generatedAt: ${ts(meta.generatedAt)}, osrmDataVersion: ${ts(meta.osrmDataVersion)}, campus: ${ts(CAMPUS)} as LatLng, roadGroupSource: ${ts(ROAD_GROUP_SOURCE)} }`,
+    `export const ROUTES_META = { runId: ${ts(meta.runId)}, generatedAt: ${ts(meta.generatedAt)}, osrmDataVersion: ${ts(meta.osrmDataVersion)}, versions: ${ts(meta.versions)}, geojsonSha256: ${ts(meta.geojsonSha256)}, campus: ${ts(CAMPUS)} as LatLng, roadGroupSource: ${ts(ROAD_GROUP_SOURCE)} }`,
     '',
     'export const ALANGILAN_ROUTES: Record<string, GeneratedRoute> = {',
   ]
@@ -363,6 +441,7 @@ export function buildDataFile(results, meta) {
     for (const x of r.roads) lines.push(`      { name: ${ts(x.name)}, ref: ${ts(x.ref)}, distanceM: ${r1(x.distanceM)} },`)
     lines.push('    ],')
     lines.push(`    needsReview: ${ts(r.needsReview)},`)
+    lines.push(`    routeGeometrySha256: ${ts(r.routeGeometrySha256)},`)
     lines.push('    path: [')
     for (let i = 0; i < r.path.length; i += 4) {
       lines.push('      ' + r.path.slice(i, i + 4).map((p) => `[${p[0]}, ${p[1]}]`).join(', ') + ',')
@@ -380,7 +459,7 @@ function corridorSection(r) {
   const out = [`## ${r.id} — ${r.destination}`, '', `**Automated status: ${statusOf(r)}**${r.pathEnds === 'partial' ? ' · **Partial route:** ends before the destination town; not a full journey.' : ''}`, '']
   if (r.fetchError) out.push(`**Request failed:** ${r.fetchError}`, '')
   if (r.failures.length) out.push('**Blocking failures:**', ...r.failures.map((f) => `- ${f}`), '')
-  if (r.needsReview?.length) out.push('**Unresolved warnings (human review required):**', ...r.needsReview.map((f) => `- ${f}`), '')
+  if (r.warnings?.length) out.push('**Unresolved warnings (human review required):**', ...r.warnings.map((w) => `- \`${w.code}\` — ${w.text} (value: \`${JSON.stringify(w.value)}\`)`), '')
   if (!r.path) return out
   const o = r.overshoot
   const aux = r.snappedEndLoop
@@ -403,6 +482,7 @@ function corridorSection(r) {
     `| Raw geometry (${r.rawPointCount} pts) / simplified (${r.path.length} pts) | ${km(r.rawLengthM)} (Δ ${pct(r.lengthDelta)} vs OSRM) / ${km(r.pathLengthM)} |`,
     `| Near-straight check (straight ≥ ${m(NEAR_STRAIGHT_MIN_M)} and ratio < ${NEAR_STRAIGHT_RATIO}) | straight ${m(r.nearStraight.straightM)}, ratio ${r.nearStraight.ratio?.toFixed(3) ?? '—'} → ${r.nearStraight.warn ? 'warning' : 'no warning'} |`,
     `| Longest segment (simplified) | ${m(r.maxSegmentM)} |`,
+    `| Application path geometry hash (\`routeGeometrySha256\`, ${r.appPath ? r.appPath.length : '—'} pts incl. campus point) | \`${r.routeGeometrySha256 ?? '—'}\` |`,
     `| Campus exit (before first primary road) | ${r.campusExit.steps.map((s) => `${s.name ?? '(unnamed)'} ${m(s.distanceM)}`).join(' → ') || '—'} |`,
     `| Unnamed road distance | ${km(r.unnamedM)} |`,
     '',
@@ -440,6 +520,8 @@ export function buildReport(results, meta, { kind, dataHash }) {
       ? `- Candidate data: \`src/campuses/alangilan.routes.ts\` (approved: false, not used by the app) — SHA-256 (LF-normalised): \`${dataHash}\``
       : `- Candidate data: not written — ${failed.length} FAILED, ${review.length} NEEDS REVIEW (the candidate file is written only when all five are ${STATUS.candidate}).`,
     `- Diagnostic geometry: \`docs/routes/diagnostics/alangilan-candidates.DIAGNOSTIC.${meta.runId}.geojson\` (git-ignored), viewed with \`docs/routes/diagnostic-viewer.html\``,
+    `- Diagnostic GeoJSON SHA-256 (exact file bytes, no normalization): \`${meta.geojsonSha256}\``,
+    `- Versions: routing policy \`${meta.versions.routingPolicyVersion}\`, geometry processing \`${meta.versions.geometryProcessingVersion}\`, warning schema \`${meta.versions.warningSchemaVersion}\`, approval schema \`${meta.versions.approvalSchemaVersion}\`, generator \`${meta.versions.generatorVersion}\` (informational)`,
     `- Routing: OSRM demo server (${OSRM_BASE}), profile \`${PROFILE}\`, data version: ${meta.osrmDataVersion ?? 'not reported'}`,
     `- Campus LOCATION: ${fmtPt(CAMPUS)}`,
     `- Processing: [lon, lat] → [lat, lng]; Douglas–Peucker ${SIMPLIFY_TOLERANCE_M} m; rounded to ${DECIMALS} decimals`,
@@ -454,8 +536,8 @@ export function buildReport(results, meta, { kind, dataHash }) {
     '',
   ]
   if (failed.length) head.push('## Blocking failures', '', ...failed.flatMap((r) => [r.fetchError ? `- **${r.id}**: ${r.fetchError}` : null, ...r.failures.map((f) => `- **${r.id}**: ${f}`)].filter(Boolean)), '')
-  const warned = results.filter((r) => r.needsReview?.length)
-  if (warned.length) head.push('## Unresolved warnings', '', ...warned.flatMap((r) => r.needsReview.map((f) => `- **${r.id}**: ${f}`)), '')
+  const warned = results.filter((r) => r.warnings?.length)
+  if (warned.length) head.push('## Unresolved warnings', '', ...warned.flatMap((r) => r.warnings.map((w) => `- **${r.id}** \`${w.code}\`: ${w.text}`)), '')
   head.push(
     '## How to read this', '',
     '- Primary-road share = fraction of OSRM step distance whose road NAME matches the corridor\'s primary roads. Refs (e.g. 4, E2, 434-1) are shown but never counted. "Evidence" (none / weak < 50% / substantial) is an inspection aid, not proof that a route is correct or that students use it.',
@@ -498,14 +580,16 @@ export function buildDiagnosticGeoJSON(results, meta) {
     const summary = {
       ...base(r),
       failures: r.fetchError ? [r.fetchError, ...r.failures] : r.failures,
+      warnings: r.warnings ?? [],
       reviewFlags: r.needsReview ?? [],
+      routeGeometrySha256: r.routeGeometrySha256 ?? null,
       primaryRoads: r.primaryRoads.map((p) => p.label),
       primaryRoadSource: ROAD_GROUP_SOURCE,
       primaryShareRaw: r.primaryShare ?? null,
       perRoadM: r.perRoad ?? {},
       roadNameEvidence: roadEvidence(r),
       roadNameEvidenceNote: 'Inspection aid only, not proof that the route is correct or that students use it.',
-      osrmDistanceM: r.osrmDistanceM ?? null, osrmDurationS: r.osrmDurationS ?? null,
+      osrmDistanceM: r.osrmDistanceM ?? null, osrmDurationS: r.osrmDurationS ?? null, osrmDataVersion: r.osrmDataVersion ?? null,
       connectorM: r.connectorM ?? null, startSnapM: r.startSnapM ?? null, endSnapM: r.endSnapM ?? null,
       requestedDestination: r.originalEnd,
       destinationSnapBearingConstraint: r.approach ? { bearingDeg: r.approach.bearingDeg, rangeDeg: r.approach.rangeDeg, osrmBearingsParam: r.bearingsParam, note: 'Affects only where OSRM snaps the destination; does not guarantee the final approach direction.' } : null,
@@ -527,7 +611,7 @@ export function buildDiagnosticGeoJSON(results, meta) {
     for (const [i, s] of r.steps.entries()) {
       features.push({
         type: 'Feature', geometry: s.coordinates ? { type: 'LineString', coordinates: s.coordinates } : null,
-        properties: { ...base(r), kind: 'step', index: i, roadName: s.name, ref: s.ref, distanceM: r1(s.distanceM), maneuver: s.maneuver, matchesPrimaryRoad: s.matchesPrimaryRoad, stroke: s.matchesPrimaryRoad ? '#16a34a' : '#64748b', 'stroke-width': 3 },
+        properties: { ...base(r), kind: 'step', index: i, roadName: s.name, ref: s.ref, distanceM: r1(s.distanceM), osrmDistanceM: s.distanceM, maneuver: s.maneuver, matchesPrimaryRoad: s.matchesPrimaryRoad, stroke: s.matchesPrimaryRoad ? '#16a34a' : '#64748b', 'stroke-width': 3 },
       })
     }
     features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: toLonLat(r.originalEnd) }, properties: { ...base(r), kind: 'original-end', note: 'Requested destination (src/campuses/alangilan.ts)' } })
@@ -537,8 +621,8 @@ export function buildDiagnosticGeoJSON(results, meta) {
       features.push({ type: 'Feature', geometry: { type: 'Polygon', coordinates: zonePolygon(r.snappedEndExact, ENDPOINT_ZONE_M) }, properties: { ...base(r), kind: 'snapped-endpoint-zone', radiusM: ENDPOINT_ZONE_M, reached: aux.measurable } })
       if (aux.measurable) features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: toLonLat(aux.entryPoint) }, properties: { ...base(r), kind: 'snapped-zone-entry', excessM: r1(aux.excessM) } })
     }
-    if (r.snappedStart) features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: toLonLat(r.snappedStart) }, properties: { ...base(r), kind: 'snapped-start', snapM: r.startSnapM, road: r.startSnapRoad } })
-    if (r.snappedEnd) features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: toLonLat(r.snappedEnd) }, properties: { ...base(r), kind: 'snapped-end', snapM: r.endSnapM, movedFromRequestedM: r.endMovedM, road: r.endSnapRoad } })
+    if (r.snappedStart) features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: toLonLat(r.snappedStart) }, properties: { ...base(r), kind: 'snapped-start', snapM: r.startSnapM, road: r.startSnapRoad, osrmLocation: r.startWaypointRaw.location, osrmName: r.startWaypointRaw.name } })
+    if (r.snappedEnd) features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: toLonLat(r.snappedEnd) }, properties: { ...base(r), kind: 'snapped-end', snapM: r.endSnapM, movedFromRequestedM: r.endMovedM, road: r.endSnapRoad, osrmLocation: r.endWaypointRaw.location, osrmName: r.endWaypointRaw.name } })
     features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: [toLonLat(r.finalApproach.from), toLonLat(r.finalApproach.to)] }, properties: { ...base(r), kind: 'final-approach', bearingDeg: Math.round(r.finalApproach.bearingDeg), compass: r.finalApproach.compass, measuredOverM: r1(r.finalApproach.measuredOverM) } })
     features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: [toLonLat(CAMPUS), toLonLat(r.path[0])] }, properties: { ...base(r), kind: 'connector', connectorM: r.connectorM, overReviewLimit: r.connectorM > CONNECTOR_REVIEW_M } })
   }
@@ -548,6 +632,9 @@ export function buildDiagnosticGeoJSON(results, meta) {
       status: `${DIAGNOSTIC_MARK} — NOT APP DATA`,
       warning: 'Candidate geometry for human inspection only. Never import into the BIYAHE application.',
       runId: meta.runId, generatedAt: meta.generatedAt,
+      versions: meta.versions,
+      diagnosticSchemaVersion: DIAG_SCHEMA_VERSION,
+      routingPolicy: routingPolicyParams(),
       source: `OSRM demo server (${OSRM_BASE}), profile ${PROFILE}`, osrmDataVersion: meta.osrmDataVersion,
       attribution: '© OpenStreetMap contributors, ODbL 1.0 — https://www.openstreetmap.org/copyright',
       statuses: STATUS,
@@ -556,8 +643,141 @@ export function buildDiagnosticGeoJSON(results, meta) {
   }
 }
 
-// Re-checks staged GeoJSON text: parses, has the diagnostic markers, every position is [lon, lat] in bounds.
-function verifyGeoJsonText(text) {
+// Diagnostic GeoJSON text and the SHA-256 of the exact UTF-8 bytes that will be written (no line-ending
+// normalization). The file is written from this same text, so the hash covers the written bytes.
+export function serializeDiagnosticGeoJSON(results, meta) {
+  const text = JSON.stringify(buildDiagnosticGeoJSON(results, meta), null, 1) + '\n'
+  return { text, sha256: geojsonSha256(new TextEncoder().encode(text)) }
+}
+
+// ── Re-analysis from a diagnostic (ds-1) ────────────────────────────────────
+// The diagnostic stores the raw OSRM data analyse() consumes; everything else in it is derived. These
+// functions rebuild the OSRM-shaped response from that raw data alone and re-run the same analyse(), so the
+// approval validator never trusts stored statuses, warnings or metrics. Every analyse() input is listed here:
+//   route:    geometry.coordinates (route-raw geometry), distance (osrmDistanceM), duration (osrmDurationS)
+//   body:     data_version (route-raw osrmDataVersion)
+//   steps:    name (roadName), ref, distance (osrmDistanceM, exact), maneuver.type (maneuver), geometry, order (index)
+//   waypoints[first|last]: location (osrmLocation, exact), distance (snapM), name (osrmName)
+//   config:   the corridor (CORRIDORS), CAMPUS, CAMPUS_ACCESS_ROADS, thresholds, bearings (bearingsFor)
+// Nothing is defaulted: a missing, duplicate, ill-typed or out-of-order field throws.
+
+const own = (o, k) => o !== null && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, k)
+const isFiniteNumber = (v) => typeof v === 'number' && Number.isFinite(v)
+const isPosition = (p) => Array.isArray(p) && p.length >= 2 && isFiniteNumber(p[0]) && isFiniteNumber(p[1])
+
+export function rebuildOsrmBody(geo, corridorId) {
+  const fail = (msg) => { throw new Error(`${corridorId}: cannot rebuild the OSRM response from the diagnostic: ${msg}`) }
+  if (!geo || geo.type !== 'FeatureCollection' || !Array.isArray(geo.features)) fail('not a FeatureCollection')
+  if (geo.biyahe?.diagnosticSchemaVersion !== DIAG_SCHEMA_VERSION) fail(`diagnosticSchemaVersion is not ${DIAG_SCHEMA_VERSION}`)
+  const mine = geo.features.filter((f) => f?.properties?.corridorId === corridorId)
+  const one = (kind) => {
+    const found = mine.filter((f) => f.properties.kind === kind)
+    if (found.length !== 1) fail(`expected exactly one ${kind} feature, found ${found.length}`)
+    return found[0]
+  }
+  const field = (obj, key, what, check, expected) => {
+    if (!own(obj, key)) fail(`${what}.${key} is missing`)
+    if (!check(obj[key])) fail(`${what}.${key} must be ${expected}`)
+    return obj[key]
+  }
+  const strOrNull = (v) => v === null || typeof v === 'string'
+
+  const raw = one('route-raw')
+  if (raw.geometry?.type !== 'LineString' || !Array.isArray(raw.geometry.coordinates) || raw.geometry.coordinates.length < 2
+    || !raw.geometry.coordinates.every(isPosition)) fail('route-raw geometry must be a LineString of [lon, lat] positions')
+  const rp = raw.properties
+  const distance = field(rp, 'osrmDistanceM', 'route-raw', isFiniteNumber, 'a finite number')
+  const duration = field(rp, 'osrmDurationS', 'route-raw', (v) => v === null || isFiniteNumber(v), 'a finite number or null')
+  const dataVersion = field(rp, 'osrmDataVersion', 'route-raw', strOrNull, 'a string or null')
+
+  const stepFeatures = mine.filter((f) => f.properties.kind === 'step')
+  if (stepFeatures.length === 0) fail('no step features')
+  const steps = stepFeatures.map((f, i) => {
+    const p = f.properties
+    const what = `step[${i}]`
+    if (field(p, 'index', what, Number.isInteger, 'an integer') !== i) fail(`step indexes must be 0..${stepFeatures.length - 1} in order (found ${p.index} at position ${i})`)
+    const g = f.geometry
+    if (g !== null && !(g?.type === 'LineString' && Array.isArray(g.coordinates))) fail(`${what}.geometry must be a LineString or null`)
+    const maneuver = field(p, 'maneuver', what, strOrNull, 'a string or null')
+    return {
+      name: field(p, 'roadName', what, strOrNull, 'a string or null'),
+      ref: field(p, 'ref', what, strOrNull, 'a string or null'),
+      distance: field(p, 'osrmDistanceM', what, isFiniteNumber, 'a finite number (exact OSRM step distance)'),
+      maneuver: maneuver === null ? null : { type: maneuver },
+      geometry: g === null ? null : { type: 'LineString', coordinates: g.coordinates },
+    }
+  })
+
+  const waypoint = (kind) => {
+    const p = one(kind).properties
+    return {
+      location: field(p, 'osrmLocation', kind, isPosition, 'an exact [lon, lat] position'),
+      distance: field(p, 'snapM', kind, isFiniteNumber, 'a finite number'),
+      name: field(p, 'osrmName', kind, strOrNull, 'a string or null'),
+    }
+  }
+
+  return {
+    code: 'Ok',
+    data_version: dataVersion,
+    routes: [{
+      distance, duration: duration === null ? undefined : duration,
+      geometry: { type: 'LineString', coordinates: raw.geometry.coordinates },
+      legs: [{ steps }],
+    }],
+    waypoints: [waypoint('snapped-start'), waypoint('snapped-end')],
+  }
+}
+
+// Re-runs the generator's own analyse() on a corridor's raw data from the diagnostic.
+export function reanalyseFromDiagnostic(geo, corridor) {
+  return analyse(corridor, rebuildOsrmBody(geo, corridor.id), bearingsFor(corridor))
+}
+
+const canonical = (v) => JSON.stringify(v)
+
+// Re-analyses one corridor and requires every stored feature of that corridor (statuses, warnings, hashes,
+// paths, metrics, zones, steps …) to equal the features regenerated from the re-analysis, exactly.
+// Returns { result, problems }; `result` is the recomputed analysis (null if it could not be rebuilt).
+export function verifyDiagnosticRoute(geo, corridor) {
+  const id = corridor.id
+  let r
+  try { r = reanalyseFromDiagnostic(geo, corridor) } catch (e) { return { result: null, problems: [e.message] } }
+  const problems = []
+  const stored = geo.features.filter((f) => f?.properties?.corridorId === id)
+  const storedRaw = stored.find((f) => f.properties.kind === 'route-raw')?.properties ?? {}
+  const status = statusOf(r)
+  if (!Object.values(STATUS).includes(storedRaw.validation)) problems.push(`${id}: unknown stored status ${JSON.stringify(storedRaw.validation)}`)
+  if (storedRaw.validation !== status) problems.push(`${id}: stored status ${JSON.stringify(storedRaw.validation)} does not match the recomputed status "${status}"`)
+  if (canonical(storedRaw.warnings) !== canonical(r.warnings)) problems.push(`${id}: stored warnings do not match the recomputed warnings`)
+  if (storedRaw.routeGeometrySha256 !== r.routeGeometrySha256) problems.push(`${id}: stored routeGeometrySha256 does not match the recomputed application path`)
+  const simplified = stored.find((f) => f.properties.kind === 'route-simplified')?.geometry?.coordinates
+  if (r.path && canonical(simplified) !== canonical(r.path.map(toLonLat))) problems.push(`${id}: stored route-simplified does not match the recomputed path`)
+
+  // Every other stored value: regenerate this corridor's features and compare them one by one.
+  const regenerated = buildDiagnosticGeoJSON([r], { runId: geo.biyahe?.runId }).features.filter((f) => f.properties?.corridorId === id)
+  if (stored.length !== regenerated.length) {
+    problems.push(`${id}: the diagnostic has ${stored.length} features for this route; the recomputed analysis has ${regenerated.length}`)
+  } else {
+    stored.forEach((f, i) => {
+      const g = regenerated[i]
+      if (canonical(f) === canonical(g)) return
+      const kind = g.properties.kind
+      if (f.properties?.kind !== kind) { problems.push(`${id}: feature ${i} is ${JSON.stringify(f.properties?.kind)}; expected ${kind}`); return }
+      if (canonical(f.geometry) !== canonical(g.geometry)) problems.push(`${id}: ${kind} geometry does not match the recomputed analysis`)
+      const keys = new Set([...Object.keys(f.properties), ...Object.keys(JSON.parse(canonical(g.properties)))])
+      for (const k of keys) {
+        if (canonical(f.properties[k]) !== canonical(g.properties[k])) problems.push(`${id}: ${kind}${kind === 'step' ? `[${g.properties.index}]` : ''}.${k} does not match the recomputed analysis`)
+      }
+    })
+  }
+  return { result: r, problems: [...new Set(problems)] }
+}
+
+// Re-checks staged GeoJSON text: the bytes hash to the recorded value, it parses, has the diagnostic
+// markers, and every position is [lon, lat] in bounds.
+export const verifyGeoJsonText = (expectedSha256) => (text) => {
+  if (geojsonSha256(new TextEncoder().encode(text)) !== expectedSha256) throw new Error('Staged diagnostic GeoJSON bytes do not match the recorded SHA-256')
   const g = JSON.parse(text)
   if (g.type !== 'FeatureCollection' || !String(g.biyahe?.status).startsWith(DIAGNOSTIC_MARK)) throw new Error('Diagnostic GeoJSON lacks its marker')
   for (const f of g.features) {
@@ -663,12 +883,17 @@ function rollback(state) {
 
 // Builds every output for a set of results and applies the generation rules. Exported so the
 // promotion and wording logic can be exercised offline with fixture results.
-export function writeOutputs(results, meta, { promoteFn = promote } = {}) {
+export function writeOutputs(results, runMeta, { promoteFn = promote } = {}) {
   const statuses = results.map(statusOf)
   const allCandidate = results.length === CORRIDORS.length && statuses.every((s) => s === STATUS.candidate)
 
+  // The GeoJSON is built first (it carries the run ID and versions); its exact-bytes hash then goes into
+  // the report and any candidate data, so every output of the run names the same run, versions and hash.
+  const baseMeta = { ...runMeta, versions: runMeta.versions ?? versionMetadata() }
+  const { text: geoJsonText, sha256: geojsonHash } = serializeDiagnosticGeoJSON(results, baseMeta)
+  const meta = { ...baseMeta, geojsonSha256: geojsonHash }
+
   const diagnosticText = buildReport(results, meta, { kind: 'diagnostic', dataHash: null })
-  const geoJsonText = JSON.stringify(buildDiagnosticGeoJSON(results, meta), null, 1) + '\n'
   assertNoPositiveClaims('diagnostic report', diagnosticText)
   assertNoPositiveClaims('diagnostic GeoJSON', geoJsonText)
 
@@ -683,14 +908,17 @@ export function writeOutputs(results, meta, { promoteFn = promote } = {}) {
 
   // Diagnostics first (always), as one transaction; then the candidate pair, as another.
   const geoTarget = diagnosticGeoJsonTarget(meta.runId)
-  promoteFn([{ target: DIAGNOSTIC_TARGET, text: diagnosticText }, { target: geoTarget, text: geoJsonText, verify: verifyGeoJsonText }], meta.runId)
+  promoteFn([
+    { target: DIAGNOSTIC_TARGET, text: diagnosticText },
+    { target: geoTarget, text: geoJsonText, verify: verifyGeoJsonText(geojsonHash) },
+  ], meta.runId)
   if (candidate) {
     promoteFn([
       { target: DATA_TARGET, text: candidate.dataText, verify: verifyDataText(results) },
       { target: REPORT_TARGET, text: candidate.reportText },
     ], meta.runId)
   }
-  return { statuses, allCandidate, geoTarget }
+  return { statuses, allCandidate, geoTarget, geojsonSha256: geojsonHash, meta }
 }
 
 async function main() {
@@ -719,11 +947,11 @@ async function main() {
   }
 
   const versions = [...new Set(results.map((r) => r.osrmDataVersion).filter(Boolean))]
-  const meta = { runId, generatedAt, osrmDataVersion: versions.join(', ') || null }
-  const { statuses, allCandidate, geoTarget } = writeOutputs(results, meta)
+  const meta = { runId, generatedAt, osrmDataVersion: versions.join(', ') || null, versions: versionMetadata() }
+  const { statuses, allCandidate, geoTarget, geojsonSha256: geoHash } = writeOutputs(results, meta)
 
   console.log(`\nDiagnostic report:  ${relative(ROOT, DIAGNOSTIC_TARGET)}`)
-  console.log(`Diagnostic GeoJSON: ${relative(ROOT, geoTarget)} (${DIAGNOSTIC_MARK})`)
+  console.log(`Diagnostic GeoJSON: ${relative(ROOT, geoTarget)} (${DIAGNOSTIC_MARK}; SHA-256 ${geoHash})`)
   if (allCandidate) console.log(`Candidate data:     ${relative(ROOT, DATA_TARGET)} and ${relative(ROOT, REPORT_TARGET)} (approved: false; not used by the app)`)
   else console.log(`Candidate data:     not written (${statuses.filter((s) => s !== STATUS.candidate).length} corridor(s) are ${STATUS.failed} or ${STATUS.review}).`)
   if (statuses.includes(STATUS.failed)) process.exitCode = 1
