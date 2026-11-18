@@ -118,11 +118,14 @@ describe('map wiring (source guards)', () => {
   })
 
   it('no straight line is drawn from campus to a safe spot', () => {
-    expect(corridorMapSource).not.toContain('line-walk')
+    expect(corridorMapSource).not.toContain('line-walk ')
     expect(corridorMapSource).not.toMatch(/positions=\{\[CAMPUS,/)
-    // The only polylines are the corridor paths.
-    expect(corridorMapSource.match(/<Polyline/g)).toHaveLength(1)
+    // Two polylines only: the corridor paths, and a walking route that is mapped OSM geometry (live or saved,
+    // validated in src/lib/walkRoute.ts). The straight-line estimate has no path and is never drawn.
+    expect(corridorMapSource.match(/<Polyline/g)).toHaveLength(2)
     expect(corridorMapSource).toContain('positions={c.path}')
+    expect(corridorMapSource).toContain('positions={walk.path}')
+    expect(corridorMapSource).toContain("(s.walk.mode === 'live' || s.walk.mode === 'cached')")
   })
 
   it('the development warning is computed only in development', () => {

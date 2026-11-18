@@ -1,9 +1,12 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { ACTIVE_CAMPUS } from '../campuses/active'
-import { advisoryId, corridors, fallbackWeather, fixture, spotSeeds, type Amenity, type Snapshot, type Weather } from '../data'
+import { advisoryId, CAMPUS, corridors, fallbackWeather, fixture, spotSeeds, type Amenity, type Snapshot, type Spot, type Weather } from '../data'
 import * as adv from './advisories'
-import { idbGet, idbSet } from './idb'
+import { idbGet, idbSet, ROUTES } from './idb'
+import { logBuildInfo } from './buildInfo'
+import { reconcileSnapshot } from './spotData'
 import * as remote from './supabase'
+import { resolveWalkRoute, WALK_ROUTER_URL, type WalkRoute } from './walkRoute'
 import { fetchWeather } from './weather'
 
 export type Role = 'student' | 'staff'
@@ -27,6 +30,9 @@ export type State = {
   savedAt: number
   weather: Weather
   spotId: string | null
+  // Walking directions to the safe spot on screen (src/lib/walkRoute.ts) and the spot being looked up.
+  walk: WalkRoute | null
+  walkLoading: string | null
   toast: { id: number; text: string; urgent: boolean } | null
 }
 
@@ -71,6 +77,8 @@ let state: State = {
   savedAt: Date.now(),
   weather: fallbackWeather(),
   spotId: null,
+  walk: null,
+  walkLoading: null,
   toast: null,
   ...readPrefs(),
 }
@@ -128,7 +136,9 @@ function persist(snapshot: Snapshot) {
   void idbSet(SNAPSHOT_KEY, { snapshot, savedAt })
 }
 
-function receive(next: Snapshot) {
+function receive(incoming: Snapshot) {
+  // An older tab or an old database row may still carry renamed spots or superseded coordinates.
+  const next = reconcileSnapshot(incoming, spotSeeds)
   if (state.scenario === 'offline') {
     held = next
     return
@@ -186,11 +196,17 @@ let started = false
 export async function init() {
   if (started) return
   started = true
+  logBuildInfo()
 
-  const saved = await idbGet<{ snapshot: Snapshot; savedAt: number }>(SNAPSHOT_KEY)
+  const stored = await idbGet<{ snapshot: Snapshot; savedAt: number }>(SNAPSHOT_KEY)
   const weather = await idbGet<Weather>(WEATHER_KEY)
-  if (saved && matchesCampus(saved.snapshot)) set({ snapshot: saved.snapshot, savedAt: saved.savedAt })
-  else void idbSet(SNAPSHOT_KEY, { snapshot: state.snapshot, savedAt: state.savedAt })
+  // Saved copies keep their occupancy, amenities, advisories and route status; safe-spot names, positions and
+  // capacities always come from the current registry (src/lib/spotData.ts).
+  const saved = stored?.snapshot?.corridors ? { ...stored, snapshot: reconcileSnapshot(stored.snapshot, spotSeeds) } : null
+  if (saved && matchesCampus(saved.snapshot)) {
+    set({ snapshot: saved.snapshot, savedAt: saved.savedAt })
+    void idbSet(SNAPSHOT_KEY, saved)
+  } else void idbSet(SNAPSHOT_KEY, { snapshot: state.snapshot, savedAt: state.savedAt })
   if (weather) set({ weather: { ...weather, live: false } })
   set({ ready: true })
 
@@ -262,6 +278,33 @@ export function selectSpot(spotId: string | null) {
   set({ spotId })
 }
 
+// ── Walking route to a safe spot ────────────────────────────────────────────
+// One lookup per spot shown. A newer request always wins (a slow answer for a spot the student has moved away
+// from is dropped). Never leaves a loading state behind: resolveWalkRoute never throws and has its own timeout.
+let walkRequest = 0
+
+export async function loadWalkRoute(spot: Pick<Spot, 'id' | 'pos'> | undefined) {
+  if (!spot) {
+    walkRequest++
+    if (state.walk || state.walkLoading) set({ walk: null, walkLoading: null })
+    return
+  }
+  const allowNetwork = Boolean(WALK_ROUTER_URL) && !isOffline(state) && !isLowBattery(state)
+  const cur = state.walk
+  // Nothing better to get: a live route is current, or there is no network to improve on what is shown.
+  if (cur?.spotId === spot.id && (cur.mode === 'live' || !allowNetwork)) return
+  if (state.walkLoading === spot.id) return
+  const id = ++walkRequest
+  set({ walkLoading: spot.id })
+  const route = await resolveWalkRoute(spot.id, CAMPUS, spot.pos, {
+    allowNetwork,
+    cacheGet: (k) => idbGet(k, ROUTES),
+    cacheSet: (k, v) => idbSet(k, v, ROUTES),
+  })
+  if (id !== walkRequest) return
+  set({ walk: route, walkLoading: null })
+}
+
 export function setScenario(scenario: Scenario) {
   const wasOffline = state.scenario === 'offline'
   set({ scenario })
@@ -291,7 +334,7 @@ export async function refresh(): Promise<boolean> {
 
 export function adjustOccupancy(spotId: string, delta: number) {
   const spots = state.snapshot.spots.map((s) =>
-    s.id === spotId ? { ...s, occupied: Math.min(s.capacity, Math.max(0, s.occupied + delta)) } : s,
+    s.id === spotId ? { ...s, occupied: Math.min(s.capacity ?? Infinity, Math.max(0, s.occupied + delta)) } : s,
   )
   const spot = spots.find((s) => s.id === spotId)!
   commit({ ...state.snapshot, spots, updatedAt: Date.now() }, () => remote.pushSpot(spot))

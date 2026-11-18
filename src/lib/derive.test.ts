@@ -28,6 +28,8 @@ function makeState(overrides: Partial<State> = {}): State {
     savedAt: NOW,
     weather: fallbackWeather(NOW),
     spotId: null,
+    walk: null,
+    walkLoading: null,
     toast: null,
     ...overrides,
   }
@@ -109,8 +111,16 @@ describe('studentView safe spot', () => {
 
   it('has no spot when every spot is full', () => {
     const base = fixture('disrupted', NOW)
-    const spots = base.spots.map((s) => ({ ...s, occupied: s.capacity }))
+    const spots = base.spots.filter((s) => s.capacity != null).map((s) => ({ ...s, occupied: s.capacity! }))
     expect(studentView(makeState({ snapshot: { ...base, spots } }), NOW).spot).toBeUndefined()
+  })
+
+  it('never treats a spot with unassessed capacity as full, and prefers known space on equal walks', () => {
+    const base = fixture('disrupted', NOW)
+    const known = base.spots.map((s) => (s.capacity == null ? s : { ...s, occupied: s.capacity }))
+    expect(studentView(makeState({ snapshot: { ...base, spots: known } }), NOW).spot?.id).toBe('lounge')
+    // With the gym open, the gym (known space) comes before the lounge at the same walking estimate.
+    expect(studentView(makeState(), NOW).spot?.id).toBe('gym')
   })
 })
 
@@ -209,7 +219,7 @@ describe('shareMessage', () => {
 
     it('single amenity (Library)', () => {
       expect(shareMessage(view({ snapshot: clear, spotId: 'library' }), 'campus')).toBe(
-        "I'm safe at BatStateU Alangilan. I am staying on campus for now, so I'm waiting at Einstein Bldg Library, 2nd floor (power). I'll head home when the road clears.",
+        "I'm safe at BatStateU Alangilan. I am staying on campus for now, so I'm waiting at Einstein Bldg Library, 2nd Floor (power). I'll head home when the road clears.",
       )
     })
 

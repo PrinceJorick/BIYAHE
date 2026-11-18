@@ -131,7 +131,7 @@ describe('spot seeds and fixture snapshots', () => {
     const state = {
       ready: true, role: 'student', staffRole: 'DRRMO Coordinator', corridorId: 'lipa', scenario: 'disrupted',
       lowBattery: false, batteryHint: false, online: true, backend: 'device', snapshot: snap, savedAt: NOW,
-      weather: fallbackWeather(NOW), spotId: null, toast: null,
+      weather: fallbackWeather(NOW), spotId: null, walk: null, walkLoading: null, toast: null,
     } satisfies State
     studentView(state, NOW)
     fixture('clear', NOW)
@@ -197,12 +197,14 @@ describe('Pablo Borbon', () => {
     for (const campus of Object.values(campuses)) for (const x of campus.spots) expect(m(x.pos, campus.location)).toBeLessThan(500)
   })
 
-  it('pins the Alangilan safe spots (Sparta Gymnasium and the library)', () => {
+  it('pins the Alangilan safe spots (Sparta Gymnasium, the library and the Student Lounge)', () => {
     expect(alangilan.spots).toEqual([
       { id: 'gym', name: 'Sparta Gymnasium', walkMin: 1, capacity: 1030,
-        amenities: { power: true, water: true, food: false }, pos: [13.78422, 121.07394] },
-      { id: 'library', name: 'Einstein Bldg Library, 2nd floor', walkMin: 2, capacity: 250,
-        amenities: { power: true, water: false, food: false }, pos: [13.78412, 121.07481] },
+        amenities: { power: true, water: true, food: false }, pos: [13.784276340529747, 121.07413074951742] },
+      { id: 'library', name: 'Einstein Bldg Library, 2nd Floor', walkMin: 1, capacity: 250,
+        amenities: { power: true, water: false, food: false }, pos: [13.784168707874697, 121.0749349027738] },
+      { id: 'lounge', name: 'Student Lounge', walkMin: 1, capacity: null,
+        amenities: { power: false, water: false, food: false }, pos: [13.78393267903075, 121.07417575704717] },
     ])
   })
 })

@@ -31,12 +31,14 @@ describe("fixture('clear')", () => {
     })
   })
 
-  it('lists the Alangilan safe spots with light occupancy (5% and 25% of capacity)', () => {
+  it('lists the Alangilan safe spots with light occupancy (5% and 25% of capacity; unassessed capacity starts empty)', () => {
     expect(snap.spots).toEqual([
       { id: 'gym', name: 'Sparta Gymnasium', walkMin: 1, capacity: 1030, occupied: 52,
-        amenities: { power: true, water: true, food: false }, pos: [13.78422, 121.07394] },
-      { id: 'library', name: 'Einstein Bldg Library, 2nd floor', walkMin: 2, capacity: 250, occupied: 63,
-        amenities: { power: true, water: false, food: false }, pos: [13.78412, 121.07481] },
+        amenities: { power: true, water: true, food: false }, pos: [13.784276340529747, 121.07413074951742] },
+      { id: 'library', name: 'Einstein Bldg Library, 2nd Floor', walkMin: 1, capacity: 250, occupied: 63,
+        amenities: { power: true, water: false, food: false }, pos: [13.784168707874697, 121.0749349027738] },
+      { id: 'lounge', name: 'Student Lounge', walkMin: 1, capacity: null, occupied: 0,
+        amenities: { power: false, water: false, food: false }, pos: [13.78393267903075, 121.07417575704717] },
     ])
   })
 })
@@ -71,10 +73,11 @@ describe("fixture('disrupted')", () => {
     expect(Object.keys(snap.corridors)).toEqual(['lipa', 'batangas', 'bauan', 'sanjose', 'tanauan'])
   })
 
-  it('fills the safe spots (gym 361/1030, library full at 250/250)', () => {
+  it('fills the safe spots (gym 361/1030, library full at 250/250, lounge capacity not assessed)', () => {
     expect(snap.spots.map((s) => [s.id, s.occupied, s.capacity])).toEqual([
       ['gym', 361, 1030],
       ['library', 250, 250],
+      ['lounge', 0, null],
     ])
   })
 

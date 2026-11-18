@@ -25,11 +25,22 @@ export function ago(t: number, now: number) {
 
 export const amenityLabel: Record<Amenity, string> = { power: 'Power', water: 'Water', food: 'Food' }
 
-export const spacesLeft = (s: Spot) => s.capacity - s.occupied
+/** Spaces left, or null when the spot's capacity has not been assessed. */
+export const spacesLeft = (s: Spot): number | null => (s.capacity == null ? null : s.capacity - s.occupied)
 
-// Nearest spot that still has room.
+/** Known to be full. A spot with unassessed capacity is never reported full. */
+export const isFull = (s: Spot) => s.capacity != null && s.occupied >= s.capacity
+
+/** Short capacity line for lists and markers. */
+export function spaceText(s: Spot) {
+  if (s.capacity == null) return s.occupied > 0 ? `${s.occupied} waiting · capacity not yet assessed` : 'Capacity not yet assessed'
+  return isFull(s) ? 'Full' : `${s.capacity - s.occupied} of ${s.capacity} spaces left`
+}
+
+// Nearest spot that still has room. On equal walking estimates a spot with known free space comes before one
+// whose capacity has not been assessed.
 export const bestSpot = (spots: Spot[]) =>
-  [...spots].filter((s) => spacesLeft(s) > 0).sort((a, b) => a.walkMin - b.walkMin)[0] as Spot | undefined
+  [...spots].filter((s) => !isFull(s)).sort((a, b) => a.walkMin - b.walkMin || Number(a.capacity == null) - Number(b.capacity == null))[0] as Spot | undefined
 
 export type StudentView = {
   corridor: Corridor
@@ -49,7 +60,7 @@ export function studentView(s: State, now: number): StudentView {
   const ageMin = Math.max(0, Math.round((now - s.snapshot.updatedAt) / MIN))
   const offline = isOffline(s)
   const stale = ageMin > STALE_AFTER_MIN
-  const chosen = s.snapshot.spots.find((x) => x.id === s.spotId && spacesLeft(x) > 0)
+  const chosen = s.snapshot.spots.find((x) => x.id === s.spotId && !isFull(x))
   return {
     corridor, cs, offline, stale, ageMin,
     decision: cs.status === 'closed' ? 'wait' : 'go',
