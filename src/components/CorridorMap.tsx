@@ -3,9 +3,14 @@ import { useEffect, useRef } from 'react'
 import { MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import { BatteryLow } from 'lucide-react'
 import { DEFAULT_CAMPUS } from '../campuses'
+import { alangilanRoadStatus, alangilanRouteGeometry, PREVIEW_ON } from '../campuses/alangilan'
 import { CAMPUS, corridors, type CorridorStatus, type LatLng } from '../data'
 import { spacesLeft, studentView } from '../lib/derive'
-import { fitKey, mapFitPoints } from '../lib/mapView'
+import {
+  devRoadDataWarning, FIT_MAX_ZOOM, FIT_PADDING_PX, fitKey, mapFitPoints, MAX_ZOOM, MIN_ZOOM, type MapExtent,
+} from '../lib/mapView'
+import DemoRoutes from './DemoRoutes'
+import MapFrame from './MapFrame'
 import { isLowBattery, selectSpot, useApp, useNow } from '../lib/store'
 
 const glyph = {
@@ -36,24 +41,33 @@ function Fit({ points }: { points: LatLng[] }) {
     if (fitted.current?.map === map && fitted.current.key === key) return
     fitted.current = { map, key }
     map.invalidateSize()
-    map.fitBounds(L.latLngBounds(points).pad(0.18), { animate: false })
+    // Fit the displayed features themselves, with a fixed pixel margin and a zoom cap.
+    map.fitBounds(L.latLngBounds(points), { animate: false, padding: [FIT_PADDING_PX, FIT_PADDING_PX], maxZoom: FIT_MAX_ZOOM })
   }, [map, key, points])
   return null
 }
 
-// Student: own corridor, walking line to the chosen safe spot. Staff: every corridor.
+// Student: own corridor and the campus safe spots (the chosen spot is highlighted; no line is drawn to it,
+// because a straight line would look like a walking route). Staff: every corridor.
 // Line pattern carries status without colour: solid = open, dotted = slow, dashed = closed.
-export default function CorridorMap({ mode }: { mode: 'student' | 'staff' }) {
+// `extent` (student only): 'route' fits the whole route (side pane); 'nearby' fits campus, safe spots and
+// the first kilometre of the route (the narrow "Where to wait" map).
+export default function CorridorMap({ mode, extent = 'route' }: { mode: 'student' | 'staff'; extent?: MapExtent }) {
   const s = useApp()
   const v = studentView(s, useNow())
   const plain = isLowBattery(s)
   const shown = mode === 'staff' ? corridors : [v.corridor]
-  const points = mapFitPoints(mode, { campus: CAMPUS, corridors, corridor: v.corridor, spots: s.snapshot.spots })
+  const points = mapFitPoints(mode, extent, { campus: CAMPUS, corridors, corridor: v.corridor, spots: s.snapshot.spots })
+  const warning = import.meta.env.DEV ? devRoadDataWarning(alangilanRoadStatus, true) : null
+  const preview = alangilanRouteGeometry.previewRoutes
+  // PREVIEW_ON is a build-time constant, so ordinary production builds drop the notice code entirely.
+  const notice = PREVIEW_ON && preview && <DemoRoutes routes={preview} shown={shown} />
 
   return (
-    <div className="map" role="group" aria-label={mode === 'staff' ? 'Corridor risk map. The same information is listed below.' : 'Map of your corridor and campus safe spots. The same information is listed in text.'}>
-      <MapContainer key={plain ? 'plain' : 'tiles'} center={CAMPUS} zoom={15} scrollWheelZoom={!plain} zoomAnimation={!plain} fadeAnimation={!plain} markerZoomAnimation={!plain}>
-        {!plain && <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' maxZoom={18} />}
+    <MapFrame warning={warning} notice={notice} label={mode === 'staff' ? 'Corridor risk map. The same information is listed below.' : 'Map of your corridor and campus safe spots. The same information is listed in text.'}>
+      <MapContainer key={plain ? 'plain' : 'tiles'} center={CAMPUS} zoom={15} minZoom={MIN_ZOOM} maxZoom={MAX_ZOOM} attributionControl={false}
+        scrollWheelZoom={!plain} zoomAnimation={!plain} fadeAnimation={!plain} markerZoomAnimation={!plain}>
+        {!plain && <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maxZoom={MAX_ZOOM} />}
         <Fit points={points} />
         {shown.map((c) => {
           const st = s.snapshot.corridors[c.id].status
@@ -63,9 +77,6 @@ export default function CorridorMap({ mode }: { mode: 'student' | 'staff' }) {
             </Polyline>
           )
         })}
-        {mode === 'student' && v.spot && (
-          <Polyline key={v.spot.id} positions={[CAMPUS, v.spot.pos]} className="line-walk" pathOptions={{ weight: 4, opacity: 1 }} />
-        )}
         {s.snapshot.spots.map((x) => {
           const full = spacesLeft(x) <= 0
           const label = `${x.name}: ${full ? 'full' : `${spacesLeft(x)} spaces left`}`
@@ -79,6 +90,6 @@ export default function CorridorMap({ mode }: { mode: 'student' | 'staff' }) {
       {plain && (
         <p className="map-plain"><BatteryLow size={18} aria-hidden="true" />Simple map. Street tiles are off to save battery.</p>
       )}
-    </div>
+    </MapFrame>
   )
 }

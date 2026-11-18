@@ -47,3 +47,72 @@ describe('route generator isolation (production files only)', () => {
     expect(publicDiagnostics).toEqual([])
   })
 })
+
+// ── Application import graph (everything reachable from the entry point, src/main.tsx) ─────────
+// Glob keys are relative to this folder ('./x' = src/lib/x, '../a/b' = src/a/b); normalize to 'src/...'.
+const toRepo = (key: string) => (key.startsWith('./') ? `src/lib/${key.slice(2)}` : `src/${key.slice(3)}`)
+const sources = new Map(production.map(([k, t]) => [toRepo(k), t]))
+const normalize = (path: string) => {
+  const out: string[] = []
+  for (const seg of path.split('/')) { if (seg === '..') out.pop(); else if (seg !== '.' && seg !== '') out.push(seg) }
+  return out.join('/')
+}
+const specifiers = (text: string) => [...text.matchAll(/(?:^|[\s;])(?:import|export)\s[^'"]*?from\s*['"]([^'"]+)['"]|(?:^|[\s;])import\s*\(?\s*['"]([^'"]+)['"]/gm)]
+  .map((m) => (m[1] ?? m[2]).replace(/\?.*$/, ''))
+function resolveLocal(from: string, spec: string): string | null {
+  const base = normalize(`${from.slice(0, from.lastIndexOf('/'))}/${spec}`)
+  for (const c of [base, `${base}.ts`, `${base}.tsx`, `${base}.js`, `${base}/index.ts`, `${base}/index.tsx`]) if (sources.has(c)) return c
+  return base
+}
+function appGraph() {
+  const files = new Set<string>()
+  const external = new Set<string>()
+  const queue = ['src/main.tsx']
+  while (queue.length) {
+    const f = queue.pop()!
+    if (files.has(f)) continue
+    files.add(f)
+    for (const spec of specifiers(sources.get(f) ?? '')) {
+      if (spec.startsWith('.')) queue.push(resolveLocal(f, spec)!)
+      else external.add(spec)
+    }
+  }
+  return { files, external }
+}
+const isAsset = (f: string) => /.(css|svg|png|jpe?g|webp|woff2?)$/.test(f)
+const NODE_BUILTINS = /^(node:|fs$|fs\/|path$|crypto$|child_process$|os$|url$|module$|worker_threads$|stream$|buffer$|process$|util$)/
+
+describe('application import graph', () => {
+  const { files, external } = appGraph()
+
+  it('reaches the reviewed-road activation and the roads data (sanity)', () => {
+    for (const f of ['src/campuses/alangilan.ts', 'src/campuses/alangilan.roads.ts', 'src/lib/reviewedGeometry.ts', 'src/lib/routeHash.js', 'src/lib/routeVersions.js']) {
+      expect(files.has(f), f).toBe(true)
+    }
+  })
+
+  it('every reachable local module is a production source under src/', () => {
+    for (const f of files) if (!isAsset(f)) expect(sources.has(f), f).toBe(true)
+  })
+
+  it('imports no Node API (filesystem, crypto, child processes …)', () => {
+    expect([...external].filter((s) => NODE_BUILTINS.test(s))).toEqual([])
+  })
+
+  it('never reaches scripts/, the generator-only route checks, or diagnostic files', () => {
+    expect([...files].filter((f) => !f.startsWith('src/') || /routeChecks|\.geojson$|diagnostic/i.test(f))).toEqual([])
+  })
+
+  it('module-level freezes in routeVersions.js are marked pure, so unused policy tables stay out of the bundle', () => {
+    const text = sources.get('src/lib/routeVersions.js')!
+    const calls = [...text.matchAll(/^export const \w+ = (.*?)(deepFreeze|Object\.freeze)\(/gm)]
+    expect(calls.length).toBeGreaterThan(0)
+    for (const m of calls) expect(m[1], m[0]).toBe('/* @__PURE__ */ ')
+  })
+
+  it('the reviewed-geometry module imports only the shared hashing and version modules and types', () => {
+    expect(specifiers(sources.get('src/lib/reviewedGeometry.ts')!).sort()).toEqual(['../types', './routeHash.js', './routeVersions.js'])
+    expect(specifiers(sources.get('src/lib/routeHash.js')!)).toEqual(['./routeVersions.js'])
+    expect(specifiers(sources.get('src/lib/routeVersions.js')!)).toEqual([])
+  })
+})

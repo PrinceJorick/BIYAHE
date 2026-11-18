@@ -1,8 +1,9 @@
-import { Ban, CircleCheck, Clock, Droplet, Footprints, TriangleAlert, Utensils, Zap } from 'lucide-react'
+import { Ban, CircleCheck, Clock, Droplet, ExternalLink, TriangleAlert, Utensils, Zap } from 'lucide-react'
 import Badge from '../components/Badge'
 import CorridorMap from '../components/CorridorMap'
 import type { Amenity } from '../data'
 import { amenityLabel, spacesLeft, studentView } from '../lib/derive'
+import { googleMapsDirectionsUrl, walkEstimate } from '../lib/mapView'
 import { useMedia } from '../lib/router'
 import { selectSpot, useApp, useNow } from '../lib/store'
 
@@ -34,7 +35,7 @@ export default function SafeSpots() {
         <p className={`status tone-${tone}`}><Icon size={20} aria-hidden="true" />{saved ? 'Last known: ' : ''}{headline}</p>
       </div>
 
-      {!wide && <CorridorMap mode="student" />}
+      {!wide && <CorridorMap mode="student" extent="nearby" />}
 
       <ul className="legend" aria-label="Map legend">
         <li className="tone-ok"><Stroke /><CircleCheck size={16} aria-hidden="true" />Open</li>
@@ -43,10 +44,13 @@ export default function SafeSpots() {
       </ul>
 
       {spot ? (
-        <a className="btn btn-primary btn-block" target="_blank" rel="noreferrer"
-          href={`https://www.google.com/maps/dir/?api=1&destination=${spot.pos[0]},${spot.pos[1]}&travelmode=walking`}>
-          <Footprints size={20} aria-hidden="true" />Walk to {spot.name} · {spot.walkMin} min
-        </a>
+        <div className="stack" style={{ gap: 6 }}>
+          <a className="btn btn-primary btn-block" target="_blank" rel="noreferrer" href={googleMapsDirectionsUrl(spot.pos)}
+            aria-label={`Directions to ${spot.name} in Google Maps (opens outside BIYAHE, needs internet)`}>
+            <ExternalLink size={20} aria-hidden="true" />Directions in Google Maps (external, needs internet)
+          </a>
+          <p className="meta">{spot.name} is {walkEstimate(spot.walkMin)}. Google Maps chooses its own walking route; BIYAHE has not checked it.</p>
+        </div>
       ) : (
         <p className="banner tone-danger"><TriangleAlert size={20} aria-hidden="true" /><span>Every safe spot is full. Stay inside the nearest building and check with a guard or marshal.</span></p>
       )}
@@ -62,7 +66,7 @@ export default function SafeSpots() {
                 {full ? <Ban className="row-icon" size={22} aria-hidden="true" /> : <CircleCheck className="row-icon" size={22} aria-hidden="true" />}
                 <span className="row-body">
                   <span className="row-title">{x.name}{chosen && <span className="tag tone-ok" style={{ marginLeft: 8 }}>· Selected</span>}</span>
-                  <span className="meta">{x.walkMin} min walk · {full ? 'Full' : `${left} of ${x.capacity} spaces left`}</span>
+                  <span className="meta">{walkEstimate(x.walkMin)} · {full ? 'Full' : `${left} of ${x.capacity} spaces left`}</span>
                   <span className="cluster meta" style={{ gap: 14 }}>
                     {(Object.keys(amenityLabel) as Amenity[]).filter((a) => x.amenities[a]).map((a) => {
                       const A = amenityIcon[a]

@@ -1,0 +1,5 @@
+# Route approval integrity (scripts/approve-routes.mjs).
+# Approval records and evidence are hashed after CRLF→LF normalization; keep them LF in every checkout.
+docs/routes/approvals/**/*.json  text eol=lf
+# Diagnostic GeoJSON is hashed byte-for-byte (geojsonSha256): never convert its line endings.
+docs/routes/diagnostics/**/*.geojson  -text
