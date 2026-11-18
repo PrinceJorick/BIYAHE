@@ -1,7 +1,7 @@
 // Route checks used by the developer-only generator. These run before every generator run
 // (npm run routes:alangilan), so no OSRM request is made unless they pass. No network here.
 import { describe, expect, it } from 'vitest'
-import { alangilan } from '../campuses/alangilan'
+import { alangilan, ALANGILAN_HAND_DRAWN_CORRIDORS } from '../campuses/alangilan'
 import type { LatLng } from '../types'
 import { dedupeConsecutive, haversineM, osrmToLatLng, roundLatLng, simplify } from './geo'
 import {
@@ -293,7 +293,8 @@ describe('corridor config (src/lib/routeChecks.js, re-exported by scripts/routes
   it('matches the campus location and endpoints in alangilan.ts', () => {
     expect(CAMPUS).toEqual(alangilan.location)
     for (const c of CORRIDORS) {
-      const app = alangilan.corridors.find((x) => x.id === c.id)
+      // The generator's endpoints are those of the hand-drawn paths (the drawn paths now follow roads).
+      const app = ALANGILAN_HAND_DRAWN_CORRIDORS.find((x) => x.id === c.id)
       expect(app, c.id).toBeDefined()
       expect(c.end).toEqual(app!.path[app!.path.length - 1])
       expect(c.appViaLabel).toBe(app!.via)

@@ -21,10 +21,10 @@ export const ALANGILAN_HAND_DRAWN_CORRIDORS: Corridor[] = [
     path: [LOCATION, [13.795, 121.078], [13.82, 121.085], [13.85, 121.095]] },
 ]
 
-// Unverified prototype preview: only in the dev server or an explicit `vite build --mode route-preview`.
-// Written inline (not as a function call) so an ordinary production build folds it to false and drops the
-// preview data from the bundle. Must match PREVIEW_MODES in src/lib/previewGeometry.ts (tested).
-export const PREVIEW_ON = import.meta.env.MODE === 'development' || import.meta.env.MODE === 'route-preview'
+// Road-following geometry (the OSRM-derived routes in ./alangilan.preview.roads.ts) is shown to users in every
+// build, not only in the dev server: hand-drawn lines cut across fields and buildings. It is still validated at
+// runtime (all five or none) and formal reviewed geometry, once approved, takes precedence.
+export const PREVIEW_ON = true
 
 // Formal reviewed paths (all five or none) take precedence; invalid formal data falls back to hand-drawn,
 // never to the preview. Without formal data, the preview is used when enabled and valid (all five or none).
@@ -52,14 +52,23 @@ export const alangilan: Campus = {
   shortName: 'BatStateU Alangilan',
   location: LOCATION,
   corridors: alangilanRouteGeometry.corridors,
-  // Fixed attributes only; occupancy comes from the snapshot. Order matters: fixtures assign
-  // occupancy by position (cics, gym, library).
+  // Fixed attributes only; occupancy comes from the snapshot. Positions and capacities: see the notes below.
   spots: [
-    { id: 'cics', name: 'CICS Lobby', walkMin: 3, capacity: 180,
-      amenities: { power: true, water: true, food: true }, pos: [13.7849, 121.0745] },
-    { id: 'gym', name: 'Gymnasium', walkMin: 6, capacity: 500,
-      amenities: { power: true, water: true, food: false }, pos: [13.7838, 121.0727] },
-    { id: 'library', name: 'Library', walkMin: 4, capacity: 150,
-      amenities: { power: true, water: false, food: false }, pos: [13.7832, 121.0752] },
+    { id: 'gym', name: 'Sparta Gymnasium', walkMin: 1, capacity: 1030,
+      amenities: { power: true, water: true, food: false }, pos: [13.78422, 121.07394] },
+    { id: 'library', name: 'Einstein Bldg Library, 2nd floor', walkMin: 2, capacity: 250,
+      amenities: { power: true, water: false, food: false }, pos: [13.78412, 121.07481] },
   ],
 }
+
+// Where each waiting area's position and capacity come from. Capacity = usable floor area ÷ 2 m² per person
+// (see SPOT_CAPACITY_RULE in ./index.ts), rounded down to 10.
+// - Sparta Gymnasium: OpenStreetMap way 489736297 (leisure=sports_centre), footprint 2,766 m², which matches the
+//   ~64 × 42 m curved roof in Esri World Imagery. 2,766 × 0.75 usable ÷ 2 = 1,037 → 1,030. BatStateU's
+//   Fitness Development Center is reported to hold up to 4,000 for events (PIA, Jan 2023); that is event seating,
+//   and it is not confirmed to be this building, so it is not used.
+// - Library: the Alangilan (Foster Wheeler) library is on the 2nd floor of the Albert Einstein Building
+//   (library.batstateu.edu.ph/about), formerly the engineering (CEAFACS) building. Its four-storey U-shaped
+//   red roof east of the gym is matched from the Wikimedia Commons photo and satellite imagery; the point is
+//   its centre. Area is an estimate: a third of the ~2,600 m² floor plate ≈ 860 m² × 0.6 usable ÷ 2 = 258 → 250.
+// - Student Lounge: not added. No public source or map data gives its location.

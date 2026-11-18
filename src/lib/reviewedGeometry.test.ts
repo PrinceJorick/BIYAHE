@@ -68,10 +68,9 @@ describe('the application today', () => {
     expect(alangilanRoads).toBeNull()
   })
 
-  it('all five Alangilan corridors use their original hand-drawn paths, unchanged', () => {
+  it('no formal reviewed set is active; the hand-drawn fallback paths are unchanged', () => {
     expect(alangilanRoadActivation).toEqual({ corridors: ALANGILAN_HAND_DRAWN_CORRIDORS, active: false, problems: [] })
-    expect(alangilan.corridors).toBe(ALANGILAN_HAND_DRAWN_CORRIDORS)
-    expect(alangilan.corridors).toEqual(ORIGINAL)
+    expect(ALANGILAN_HAND_DRAWN_CORRIDORS).toEqual(ORIGINAL)
   })
 
   it('the campus anchor is the same point the route tools hash against', () => {

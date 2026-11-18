@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { corridors, type Advisory, type CorridorState, type Snapshot, type Spot } from '../data'
+import { ACTIVE_CAMPUS, campusKeyPrefix } from '../campuses/active'
+import { corridors, isCampusAdvisoryId, spotSeeds, type Advisory, type CorridorState, type Snapshot, type Spot } from '../data'
 
 // Live backend. Configured through VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY (see .env.example
 // and supabase/schema.sql). Every call resolves to null/false instead of throwing so the store
@@ -71,7 +72,13 @@ export function advisoryFromRow(r: AdvisoryDbRow): Advisory {
   return a
 }
 
-// Returns null when unreachable, 'empty' when the tables have not been seeded yet.
+// Campuses share one project. Route and spot IDs are unique across campuses, so each campus reads only its own
+// rows; advisories belong to a campus by ID prefix (see campusKeyPrefix).
+const prefix = campusKeyPrefix(ACTIVE_CAMPUS.id)
+const campusAdvisories = <Q extends { like: (c: string, p: string) => Q; not: (c: string, op: string, v: string) => Q }>(q: Q) =>
+  prefix ? q.like('id', `${prefix}%`) : q.not('id', 'like', '%:%')
+
+// Returns null when unreachable, 'empty' when this campus's rows have not been seeded yet.
 export async function fetchSnapshot(): Promise<Snapshot | 'empty' | null> {
   if (!configured) return null
   try {
@@ -79,23 +86,24 @@ export async function fetchSnapshot(): Promise<Snapshot | 'empty' | null> {
     const [cs, sp, ad] = await Promise.all([
       db.from('corridor_status').select('*'),
       db.from('safe_spots_view').select('*').order('walk_min'),
-      db.from('advisories').select('*').order('issued_at', { ascending: false }).limit(50),
+      campusAdvisories(db.from('advisories').select('*')).order('issued_at', { ascending: false }).limit(50),
     ])
     if (cs.error || sp.error || ad.error) throw cs.error ?? sp.error ?? ad.error
-    if (!cs.data.length || !sp.data.length) return 'empty'
+    const csRows = cs.data.filter((r) => corridors.some((c) => c.id === r.corridor_id))
+    const spRows = sp.data.filter((r) => spotSeeds.some((x) => x.id === r.id))
+    if (!csRows.length || !spRows.length) return 'empty'
     let updatedAt = 0
     const states: Record<string, CorridorState> = {}
-    for (const r of cs.data) {
-      if (!corridors.some((c) => c.id === r.corridor_id)) continue
+    for (const r of csRows) {
       states[r.corridor_id] = { status: r.status, minLo: r.min_lo, minHi: r.min_hi, note: r.note ?? '', source: r.source ?? '', provenance: r.provenance }
       updatedAt = Math.max(updatedAt, ms(r.updated_at))
     }
-    const spots: Spot[] = sp.data.map((r) => {
+    const spots: Spot[] = spRows.map((r) => {
       updatedAt = Math.max(updatedAt, ms(r.updated_at))
       return { id: r.id, name: r.name, walkMin: r.walk_min, capacity: r.capacity, occupied: r.occupied,
         amenities: { power: r.power, water: r.water, food: r.food }, pos: [r.lat, r.lon] }
     })
-    const advisories: Advisory[] = ad.data.map((r: AdvisoryDbRow) => {
+    const advisories: Advisory[] = ad.data.filter((r: AdvisoryDbRow) => isCampusAdvisoryId(r.id)).map((r: AdvisoryDbRow) => {
       const a = advisoryFromRow(r)
       updatedAt = Math.max(updatedAt, a.issuedAt, a.updatedAt ?? 0)
       return a
@@ -143,7 +151,8 @@ export async function pushAll(s: Snapshot): Promise<boolean> {
   const ok = await Promise.all([
     write((db) => db.from('corridor_status').upsert(Object.entries(s.corridors).map(([id, c]) => corridorRow(id, c)))),
     write((db) => db.from('safe_spots').upsert(s.spots.map(spotRow))),
-    write((db) => db.from('advisories').delete().not('id', 'in', `(${s.advisories.map((a) => `"${a.id}"`).join(',') || '""'})`)),
+    // Only this campus's advisories are replaced.
+    write((db) => campusAdvisories(db.from('advisories').delete()).not('id', 'in', `(${s.advisories.map((a) => `"${a.id}"`).join(',') || '""'})`)),
   ])
   if (s.advisories.length) ok.push(await write((db) => db.from('advisories').upsert(s.advisories.map(advisoryRow))))
   return ok.every(Boolean)

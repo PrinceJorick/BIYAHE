@@ -2,8 +2,9 @@ import L from 'leaflet'
 import { useEffect, useRef } from 'react'
 import { MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import { BatteryLow } from 'lucide-react'
-import { DEFAULT_CAMPUS } from '../campuses'
-import { alangilanRoadStatus, alangilanRouteGeometry, PREVIEW_ON } from '../campuses/alangilan'
+import { ACTIVE_CAMPUS } from '../campuses/active'
+import { alangilanRoadStatus } from '../campuses/alangilan'
+import { routeGeometry } from '../campuses/routes'
 import { CAMPUS, corridors, type CorridorStatus, type LatLng } from '../data'
 import { spacesLeft, studentView } from '../lib/derive'
 import {
@@ -58,10 +59,11 @@ export default function CorridorMap({ mode, extent = 'route' }: { mode: 'student
   const plain = isLowBattery(s)
   const shown = mode === 'staff' ? corridors : [v.corridor]
   const points = mapFitPoints(mode, extent, { campus: CAMPUS, corridors, corridor: v.corridor, spots: s.snapshot.spots })
-  const warning = import.meta.env.DEV ? devRoadDataWarning(alangilanRoadStatus, true) : null
-  const preview = alangilanRouteGeometry.previewRoutes
-  // PREVIEW_ON is a build-time constant, so ordinary production builds drop the notice code entirely.
-  const notice = PREVIEW_ON && preview && <DemoRoutes routes={preview} shown={shown} />
+  const warning = ACTIVE_CAMPUS.id === 'alangilan' && import.meta.env.DEV ? devRoadDataWarning(alangilanRoadStatus, true) : null
+  const routes = routeGeometry[ACTIVE_CAMPUS.id]
+  const preview = routes.selection.previewRoutes
+  // Shown whenever road-following routes are drawn: where they come from and their known limitations.
+  const notice = preview && <DemoRoutes routes={preview} shown={shown} exitNote={routes.exitNote} />
 
   return (
     <MapFrame warning={warning} notice={notice} label={mode === 'staff' ? 'Route risk map. The same information is listed below.' : 'Map of your route and campus safe spots. The same information is listed in text.'}>
@@ -85,7 +87,7 @@ export default function CorridorMap({ mode, extent = 'route' }: { mode: 'student
               eventHandlers={mode === 'student' && !full ? { click: () => selectSpot(x.id) } : undefined} />
           )
         })}
-        <Marker position={CAMPUS} icon={youIcon} title={DEFAULT_CAMPUS.shortName} alt={DEFAULT_CAMPUS.shortName} keyboard={false} />
+        <Marker position={CAMPUS} icon={youIcon} title={ACTIVE_CAMPUS.shortName} alt={ACTIVE_CAMPUS.shortName} keyboard={false} />
       </MapContainer>
       {plain && (
         <p className="map-plain"><BatteryLow size={18} aria-hidden="true" />Simple map. Street tiles are off to save battery.</p>

@@ -144,7 +144,7 @@ export function selectCorridorGeometry(opts: {
 
 // ── On-map wording ───────────────────────────────────────────────────────────
 
-export const PREVIEW_NOTICE = 'Prototype route preview — these road geometries have not been formally approved or physically verified. Do not use this preview as navigation or confirmation of public access.'
+export const PREVIEW_NOTICE = 'These routes follow roads in OpenStreetMap and have not been checked on site or formally approved. Use them as a guide to which roads your trip uses, not as turn-by-turn navigation or confirmation of public access.'
 export const CAMPUS_EXIT_NOTE = 'Campus exit (unnamed road, Neptune Street, Mercury Street): public access and usability not yet checked on site.'
 
 /** Route-specific limitations shown with the preview. Numbers come from the diagnostic run. */

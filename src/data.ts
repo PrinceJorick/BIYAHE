@@ -3,17 +3,26 @@
 import type {
   Advisory, Corridor, CorridorState, CorridorStatus, LatLng, Severity, Snapshot, Spot, Weather,
 } from './types'
-import { DEFAULT_CAMPUS } from './campuses'
+import { ACTIVE_CAMPUS, campusKeyPrefix } from './campuses/active'
 
 // The domain types live in ./types; re-exported so existing `import type … from '../data'` keeps working.
 export type {
   Advisory, AdvisorySource, Amenity, Corridor, CorridorState, CorridorStatus, LatLng, Provenance, Severity, Snapshot, Spot, Weather,
 } from './types'
 
-// Compatibility aliases for the default campus (Alangilan). The data itself lives in src/campuses.
-export const CAMPUS: LatLng = DEFAULT_CAMPUS.location
+// The campus this device uses (src/campuses/active.ts). The data itself lives in src/campuses.
+export const CAMPUS: LatLng = ACTIVE_CAMPUS.location
 
-export const corridors: Corridor[] = DEFAULT_CAMPUS.corridors
+export const corridors: Corridor[] = ACTIVE_CAMPUS.corridors
+
+export const spotSeeds = ACTIVE_CAMPUS.spots
+
+// Advisory IDs are prefixed for campuses other than the default, so campuses can share one backend.
+export const advisoryId = (id: string) => `${campusKeyPrefix(ACTIVE_CAMPUS.id)}${id}`
+export const isCampusAdvisoryId = (id: string) => {
+  const prefix = campusKeyPrefix(ACTIVE_CAMPUS.id)
+  return prefix ? id.startsWith(prefix) : !id.includes(':')
+}
 
 export const corridorById = (id: string | null) => corridors.find((c) => c.id === id) ?? corridors[0]
 
@@ -79,32 +88,42 @@ export const fromLgu = (a: LguAdvisory, id: string): Advisory => ({
 
 const MIN = 60_000
 
-// Snapshot spots from the campus seeds (cics, gym, library), with occupancy assigned by position.
-// Nested amenities/pos are copied so a snapshot never shares objects with the registry, and the
-// key order matches the spot literals this replaced.
-const baseSpots = (occupied: [number, number, number]): Spot[] =>
-  DEFAULT_CAMPUS.spots.map((s, i) => ({
-    id: s.id, name: s.name, walkMin: s.walkMin, capacity: s.capacity, occupied: occupied[i],
+// Snapshot spots from the campus seeds, with occupancy as a share of each spot's capacity (by position,
+// repeating). Nested amenities/pos are copied so a snapshot never shares objects with the registry.
+const baseSpots = (share: number[]): Spot[] =>
+  spotSeeds.map((s, i) => ({
+    id: s.id, name: s.name, walkMin: s.walkMin, capacity: s.capacity, occupied: Math.round(s.capacity * share[i % share.length]),
     amenities: { ...s.amenities }, pos: [s.pos[0], s.pos[1]],
   }))
 
+const spotNames = (names: string[]) => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`)
+
+// Demo scenarios. Disrupted: the first route is closed by flooding, the third (or second) is slow.
 export function fixture(kind: 'clear' | 'disrupted', now = Date.now()): Snapshot {
   const states: Record<string, CorridorState> = {}
   for (const c of corridors) states[c.id] = corridorStateFor(c, 'open')
   if (kind === 'clear') {
-    return { corridors: states, spots: baseSpots([10, 30, 40]), advisories: [], updatedAt: now - 2 * MIN }
+    return { corridors: states, spots: baseSpots([0.05, 0.25]), advisories: [], updatedAt: now - 2 * MIN }
   }
-  states.lipa = { ...corridorStateFor(corridors[0], 'closed', 'Flooding on JP Laurel Hwy near Balagtas. Classes suspended from 3:30 PM.', 'PAGASA + 3 LGU road reports'), minLo: 135, minHi: 190 }
-  states.bauan = corridorStateFor(corridors[2], 'slow', 'Heavy traffic and ponding on Diversion Rd.')
-  const advisories: Advisory[] = [
-    fromLgu({ office: 'Batangas City DRRMO', kind: 'flood', road: 'JP Laurel Hwy', barangays: ['Balagtas', 'Alangilan'], passable: 'none', corridorId: 'lipa',
-      headline: 'Flooding on JP Laurel Hwy near Balagtas', text: 'Knee-deep water near Balagtas. Not passable to jeepneys and light vehicles. Avoid the area.', issuedAt: now - 8 * MIN }, 'jpl-flood'),
+  const closed = corridors[0]
+  const slow = corridors[2] ?? corridors[1]
+  const flood = ACTIVE_CAMPUS.id === 'alangilan'
+    ? { headline: 'Flooding on JP Laurel Hwy near Balagtas', note: 'Flooding on JP Laurel Hwy near Balagtas. Classes suspended from 3:30 PM.', barangays: ['Balagtas', 'Alangilan'],
+      text: 'Knee-deep water near Balagtas. Not passable to jeepneys and light vehicles. Avoid the area.' }
+    : { headline: `Flooding on ${closed.via}`, note: `Flooding on ${closed.via}. Classes suspended from 3:30 PM.`, barangays: [],
+      text: `Knee-deep water on ${closed.via} towards ${closed.name}. Not passable to jeepneys and light vehicles. Avoid the area.` }
+  states[closed.id] = corridorStateFor(closed, 'closed', flood.note, 'PAGASA + 3 LGU road reports')
+  if (slow && slow !== closed) states[slow.id] = corridorStateFor(slow, 'slow', `Heavy traffic and ponding on ${slow.via}.`)
+  const open = spotNames(spotSeeds.map((s) => s.name))
+  const advisories = ([
+    fromLgu({ office: ACTIVE_CAMPUS.id === 'malvar' ? 'Batangas PDRRMO' : 'Batangas City DRRMO', kind: 'flood', road: closed.via, barangays: flood.barangays, passable: 'none', corridorId: closed.id,
+      headline: flood.headline, text: flood.text, issuedAt: now - 8 * MIN }, 'jpl-flood'),
     fromPagasa({ bulletinNo: 'RA-07', kind: 'rainfall', level: 'orange', area: 'Batangas',
       headline: 'Orange rainfall warning, Batangas', text: 'Intense rain (15–30 mm/h) expected over the next 3 hours. Flooding is threatening in low-lying areas.', issuedAt: now - 25 * MIN }),
     { id: 'campus-suspend', source: 'Campus', issuer: 'Campus DRRMO', title: 'Classes suspended from 3:30 PM',
-      body: 'All afternoon and evening classes at Alangilan are suspended. Safe spots are open in CICS Lobby and the Gymnasium.', severity: 'warning', scope: 'campus', issuedAt: now - 40 * MIN },
-  ]
-  return { corridors: states, spots: baseSpots([60, 200, 150]), advisories, updatedAt: now - 1 * MIN }
+      body: `All afternoon and evening classes at ${ACTIVE_CAMPUS.shortName} are suspended.${open ? ` Safe spots are open in ${open}.` : ''}`, severity: 'warning', scope: 'campus', issuedAt: now - 40 * MIN },
+  ] satisfies Advisory[]).map((a): Advisory => ({ ...a, id: advisoryId(a.id) }))
+  return { corridors: states, spots: baseSpots([0.35, 1]), advisories, updatedAt: now - 1 * MIN }
 }
 
 export const fallbackWeather = (now = Date.now()): Weather => ({ tempC: 26, precipMm: 1.2, windKph: 14, label: 'Light rain', fetchedAt: now, live: false })

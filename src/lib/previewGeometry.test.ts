@@ -145,8 +145,8 @@ describe('preview mode', () => {
     expect(isPreviewMode(undefined)).toBe(false)
   })
 
-  it('alangilan.ts enables it with the same two modes, inline so production builds drop it', () => {
-    expect(alangilanSource).toContain("export const PREVIEW_ON = import.meta.env.MODE === 'development' || import.meta.env.MODE === 'route-preview'")
+  it('alangilan.ts shows the road-following routes to users in every build', () => {
+    expect(alangilanSource).toContain('export const PREVIEW_ON = true')
     expect(alangilanSource).toContain('preview: PREVIEW_ON ? ALANGILAN_PREVIEW_ROADS : null')
   })
 })
@@ -154,7 +154,7 @@ describe('preview mode', () => {
 describe('on-map wording', () => {
   const route = (id: string) => ALANGILAN_PREVIEW_ROADS.routes.find((r) => r.routeId === id)!
   it('the persistent notice has the required text', () => {
-    expect(PREVIEW_NOTICE).toBe('Prototype route preview — these road geometries have not been formally approved or physically verified. Do not use this preview as navigation or confirmation of public access.')
+    expect(PREVIEW_NOTICE).toBe('These routes follow roads in OpenStreetMap and have not been checked on site or formally approved. Use them as a guide to which roads your trip uses, not as turn-by-turn navigation or confirmation of public access.')
   })
 
   it('route-specific limitations', () => {

@@ -31,14 +31,12 @@ describe("fixture('clear')", () => {
     })
   })
 
-  it('lists the three Alangilan safe spots with light occupancy', () => {
+  it('lists the Alangilan safe spots with light occupancy (5% and 25% of capacity)', () => {
     expect(snap.spots).toEqual([
-      { id: 'cics', name: 'CICS Lobby', walkMin: 3, capacity: 180, occupied: 10,
-        amenities: { power: true, water: true, food: true }, pos: [13.7849, 121.0745] },
-      { id: 'gym', name: 'Gymnasium', walkMin: 6, capacity: 500, occupied: 30,
-        amenities: { power: true, water: true, food: false }, pos: [13.7838, 121.0727] },
-      { id: 'library', name: 'Library', walkMin: 4, capacity: 150, occupied: 40,
-        amenities: { power: true, water: false, food: false }, pos: [13.7832, 121.0752] },
+      { id: 'gym', name: 'Sparta Gymnasium', walkMin: 1, capacity: 1030, occupied: 52,
+        amenities: { power: true, water: true, food: false }, pos: [13.78422, 121.07394] },
+      { id: 'library', name: 'Einstein Bldg Library, 2nd floor', walkMin: 2, capacity: 250, occupied: 63,
+        amenities: { power: true, water: false, food: false }, pos: [13.78412, 121.07481] },
     ])
   })
 })
@@ -73,11 +71,10 @@ describe("fixture('disrupted')", () => {
     expect(Object.keys(snap.corridors)).toEqual(['lipa', 'batangas', 'bauan', 'sanjose', 'tanauan'])
   })
 
-  it('fills the safe spots (gym 200/500, library full at 150/150)', () => {
+  it('fills the safe spots (gym 361/1030, library full at 250/250)', () => {
     expect(snap.spots.map((s) => [s.id, s.occupied, s.capacity])).toEqual([
-      ['cics', 60, 180],
-      ['gym', 200, 500],
-      ['library', 150, 150],
+      ['gym', 361, 1030],
+      ['library', 250, 250],
     ])
   })
 
