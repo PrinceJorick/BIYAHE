@@ -4,7 +4,7 @@ import { go } from '../lib/router'
 import { chooseRole, getState, setStaffRole, useApp, type StaffRole } from '../lib/store'
 
 const roles: { id: StaffRole; hint: string }[] = [
-  { id: 'DRRMO Coordinator', hint: 'Corridor risk, shelter capacity, campus advisories' },
+  { id: 'DRRMO Coordinator', hint: 'Route risk, shelter capacity, campus advisories' },
   { id: 'Building Marshal', hint: 'Capacity and amenities for your building' },
   { id: 'Guard on Duty', hint: 'Headcount updates at the gate and safe spots' },
 ]
@@ -33,7 +33,7 @@ export default function StaffAccess() {
         </fieldset>
         <p className="banner tone-saved" style={{ borderStyle: 'solid', fontWeight: 400 }}>
           <ShieldCheck size={20} aria-hidden="true" />
-          <span>You will see counts per corridor and per safe spot only. BIYAHE holds no names, IDs or locations of students (RA 10173).</span>
+          <span>You will see counts per route and per safe spot only. BIYAHE holds no names, IDs or locations of students (RA 10173).</span>
         </p>
         <div className="solo-actions">
           <button type="submit" className="btn btn-primary btn-block">Open Command Dashboard</button>

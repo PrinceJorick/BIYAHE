@@ -6,7 +6,7 @@ import { go } from '../lib/router'
 import { chooseRole, isLowBattery, setLowBattery, setScenario, useApp, useNow, type Scenario } from '../lib/store'
 
 const scenarios: { id: Scenario; label: string; hint: string }[] = [
-  { id: 'clear', label: 'Clear', hint: 'All corridors open. Home says head home now.' },
+  { id: 'clear', label: 'Clear', hint: 'All routes open. Home says head home now.' },
   { id: 'disrupted', label: 'Disrupted', hint: 'Flooding closes JP Laurel Hwy. Lipa commuters are told to wait.' },
   { id: 'stale', label: 'Stale >30m', hint: 'The last update is 38 minutes old, so everything is marked Saved copy.' },
   { id: 'offline', label: 'Offline Saved Copy', hint: 'Simulates no signal. The app runs from the copy saved on this phone.' },
@@ -27,7 +27,7 @@ export default function Profile() {
             <Database className="row-icon" size={22} aria-hidden="true" />
             <span className="row-body">
               <span className="row-title">Saved for offline</span>
-              <span className="meta">Corridor status, safe spots and alerts, saved {clock(s.savedAt)}</span>
+              <span className="meta">Route status, safe spots and alerts, saved {clock(s.savedAt)}</span>
             </span>
             <Badge kind="saved" />
           </div>
@@ -46,10 +46,10 @@ export default function Profile() {
           <div className="row">
             <MapPin className="row-icon" size={22} aria-hidden="true" />
             <span className="row-body">
-              <span className="row-title">Home corridor</span>
+              <span className="row-title">Your route home</span>
               <span className="meta">{v.corridor.name} via {v.corridor.via}</span>
             </span>
-            <a className="btn btn-quiet" href="#/setup">Change<span className="sr-only"> home corridor</span></a>
+            <a className="btn btn-quiet" href="#/setup">Change<span className="sr-only"> your route home</span></a>
           </div>
         </li>
         <li>
@@ -66,7 +66,7 @@ export default function Profile() {
             <ShieldCheck className="row-icon" size={22} aria-hidden="true" />
             <span className="row-body">
               <span className="row-title">Privacy</span>
-              <span className="meta">No account, no location tracking. Staff see only how many students use each corridor (RA 10173).</span>
+              <span className="meta">No account, no location tracking. Staff see only how many students use each route (RA 10173).</span>
             </span>
           </div>
         </li>
