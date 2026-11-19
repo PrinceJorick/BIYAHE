@@ -37,8 +37,8 @@ const PANE = [520, 700] as const   // wide side pane
 const COORD = [700, 420] as const  // coordinator map
 
 describe('zoom limits', () => {
-  it('are fixed: users can zoom from the regional view (10) to street level (18); fitting stops at 16', () => {
-    expect({ MIN_ZOOM, MAX_ZOOM, FIT_MAX_ZOOM }).toEqual({ MIN_ZOOM: 10, MAX_ZOOM: 18, FIT_MAX_ZOOM: 16 })
+  it('are fixed: users can zoom from the regional view (9) to street level (18); fitting stops at 16', () => {
+    expect({ MIN_ZOOM, MAX_ZOOM, FIT_MAX_ZOOM }).toEqual({ MIN_ZOOM: 9, MAX_ZOOM: 18, FIT_MAX_ZOOM: 16 })
     expect(MIN_ZOOM).toBeLessThan(FIT_MAX_ZOOM)
     expect(FIT_MAX_ZOOM).toBeLessThanOrEqual(MAX_ZOOM)
   })

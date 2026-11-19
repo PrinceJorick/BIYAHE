@@ -147,7 +147,7 @@ describe('preview mode', () => {
 
   it('alangilan.ts shows the road-following routes to users in every build', () => {
     expect(alangilanSource).toContain('export const PREVIEW_ON = true')
-    expect(alangilanSource).toContain('preview: PREVIEW_ON ? ALANGILAN_PREVIEW_ROADS : null')
+    expect(alangilanSource).toContain('preview: PREVIEW_ON ? ALANGILAN_TRIP_ROADS : null')
   })
 })
 

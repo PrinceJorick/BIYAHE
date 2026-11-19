@@ -13,6 +13,12 @@ export const CAMPUS_IDS: CampusId[] = ['alangilan', 'pablo-borbon', 'malvar']
 
 export const DEFAULT_CAMPUS_ID: CampusId = 'alangilan'
 
+// Short names for tight places (option tiles, map labels). The full name is shown everywhere else.
+export const SPOT_SHORT_NAMES: Readonly<Record<string, string>> = Object.freeze({
+  gym: 'Sparta Gym', library: 'Einstein Library', lounge: 'Student Lounge',
+  'pb-gym': 'Leviste Gym', 'pb-library': 'Main Library', 'mv-gym': 'Gymnasium',
+})
+
 export const DEFAULT_CAMPUS: Campus = campuses[DEFAULT_CAMPUS_ID]
 
 export const getCampus = (id: CampusId): Campus => campuses[id]

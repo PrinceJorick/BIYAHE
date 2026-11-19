@@ -8,6 +8,8 @@ import { routeGeometryHash } from '../lib/routeHash.js'
 import { VERSIONS } from '../lib/routeVersions'
 import { alangilan, ALANGILAN_HAND_DRAWN_CORRIDORS } from './alangilan'
 import { ALANGILAN_PREVIEW_ROADS } from './alangilan.preview.roads'
+import { ALANGILAN_TRIP_ROADS } from './alangilan.trip.roads'
+import { haversineM } from '../lib/geo.js'
 import moduleSource from './alangilan.preview.roads.ts?raw'
 
 const RUN = '20261117T124418Z-45d1ea'
@@ -90,8 +92,22 @@ describe('generated preview module', () => {
 })
 
 describe('the app in this test build', () => {
-  it('uses the road-following paths in every build (no formal reviewed set exists yet)', () => {
+  it('uses the full-trip road paths in every build, not this partial diagnostic preview', () => {
     expect(alangilan.corridors).not.toBe(ALANGILAN_HAND_DRAWN_CORRIDORS)
-    expect(alangilan.corridors.map((c) => c.path)).toEqual(ALANGILAN_PREVIEW_ROADS.routes.map((r) => r.path))
+    expect(alangilan.corridors.map((c) => c.path)).toEqual(ALANGILAN_TRIP_ROADS.routes.map((r) => r.path))
+    expect(alangilan.corridors.map((c) => c.path)).not.toEqual(ALANGILAN_PREVIEW_ROADS.routes.map((r) => r.path))
+  })
+
+  it('every full trip reaches its town: no route ends at the old hand-drawn corridor stub', () => {
+    const lengthKm = (path: [number, number][]) => path.slice(1).reduce((m, p, i) => m + haversineM(path[i], p), 0) / 1000
+    const km = Object.fromEntries(ALANGILAN_TRIP_ROADS.routes.map((r) => [r.routeId, lengthKm(r.path)]))
+    expect(km.lipa).toBeGreaterThan(20)     // Lipa City Grand Terminal (was a 3.8 km stub)
+    expect(km.tanauan).toBeGreaterThan(35)  // Tanauan City Hall via STAR Tollway (was 9.7 km, near San Jose)
+    expect(km.sanjose).toBeGreaterThan(10)  // San Jose poblacion
+    expect(km.bauan).toBeGreaterThan(9)     // Bauan Municipal Hall
+    for (const r of ALANGILAN_TRIP_ROADS.routes) {
+      expect(r.pathEnds).toBeNull()
+      expect(r.endpointSeparationM).toBeLessThan(200)
+    }
   })
 })
