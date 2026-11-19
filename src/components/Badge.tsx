@@ -1,20 +1,22 @@
-import { Database, ShieldCheck, TrendingUp } from 'lucide-react'
-import type { Provenance } from '../data'
+import { Database, Radio, ShieldCheck, TrendingUp } from 'lucide-react'
 
-const kinds = {
+export type BadgeKind = 'official' | 'estimate' | 'saved' | 'live'
+
+const kinds: Record<BadgeKind, { Icon: typeof Radio; label: string }> = {
   official: { Icon: ShieldCheck, label: 'Official' },
   estimate: { Icon: TrendingUp, label: 'Estimate' },
   saved: { Icon: Database, label: 'Saved copy' },
+  live: { Icon: Radio, label: 'Live' },
 }
 
-// Where the data on screen came from. Colour, icon, label and outline pattern all differ.
-export default function Badge({ kind }: { kind: Provenance }) {
-  const { Icon, label } = kinds[kind]
+// Where the data on screen came from. Neutral colour; icon, label and outline pattern tell the kinds apart.
+export default function Badge({ kind, label }: { kind: BadgeKind; label?: string }) {
+  const { Icon, label: fallback } = kinds[kind]
   return (
     <span className={`badge badge-${kind}`}>
-      <Icon size={15} aria-hidden="true" />
+      <Icon size={14} aria-hidden="true" />
       <span className="sr-only">Data source: </span>
-      {label}
+      {label ?? fallback}
     </span>
   )
 }

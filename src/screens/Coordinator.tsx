@@ -2,26 +2,27 @@ import { Building2, Check, CircleCheck, Clock, LayoutDashboard, LogOut, Megaphon
 import { useId, useState } from 'react'
 import { ACTIVE_CAMPUS } from '../campuses/active'
 import Badge from '../components/Badge'
-import CorridorMap from '../components/CorridorMap'
 import Dialog from '../components/Dialog'
 import Logo, { LogoMark } from '../components/Logo'
+import Lvl from '../components/Lvl'
+import MapView from '../components/map/MapView'
 import { corridors, type Advisory, type Amenity, type CorridorStatus, type Severity } from '../data'
 import {
   BODY_MAX, coordinatorGroups, endedAt, EXPIRY_HOURS, isCorridorScope, isManaged, phaseOf, scopeLabel, TITLE_MAX,
   validateAdvisoryInput, type AdvisoryInput, type AdvisoryPhase, type InputErrors,
 } from '../lib/advisories'
 import { amenityLabel, clock, isFull, spacesLeft } from '../lib/derive'
-import { walkEstimate } from '../lib/mapView'
+import { walkText } from '../lib/places'
 import { useMedia } from '../lib/router'
 import {
   adjustOccupancy, canManageAdvisories, chooseRole, createAdvisory, editAdvisory, getState, isOffline, publishDraft,
   resolveAdvisory, toggleAmenity, useApp, useNow,
 } from '../lib/store'
 
-const statusView: Record<CorridorStatus, { tone: string; Icon: typeof Clock; label: string; unit: string }> = {
-  open: { tone: 'ok', Icon: CircleCheck, label: 'Open', unit: 'affected' },
-  slow: { tone: 'warn', Icon: Clock, label: 'Slow', unit: 'delayed' },
-  closed: { tone: 'danger', Icon: TriangleAlert, label: 'Closed', unit: 'stranded' },
+const statusView: Record<CorridorStatus, { level: 'low' | 'mid' | 'high'; Icon: typeof Clock; label: string; unit: string }> = {
+  open: { level: 'low', Icon: CircleCheck, label: 'Open', unit: 'affected' },
+  slow: { level: 'mid', Icon: Clock, label: 'Slow', unit: 'delayed' },
+  closed: { level: 'high', Icon: TriangleAlert, label: 'Closed', unit: 'stranded' },
 }
 
 function since(t: number, now: number) {
@@ -43,7 +44,7 @@ export default function Coordinator() {
   return (
     <div className="coord">
       <nav className="coord-nav" aria-label="Staff">
-        {wide ? <Logo size={32} onDark /> : <LogoMark size={36} variant="light" label="BIYAHE" />}
+        {wide ? <Logo size={30} onDark /> : <LogoMark size={30} onDark label="BIYAHE" />}
         <ul>
           <li><a className="tab" href="#/coordinator" aria-current="page"><LayoutDashboard size={20} aria-hidden="true" /><span>Command</span></a></li>
           <li><a className="tab" href="#/home" onClick={() => chooseRole('student')}><Smartphone size={20} aria-hidden="true" /><span>Student view</span></a></li>
@@ -53,11 +54,11 @@ export default function Coordinator() {
 
       <main id="main" tabIndex={-1} className="coord-main">
         <header className="coord-head">
-          <div className="stack" style={{ gap: 6 }}>
+          <div className="page-head">
             <h1 className="h1">Coordinator Command</h1>
-            <p className="cluster meta" style={{ gap: 4 }}>
-              <Building2 size={16} aria-hidden="true" /><span className="strong" style={{ color: 'var(--ink)' }}>{ACTIVE_CAMPUS.shortName}</span>
-              <a className="btn btn-quiet btn-inline" href="#/staff">Change<span className="sr-only"> campus</span></a>
+            <p className="cluster meta">
+              <Building2 size={16} aria-hidden="true" /><span className="strong">{ACTIVE_CAMPUS.shortName}</span>
+              <a href="#/staff">Change<span className="sr-only"> campus</span></a>
             </p>
             <p className="cluster meta">
               <Badge kind={offline ? 'saved' : 'official'} />
@@ -67,60 +68,59 @@ export default function Coordinator() {
             </p>
           </div>
           {manage && (
-            <button className="btn btn-danger" onClick={() => setEditing('new')}>
+            <button className="btn btn-primary" onClick={() => setEditing('new')}>
               <Megaphone size={20} aria-hidden="true" />Publish Campus / Route Advisory
             </button>
           )}
         </header>
 
         <div className="coord-split">
-          <section className="section" aria-labelledby="risk">
+          <section className="card" aria-labelledby="risk">
             <h2 id="risk" className="h2">Route risk</h2>
-            <CorridorMap mode="staff" />
-            <ul className="rows">
+            <div className="card-map"><MapView mode="staff" label="Route risk map. The same information is listed below." /></div>
+            <ul className="list">
               {corridors.map((c) => {
                 const st = s.snapshot.corridors[c.id].status
                 const sv = statusView[st]
                 return (
                   <li key={c.id}>
-                    <div className={`row tone-${sv.tone}`}>
-                      <sv.Icon className="row-icon" size={22} aria-hidden="true" />
-                      <span className="row-body">
-                        <span className="row-title">{c.name}</span>
-                        <span className="meta">via {c.via}</span>
-                        <span className="tag">{sv.label}</span>
+                    <div className="item">
+                      <span className="item-icon"><sv.Icon size={20} aria-hidden="true" /></span>
+                      <span className="item-body">
+                        <span className="item-title">{c.name}</span>
+                        <span className="meta">via {c.via} · <Lvl level={sv.level} className="strong">{sv.label}</Lvl></span>
                       </span>
-                      <span className="strong" style={{ textAlign: 'right' }}>{st === 'open' ? '0 affected' : `about ${c.commuters} ${sv.unit}`}</span>
+                      <span className="item-end strong">{st === 'open' ? '0 affected' : `about ${c.commuters} ${sv.unit}`}</span>
                     </div>
                   </li>
                 )
               })}
             </ul>
-            <p className="meta">Estimates come from route selections only. Aggregated, never per student (RA 10173).</p>
+            <p className="caption">Estimates come from route selections only. Aggregated, never per student (RA 10173).</p>
           </section>
 
-          <section className="section" aria-labelledby="shelters">
-            <div className="between">
+          <section className="card" aria-labelledby="shelters">
+            <div className="card-head">
               <h2 id="shelters" className="h2">Safe spots</h2>
-              <p className="tag"><Users size={18} aria-hidden="true" />{waiting} waiting on campus</p>
+              <p className="meta cluster"><Users size={16} aria-hidden="true" />{waiting} waiting on campus</p>
             </div>
-            <ul className="rows">
+            <ul className="list">
               {s.snapshot.spots.map((x) => {
                 const left = spacesLeft(x)
                 const full = isFull(x)
                 const low = left != null && x.capacity != null && !full && left / x.capacity < 0.2
-                const tone = full ? 'danger' : low ? 'warn' : x.capacity == null ? 'saved' : 'ok'
+                const level = full ? 'high' : low ? 'mid' : x.capacity == null ? 'none' : 'low'
                 return (
-                  <li key={x.id} className={`shelter tone-${tone}`}>
-                    <div className="between" style={{ alignItems: 'flex-start' }}>
-                      <span className="stack" style={{ gap: 2, minWidth: 0 }}>
-                        <h3 className="row-title">{x.name}</h3>
-                        <span className="meta">{walkEstimate(x.walkMin)}</span>
+                  <li key={x.id} className="shelter">
+                    <div className="between shelter-head">
+                      <span className="item-body">
+                        <h3 className="item-title">{x.name}</h3>
+                        <span className="meta">{walkText(x.walkMin)} (estimate)</span>
                       </span>
-                      <span className="tag" style={{ flex: 'none' }}>{full ? 'Full' : low ? 'Nearly full' : x.capacity == null ? 'Capacity not assessed' : 'Has space'}</span>
+                      <Lvl level={level} className="strong shelter-state">{full ? 'Full' : low ? 'Nearly full' : x.capacity == null ? 'Capacity not assessed' : 'Has space'}</Lvl>
                     </div>
                     {x.capacity != null && <div className="meter" aria-hidden="true"><i style={{ width: `${Math.min(100, (x.occupied / x.capacity) * 100)}%` }} /></div>}
-                    <div className="between" style={{ flexWrap: 'wrap' }}>
+                    <div className="between wrap">
                       <div className="stepper" role="group" aria-label={`${x.name} occupancy`}>
                         <button type="button" disabled={x.occupied <= 0} aria-label={`Remove 10 people from ${x.name}`} onClick={() => adjustOccupancy(x.id, -10)}>−10</button>
                         <output aria-live="polite" aria-label={x.capacity == null ? `${x.occupied} in ${x.name}, capacity not assessed` : `${x.occupied} of ${x.capacity} in ${x.name}`}>
@@ -160,12 +160,13 @@ export default function Coordinator() {
 
 // ── Advisory list ────────────────────────────────────────────────────────────
 
-const phaseView: Record<AdvisoryPhase, { label: string; tone: string }> = {
-  draft: { label: 'Draft · not visible to students', tone: 'saved' },
-  active: { label: 'Published · active', tone: 'ok' },
-  resolved: { label: 'Resolved', tone: 'saved' },
-  expired: { label: 'Expired', tone: 'saved' },
+const phaseView: Record<AdvisoryPhase, { label: string }> = {
+  draft: { label: 'Draft · not visible to students' },
+  active: { label: 'Published · active' },
+  resolved: { label: 'Resolved' },
+  expired: { label: 'Expired' },
 }
+const sevLevel: Record<Severity, 'none' | 'mid' | 'high'> = { info: 'none', warning: 'mid', critical: 'high' }
 
 function AdvisoryList({ now, manage, onEdit, onResolve }: {
   now: number; manage: boolean; onEdit: (a: Advisory) => void; onResolve: (a: Advisory) => void
@@ -173,10 +174,10 @@ function AdvisoryList({ now, manage, onEdit, onResolve }: {
   const s = useApp()
   const { drafts, active, ended } = coordinatorGroups(s.snapshot.advisories, now)
   const group = (title: string, id: string, list: Advisory[], empty: string) => (
-    <section className="section" aria-labelledby={id}>
+    <section className="card" aria-labelledby={id}>
       <h3 id={id} className="h2">{title} <span className="meta">({list.length})</span></h3>
       {list.length === 0 ? <p className="meta">{empty}</p> : (
-        <ul className="rows">
+        <ul className="list">
           {list.map((a) => {
             const phase = phaseOf(a, now)
             const pv = phaseView[phase]
@@ -184,11 +185,11 @@ function AdvisoryList({ now, manage, onEdit, onResolve }: {
             const editable = manage && isManaged(a) && (phase === 'draft' || phase === 'active')
             return (
               <li key={a.id}>
-                <article className={`row tone-${pv.tone}`} style={{ alignItems: 'flex-start' }}>
-                  <div className="row-body" style={{ gap: 6 }}>
-                    <span className="tag">{pv.label}</span>
-                    <h4 className="row-title">{a.title}</h4>
-                    <p className="meta">{scopeLabel(a.scope, corridors)} · {a.severity} · {a.issuer}</p>
+                <article className="item item-top">
+                  <div className="item-body">
+                    <span className="caption">{pv.label}</span>
+                    <h4 className="item-title">{a.title}</h4>
+                    <p className="meta">{scopeLabel(a.scope, corridors)} · <Lvl level={sevLevel[a.severity]} className="strong">{a.severity}</Lvl> · {a.issuer}</p>
                     <p className="meta">
                       {phase === 'draft' ? `Created ${clock(a.issuedAt)}` : `Published ${clock(a.issuedAt)}`}
                       {a.updatedAt && a.updatedAt !== a.issuedAt && phase !== 'resolved' ? ` · updated ${clock(a.updatedAt)}` : ''}
@@ -196,7 +197,7 @@ function AdvisoryList({ now, manage, onEdit, onResolve }: {
                     </p>
                     {!isManaged(a) && <p className="meta">Issued by {a.source}; managed by the issuer, not editable here.</p>}
                     {editable && (
-                      <div className="cluster" style={{ gap: 8 }}>
+                      <div className="cluster">
                         <button type="button" className="btn btn-quiet" onClick={() => onEdit(a)}><Pencil size={18} aria-hidden="true" />Edit</button>
                         {phase === 'draft' && <button type="button" className="btn btn-quiet" onClick={() => publishDraft(a.id)}><Send size={18} aria-hidden="true" />Publish</button>}
                         <button type="button" className="btn btn-quiet" onClick={() => onResolve(a)}><CircleCheck size={18} aria-hidden="true" />{phase === 'draft' ? 'Withdraw' : 'Resolve'}</button>
@@ -212,10 +213,10 @@ function AdvisoryList({ now, manage, onEdit, onResolve }: {
     </section>
   )
   return (
-    <section className="section" aria-labelledby="advisories" style={{ marginTop: 24 }}>
+    <section className="coord-advisories" aria-labelledby="advisories">
       <h2 id="advisories" className="h2">Advisories</h2>
       {!manage && (
-        <p className="banner tone-saved">
+        <p className="banner">
           <TriangleAlert size={20} aria-hidden="true" />
           <span>Read-only. Only the DRRMO Coordinator can create, edit, publish or resolve campus advisories.</span>
         </p>
@@ -284,9 +285,9 @@ function AdvisoryForm({ editing, onDone }: { editing: Advisory | null; onDone: (
   const err = (k: keyof InputErrors) => errors[k] && <p id={`${id}-${k}-err`} className="error"><TriangleAlert size={16} aria-hidden="true" />{errors[k]}</p>
 
   return (
-    <form className="stack" style={{ gap: 20 }} noValidate onSubmit={(e) => { e.preventDefault(); submit(true) }}>
+    <form className="stack-lg" noValidate onSubmit={(e) => { e.preventDefault(); submit(true) }}>
       {editing && !isDraft && (
-        <p className="banner tone-warn">
+        <p className="banner">
           <TriangleAlert size={20} aria-hidden="true" />
           <span>This advisory is live. Saving changes updates what students see straight away.</span>
         </p>
@@ -346,7 +347,7 @@ function AdvisoryForm({ editing, onDone }: { editing: Advisory | null; onDone: (
       </div>
 
       <p className="meta">
-        <Users size={16} aria-hidden="true" style={{ verticalAlign: '-3px', marginRight: 6 }} />
+        <Users className="inline-icon" size={16} aria-hidden="true" />
         Reaches about {reach} students{corridor ? ` on the ${corridor.name} route first` : ''} once published.
       </p>
       {formError && <p className="error" role="alert"><TriangleAlert size={16} aria-hidden="true" />{formError}</p>}
@@ -354,7 +355,7 @@ function AdvisoryForm({ editing, onDone }: { editing: Advisory | null; onDone: (
       <div className="dialog-actions">
         <button type="button" className="btn btn-secondary" onClick={onDone}>Cancel</button>
         {isDraft && <button type="button" className="btn btn-secondary" onClick={() => submit(false)}>{editing ? 'Save draft' : 'Save as draft'}</button>}
-        <button type="submit" className="btn btn-danger">{!editing ? 'Publish now' : isDraft ? 'Save and publish' : 'Save changes'}</button>
+        <button type="submit" className="btn btn-primary">{!editing ? 'Publish now' : isDraft ? 'Save and publish' : 'Save changes'}</button>
       </div>
     </form>
   )
@@ -369,7 +370,7 @@ function ResolveForm({ advisory, onDone }: { advisory: Advisory; onDone: () => v
   const [reopen, setReopen] = useState(false)
   const draft = advisory.status === 'draft'
   return (
-    <form className="stack" style={{ gap: 20 }} onSubmit={(e) => {
+    <form className="stack-lg" onSubmit={(e) => {
       e.preventDefault()
       if (resolveAdvisory(advisory.id, { reopenCorridor: reopen }).ok) onDone()
     }}>
@@ -378,7 +379,7 @@ function ResolveForm({ advisory, onDone }: { advisory: Advisory; onDone: () => v
         ? 'The draft is withdrawn and kept in the record. Students never saw it.'
         : 'Students stop seeing this as a current advisory. It is kept in the record, not deleted.'}</p>
       {!draft && corridor && corridorNotOpen && (
-        <label className="cluster" style={{ gap: 10 }}>
+        <label className="cluster">
           <input type="checkbox" checked={reopen} onChange={(e) => setReopen(e.target.checked)} />
           <span>Also mark {corridor.via} as open again</span>
         </label>

@@ -1,13 +1,14 @@
 #!/usr/bin/env node
-// Generates road-following route geometry for the Pablo Borbon and Malvar campuses. Developer-only:
-//   npm run routes:campuses
+// Generates road-following route geometry for every campus. Developer-only:
+//   npm run routes:campuses                       all campuses
+//   npm run routes:campuses -- --campus alangilan one campus
 //
 // For each configured route the script asks the public OSRM demo server for a driving route from the campus
 // point to the destination (a town hall or terminal geocoded from OpenStreetMap), then applies the same gp-1
 // processing as the Alangilan generator (processRoadPath: simplify → round → de-duplicate) and the shared
 // geometry hash. Output per campus:
 //   docs/routes/diagnostics/<campus>-osrm.<runId>.json   the raw OSRM responses, for review
-//   src/campuses/<campus>.preview.roads.ts               a PreviewRoadSet the app validates at runtime
+//   src/campuses/<outFile>                               a PreviewRoadSet the app validates at runtime
 // It also prints each route's distance, duration and longest named roads, used for the `via` labels and
 // usual travel times in src/campuses/<campus>.ts.
 import { execFileSync } from 'node:child_process'
@@ -24,8 +25,24 @@ const OSRM = 'https://router.project-osrm.org/route/v1/driving'
 // Anchors must equal LOCATION in src/campuses/<campus>.ts exactly. Destinations: OpenStreetMap features
 // found through Nominatim on 2026-11-18 (OSM type/id noted for each).
 export const CAMPUS_ROUTES = {
+  // Full trips from campus to each town. Replaces the earlier Alangilan preview (alangilan.preview.roads.ts, kept
+  // as the record of the reviewed diagnostic run), whose routes ended at the hand-drawn corridor ends 3-26 km
+  // short of the towns they are named after. Batangas City proper keeps the team's downtown end on P. Burgos St.
+  alangilan: {
+    exportName: 'ALANGILAN_TRIP_ROADS',
+    outFile: 'alangilan.trip.roads.ts',
+    anchor: [13.7842, 121.0744],
+    routes: [
+      { id: 'lipa', end: [13.9553995, 121.1606111], endLabel: 'Lipa City Grand Terminal (OSM way 795018965)' },
+      { id: 'batangas', end: [13.7575, 121.058], endLabel: 'Batangas City poblacion, P. Burgos Street (team corridor end)' },
+      { id: 'bauan', end: [13.7937808, 121.0071323], endLabel: 'Bauan Municipal Hall (OSM way 312556517)' },
+      { id: 'sanjose', end: [13.8786002, 121.1047491], endLabel: 'San Jose poblacion (OSM relation 10719480)' },
+      { id: 'tanauan', end: [14.0865988, 121.1258532], endLabel: 'Tanauan City Hall (OSM way 557511385)' },
+    ],
+  },
   'pablo-borbon': {
     exportName: 'PABLO_BORBON_PREVIEW_ROADS',
+    outFile: 'pablo-borbon.preview.roads.ts',
     anchor: [13.75547, 121.05364],
     routes: [
       { id: 'pb-lipa', end: [13.9553995, 121.1606111], endLabel: 'Lipa City Grand Terminal (OSM way 795018965)' },
@@ -36,6 +53,7 @@ export const CAMPUS_ROUTES = {
   },
   malvar: {
     exportName: 'MALVAR_PREVIEW_ROADS',
+    outFile: 'malvar.preview.roads.ts',
     anchor: [14.0449, 121.1569],
     routes: [
       { id: 'mv-lipa', end: [13.9553995, 121.1606111], endLabel: 'Lipa City Grand Terminal (OSM way 795018965)' },
@@ -97,7 +115,10 @@ async function main() {
     process.exit(1)
   }
   const id = runId()
+  const only = process.argv.includes('--campus') ? process.argv[process.argv.indexOf('--campus') + 1] : null
+  if (only && !(only in CAMPUS_ROUTES)) throw new Error(`Unknown campus ${only}; expected one of ${Object.keys(CAMPUS_ROUTES).join(', ')}`)
   for (const [campusId, cfg] of Object.entries(CAMPUS_ROUTES)) {
+    if (only && campusId !== only) continue
     const raw = {}
     const routes = []
     console.log(`\n${campusId}`)
@@ -129,10 +150,10 @@ async function main() {
       status: 'unverified-prototype-preview', campus: campusId, campusAnchor: cfg.anchor, runId: id,
       sourceGeojsonSha256: geojsonSha256(rawBytes), versions: VERSIONS, routes,
     }
-    const target = join(ROOT, `src/campuses/${campusId}.preview.roads.ts`)
+    const target = join(ROOT, `src/campuses/${cfg.outFile}`)
     writeFileSync(`${target}.tmp`, render(cfg.exportName, campusId, data))
     renameSync(`${target}.tmp`, target)
-    console.log(`  wrote ${rawRel} and src/campuses/${campusId}.preview.roads.ts`)
+    console.log(`  wrote ${rawRel} and src/campuses/${cfg.outFile}`)
   }
 }
 

@@ -1,25 +1,28 @@
-// Persistent map attribution and map wiring.
-// MapFrame is rendered for real (server-side rendering, no DOM). CorridorMap and the screens import Leaflet,
-// which needs a browser window, so their wiring is checked with narrow source guards instead.
+// Map attribution and map wiring.
+// MapFrame is rendered for real (server-side rendering, no DOM). The map renderers import Leaflet or need the
+// Google Maps API in a browser window, so their wiring is checked with narrow source guards instead.
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { ALANGILAN_HAND_DRAWN_CORRIDORS } from '../campuses/alangilan'
 import { ALANGILAN_PREVIEW_ROADS } from '../campuses/alangilan.preview.roads'
 import { CAMPUS_EXIT_NOTE, PREVIEW_NOTICE } from '../lib/previewGeometry'
-import corridorMapSource from './CorridorMap.tsx?raw'
 import DemoRoutes, { DemoRoutesDetails } from './DemoRoutes'
 import MapFrame from './MapFrame'
-import homeSource from '../screens/Home.tsx?raw'
-import safeSpotsSource from '../screens/SafeSpots.tsx?raw'
-import appSource from '../App.tsx?raw'
+import mapViewSource from './map/MapView.tsx?raw'
+import schematicSource from './map/SchematicMap.tsx?raw'
+import googleSource from './map/GoogleMapView.tsx?raw'
+import walkPanelSource from './WalkPanel.tsx?raw'
+import placesSource from '../lib/places.ts?raw'
 import coordinatorSource from '../screens/Coordinator.tsx?raw'
+import mapScreenSource from '../screens/MapScreen.tsx?raw'
+import destinationSource from '../screens/Destination.tsx?raw'
 
 const render = (props: { warning?: string | null }, child = createElement('div', { className: 'leaflet-container' })) =>
   renderToStaticMarkup(createElement(MapFrame, { label: 'Test map', ...props }, child))
 
-describe('MapFrame: persistent OpenStreetMap attribution', () => {
-  it('always renders the credit with the copyright link', () => {
+describe('MapFrame: OpenStreetMap attribution', () => {
+  it('renders the credit with the copyright link by default', () => {
     const html = render({})
     expect(html).toContain('<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors · ODbL</a>')
     expect(html).toContain('class="map-attribution"')
@@ -34,6 +37,11 @@ describe('MapFrame: persistent OpenStreetMap attribution', () => {
   it('uses no external images, scripts or styles (works offline from the bundle)', () => {
     const html = render({})
     expect(html).not.toMatch(/<img|<script|<link|src=/)
+  })
+
+  it('omits the credit only when the map draws no OSM-derived geometry (credit={false})', () => {
+    const html = renderToStaticMarkup(createElement(MapFrame, { label: 'Test map', credit: false }, null))
+    expect(html).not.toContain('OpenStreetMap')
   })
 
   it('shows a warning only when one is passed (the caller passes null in production)', () => {
@@ -96,55 +104,55 @@ describe('road-following routes: subtle "About routes" indicator', () => {
     expect(html).not.toContain(CAMPUS_EXIT_NOTE)
   })
 
-  it('CorridorMap shows the indicator whenever road-following routes are drawn, for the active campus', () => {
-    expect(corridorMapSource).toContain('const preview = routes.selection.previewRoutes')
-    expect(corridorMapSource).toContain('const notice = preview && <DemoRoutes routes={preview} shown={shown} exitNote={routes.exitNote} />')
-    expect(corridorMapSource).toContain('notice={notice}')
-    expect(corridorMapSource).not.toMatch(/PREVIEW_NOTICE|<details|Route limitations|map-preview/)
+  it('MapView shows the indicator whenever OSM road-following routes are drawn, for the active campus', () => {
+    expect(mapViewSource).toContain('const preview = routeGeometry[ACTIVE_CAMPUS.id].selection.previewRoutes')
+    expect(mapViewSource).toContain("l.source === 'osm'")
+    expect(mapViewSource).toContain('notice={notice}')
+    expect(mapViewSource).not.toMatch(/PREVIEW_NOTICE|<details|Route limitations|map-preview/)
   })
 })
 
 describe('map wiring (source guards)', () => {
-  it('CorridorMap wraps its map in MapFrame and turns off Leaflet\'s own attribution', () => {
-    expect(corridorMapSource).toMatch(/<MapFrame[\s>]/)
-    expect(corridorMapSource).toContain('attributionControl={false}')
-    expect(corridorMapSource).not.toMatch(/attribution=['"{]/)
+  it('MapView wraps both renderers in MapFrame and credits OSM exactly when OSM geometry is drawn', () => {
+    expect(mapViewSource).toMatch(/<MapFrame[\s>]/)
+    expect(mapViewSource).toContain('credit={model.osmCredit}')
+    expect(mapViewSource).toContain('<GoogleMapView ')
+    expect(mapViewSource).toContain('<SchematicMap ')
   })
 
-  it('CorridorMap applies the zoom limits and the capped, padded fit', () => {
-    expect(corridorMapSource).toContain('minZoom={MIN_ZOOM} maxZoom={MAX_ZOOM}')
-    expect(corridorMapSource).toContain('padding: [FIT_PADDING_PX, FIT_PADDING_PX], maxZoom: FIT_MAX_ZOOM')
-    expect(corridorMapSource).not.toContain('.pad(')
+  it('the simple map draws no street tiles and turns off Leaflet\'s own attribution', () => {
+    expect(schematicSource).toContain('attributionControl={false}')
+    expect(schematicSource).not.toMatch(/TileLayer|tile\.openstreetmap\.org/)
   })
 
-  it('no straight line is drawn from campus to a safe spot', () => {
-    expect(corridorMapSource).not.toContain('line-walk ')
-    expect(corridorMapSource).not.toMatch(/positions=\{\[CAMPUS,/)
-    // Two polylines only: the corridor paths, and a walking route that is mapped OSM geometry (live or saved,
-    // validated in src/lib/walkRoute.ts). The straight-line estimate has no path and is never drawn.
-    expect(corridorMapSource.match(/<Polyline/g)).toHaveLength(2)
-    expect(corridorMapSource).toContain('positions={c.path}')
-    expect(corridorMapSource).toContain('positions={walk.path}')
-    expect(corridorMapSource).toContain("(s.walk.mode === 'live' || s.walk.mode === 'cached')")
+  it('both renderers apply the zoom limits and the capped fit', () => {
+    expect(schematicSource).toContain('minZoom={MIN_ZOOM} maxZoom={MAX_ZOOM}')
+    expect(schematicSource).toContain('maxZoom: FIT_MAX_ZOOM')
+    expect(googleSource).toContain('minZoom: MIN_ZOOM, maxZoom: MAX_ZOOM')
+    expect(googleSource).toContain('FIT_MAX_ZOOM')
+  })
+
+  it('no straight line is drawn from campus to a safe spot: only model.walk (mapped geometry) is drawn', () => {
+    for (const src of [schematicSource, googleSource]) {
+      expect(src).not.toMatch(/positions=\{\[model\.campus,|path=\{\[model\.campus,/)
+      expect(src).toContain('model.walk')
+    }
   })
 
   it('the development warning is computed only in development', () => {
-    expect(corridorMapSource).toContain('import.meta.env.DEV ? devRoadDataWarning(alangilanRoadStatus, true) : null')
+    expect(mapViewSource).toContain('import.meta.env.DEV ? devRoadDataWarning(alangilanRoadStatus, true) : null')
   })
 
-  it('each map gets the extent for what it shows', () => {
-    expect(safeSpotsSource).toContain('<CorridorMap mode="student" extent="nearby" />')
-    expect(appSource).toContain('<CorridorMap mode="student" />')      // side pane: whole route (default)
-    expect(coordinatorSource).toContain('<CorridorMap mode="staff" />')
+  it('each map gets what it shows', () => {
+    expect(mapScreenSource).toContain('<MapView mode="student" fill ')
+    expect(destinationSource).toContain('<MapView mode="student" focus=')
+    expect(coordinatorSource).toContain('<MapView mode="staff" ')
   })
 
   it('walking times are worded as estimates and the Google Maps link is marked external', () => {
-    expect(homeSource).toContain('walkEstimate(spot.walkMin)')
-    expect(safeSpotsSource).toContain('walkEstimate(x.walkMin)')
-    expect(`${homeSource}${safeSpotsSource}`).not.toMatch(/\{(spot|x)\.walkMin\} min/)
-    expect(safeSpotsSource).toContain('href={googleMapsDirectionsUrl(spot.pos)}')
-    expect(safeSpotsSource).toContain('Directions in Google Maps (external, needs internet)')
-    expect(safeSpotsSource).toContain('BIYAHE has not checked it')
-    expect(safeSpotsSource).not.toContain('Walk to {spot.name}')
+    expect(placesSource).toContain('export const walkText = (min: number) => `about ${min} min walk`')
+    expect(walkPanelSource).toContain('href={googleMapsDirectionsUrl(spot.pos)}')
+    expect(walkPanelSource).toContain('opens outside BIYAHE, needs internet')
+    expect(walkPanelSource).toContain('BIYAHE has not checked it')
   })
 })

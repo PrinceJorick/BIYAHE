@@ -1,12 +1,26 @@
-import { useSyncExternalStore } from 'react'
+import { useMemo, useSyncExternalStore } from 'react'
 
-export type Route = 'welcome' | 'setup' | 'home' | 'map' | 'share' | 'alerts' | 'profile' | 'staff' | 'coordinator'
+// Screens. Student: home → go (details for one place) → map; alerts; share. Setup holds campus, route and app
+// settings (the old Profile screen is gone). Staff: staff access → coordinator.
+export type Route = 'welcome' | 'setup' | 'home' | 'go' | 'map' | 'share' | 'alerts' | 'staff' | 'coordinator'
 
-const routes: Route[] = ['welcome', 'setup', 'home', 'map', 'share', 'alerts', 'profile', 'staff', 'coordinator']
+const routes: Route[] = ['welcome', 'setup', 'home', 'go', 'map', 'share', 'alerts', 'staff', 'coordinator']
 
-const read = (): Route | null => {
-  const r = location.hash.replace(/^#\/?/, '') as Route
-  return routes.includes(r) ? r : null
+/** A parsed hash route: `#/go/route/lipa` → { name: 'go', arg: 'route/lipa' }. */
+export type Loc = { name: Route | null; arg: string | null }
+
+// Older and path-style names for the same screens (/safespots, #/profile, …).
+const aliases: Record<string, Route> = {
+  safespots: 'map', 'safe-spots': 'map', 'where-to-wait': 'map', profile: 'setup', settings: 'setup',
+}
+
+const known = (seg: string): Route | null => aliases[seg] ?? (routes.includes(seg as Route) ? (seg as Route) : null)
+
+export function parseHash(hash: string): Loc {
+  const [head = '', ...rest] = hash.replace(/^#\/?/, '').split('/')
+  const name = known(head.toLowerCase())
+  const arg = rest.filter(Boolean).map(decodeURIComponent).join('/')
+  return { name, arg: name && arg ? arg : null }
 }
 
 const subscribe = (l: () => void) => {
@@ -14,10 +28,12 @@ const subscribe = (l: () => void) => {
   return () => removeEventListener('hashchange', l)
 }
 
-export const useRoute = () => useSyncExternalStore(subscribe, read)
+export function useRoute(): Loc {
+  const hash = useSyncExternalStore(subscribe, () => location.hash)
+  return useMemo(() => parseHash(hash), [hash])
+}
 
-// Path-style links some people type or share (/map, /safespots, /coordinator/) name the same screens.
-const aliases: Record<string, Route> = { safespots: 'map', 'safe-spots': 'map', 'where-to-wait': 'map' }
+export const hrefOf = (name: Route, arg?: string | null) => `#/${name}${arg ? `/${arg}` : ''}`
 
 /**
  * The app routes with the hash (#/map), so any host serves it from one index.html. A path-style deep link is
@@ -28,8 +44,9 @@ export function entryHash(pathname: string, hash: string): string | null {
   if (hash && hash !== '#' && hash !== '#/') return null
   const seg = pathname.replace(/^\/+|\/+$/g, '').toLowerCase()
   if (!seg || seg === 'index.html') return null
-  const r = aliases[seg] ?? (routes.includes(seg as Route) ? (seg as Route) : null)
-  return r ? `#/${r}` : '#/'
+  const [head, ...rest] = seg.split('/')
+  const r = known(head)
+  return r ? hrefOf(r, rest.join('/') || null) : '#/'
 }
 
 export function normalizeEntryPath() {
@@ -37,8 +54,8 @@ export function normalizeEntryPath() {
   if (h != null) history.replaceState(null, '', `/${location.search}${h}`)
 }
 
-export const go = (r: Route) => {
-  location.hash = `/${r}`
+export const go = (r: Route, arg?: string | null) => {
+  location.hash = hrefOf(r, arg).slice(1)
 }
 
 export function useMedia(query: string) {

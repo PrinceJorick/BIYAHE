@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Environment files hold API keys: never commit them. Only the documented template is tracked.
+.env
+.env.*
+!.env.example
+
 # Diagnostic-only route geometry from scripts/build-routes.mjs (never app data).
 # docs/routes/diagnostic-viewer.html stays tracked.
 docs/routes/diagnostics/*.geojson

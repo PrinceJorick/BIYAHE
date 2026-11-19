@@ -30,6 +30,10 @@ function makeState(overrides: Partial<State> = {}): State {
     spotId: null,
     walk: null,
     walkLoading: null,
+    traffic: null,
+    trafficError: null,
+    departures: {},
+    news: null,
     toast: null,
     ...overrides,
   }

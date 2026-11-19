@@ -1,43 +1,37 @@
-import { BatteryLow, Bell, House, Info, Map as MapIcon, TriangleAlert, User, WifiOff } from 'lucide-react'
+import { BatteryLow, Info, TriangleAlert, WifiOff } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { ACTIVE_CAMPUS } from './campuses/active'
-import CorridorMap from './components/CorridorMap'
 import Logo from './components/Logo'
-import Toggle from './components/Toggle'
+import { tabOf, tabs } from './components/navTabs'
 import { studentAdvisories } from './lib/advisories'
 import { clock } from './lib/derive'
-import { useMedia, useRoute, type Route } from './lib/router'
+import { hrefOf, useRoute, type Loc, type Route } from './lib/router'
 import { dismissBatteryHint, isLowBattery, isOffline, setLowBattery, useApp, useNow, type State } from './lib/store'
 import Alerts from './screens/Alerts'
 import Coordinator from './screens/Coordinator'
+import Destination from './screens/Destination'
 import Home from './screens/Home'
-import Profile from './screens/Profile'
-import SafeSpots from './screens/SafeSpots'
+import MapScreen from './screens/MapScreen'
 import Setup from './screens/Setup'
 import Share from './screens/Share'
 import StaffAccess from './screens/StaffAccess'
 import Welcome from './screens/Welcome'
 
-const tabs = [
-  { id: 'home', label: 'Home', Icon: House },
-  { id: 'map', label: 'Map', Icon: MapIcon },
-  { id: 'alerts', label: 'Alerts', Icon: Bell },
-  { id: 'profile', label: 'Profile', Icon: User },
-] as const
-
 const titles: Record<Route, string> = {
-  welcome: 'Welcome', setup: 'Choose your route', home: 'Home', map: 'Where to wait', share: "Share I'm safe",
-  alerts: 'Alerts', profile: 'Profile & Offline', staff: 'Staff quick access', coordinator: 'Coordinator Command',
+  welcome: 'Welcome', setup: 'Campus and route', home: 'Home', go: 'Trip details', map: 'Map', share: "Tell family you're safe",
+  alerts: 'Alerts', staff: 'Staff quick access', coordinator: 'Coordinator Command',
 }
 
-const studentRoutes: Route[] = ['home', 'map', 'share', 'alerts', 'profile']
+const studentRoutes: Route[] = ['home', 'go', 'map', 'share', 'alerts']
 
 // Where the current role is allowed to be.
-function resolve(route: Route | null, s: State): Route {
-  if (!s.role || route === 'welcome') return 'welcome'
-  if (s.role === 'staff') return route === 'staff' ? 'staff' : 'coordinator'
-  if (route === 'setup' || !s.corridorId) return 'setup'
-  return route && studentRoutes.includes(route) ? route : 'home'
+function resolve({ name, arg }: Loc, s: State): Loc {
+  if (!s.role || name === 'welcome') return { name: 'welcome', arg: null }
+  if (s.role === 'staff') return { name: name === 'staff' ? 'staff' : 'coordinator', arg: null }
+  if (name === 'setup' || !s.corridorId) return { name: 'setup', arg: null }
+  if (name === 'go' && !arg) return { name: 'home', arg: null }
+  if (name && studentRoutes.includes(name)) return { name, arg: name === 'go' || name === 'map' ? arg : null }
+  return { name: 'home', arg: null }
 }
 
 const focusMain = () => document.getElementById('main')?.focus()
@@ -46,14 +40,15 @@ export default function App() {
   const s = useApp()
   const now = useNow()
   const raw = useRoute()
-  const route = resolve(raw, s)
-  const wide = useMedia('(min-width: 900px)')
+  const loc = resolve(raw, s)
+  const route = loc.name!
+  const href = hrefOf(route, loc.arg)
   const lowBatt = isLowBattery(s)
   const first = useRef(true)
 
   useEffect(() => {
-    if (raw !== route) history.replaceState(null, '', `#/${route}`)
-  }, [raw, route])
+    if (location.hash !== href) history.replaceState(null, '', href)
+  }, [href])
 
   useEffect(() => {
     document.title = `${titles[route]} · BIYAHE`
@@ -63,7 +58,7 @@ export default function App() {
     }
     scrollTo(0, 0)
     focusMain()
-  }, [route])
+  }, [route, loc.arg])
 
   useEffect(() => {
     document.documentElement.toggleAttribute('data-lowbatt', lowBatt)
@@ -71,71 +66,77 @@ export default function App() {
 
   if (!s.ready) return null
 
-  const shell = route === 'welcome' ? <Welcome /> : route === 'setup' ? <Setup /> : route === 'staff' ? <StaffAccess /> : route === 'coordinator' ? <Coordinator /> : null
+  const solo = route === 'welcome' ? <Welcome /> : route === 'setup' ? <Setup /> : route === 'staff' ? <StaffAccess /> : route === 'coordinator' ? <Coordinator /> : null
   const count = studentAdvisories(s.snapshot.advisories, s.corridorId, now).length
+  const isMap = route === 'map'
 
   return (
     <>
       <a className="skip-link" href="#main" onClick={(e) => { e.preventDefault(); focusMain() }}>Skip to main content</a>
-      {shell ?? (
-        <div className="app">
+      {solo ?? (
+        <div className={`app${isMap ? ' app-map' : ''}`}>
           <nav className="nav" aria-label="Primary">
-            <a className="nav-logo" href="#/home" aria-label="BIYAHE home"><Logo size={32} onDark label={null} /></a>
+            <a className="nav-logo" href="#/home" aria-label="BIYAHE home"><Logo size={30} onDark label={null} /></a>
             <ul className="nav-list">
               {tabs.map(({ id, label, Icon }) => (
                 <li key={id}>
-                  <a className="tab" href={`#/${id}`} aria-current={route === id || (id === 'home' && route === 'share') ? 'page' : undefined}>
+                  <a className="tab" href={`#/${id}`} aria-current={tabOf(route) === id ? 'page' : undefined}>
                     <Icon size={22} aria-hidden="true" />
-                    {label}
+                    <span>{label}</span>
                     {id === 'alerts' && count > 0 && <span className="tab-count">{count}<span className="sr-only"> active</span></span>}
                   </a>
                 </li>
               ))}
             </ul>
-            <p className="nav-foot">{ACTIVE_CAMPUS.shortName}<br />No account. No tracking.</p>
+            <div className="nav-foot">
+              <p>{ACTIVE_CAMPUS.shortName}</p>
+              <a href="#/setup">Campus, route and settings</a>
+            </div>
           </nav>
 
           <main id="main" tabIndex={-1} className="main">
-            <header className="topbar">
-              <Logo size={30} />
-              <Toggle label="Low-Battery Mode" checked={lowBatt} onChange={setLowBattery} hideLabel={!wide} icon={<BatteryLow size={22} />} />
-            </header>
-            <div className="stack" style={{ marginBottom: 16 }}>
-              {isOffline(s) && (
-                <p className="banner tone-saved">
-                  <WifiOff size={20} aria-hidden="true" />
-                  <span>You're offline. Showing what we saved at {clock(s.savedAt)}.</span>
-                </p>
-              )}
-              {s.batteryHint && !lowBatt && (
-                <div className="banner tone-warn">
+            {!isMap && (
+              <header className="topbar">
+                <a className="topbar-logo" href="#/home" aria-label="BIYAHE home"><Logo size={28} label={null} /></a>
+                <button type="button" className="icon-toggle" role="switch" aria-checked={lowBatt} aria-label="Low-Battery Mode" onClick={() => setLowBattery(!lowBatt)}>
                   <BatteryLow size={20} aria-hidden="true" />
-                  <div className="banner-body">
-                    <span>Battery is under 20%. Low-Battery Mode keeps the guidance and drops the heavy map.</span>
-                    <div className="cluster">
-                      <button className="btn btn-primary" style={{ minHeight: 48 }} onClick={() => setLowBattery(true)}>Turn on</button>
-                      <button className="btn btn-quiet" onClick={dismissBatteryHint}>Not now</button>
+                  <span className="icon-toggle-label">Low-Battery Mode</span>
+                  <span className="icon-toggle-state" aria-hidden="true">{lowBatt ? 'On' : 'Off'}</span>
+                </button>
+              </header>
+            )}
+            {!isMap && (isOffline(s) || (s.batteryHint && !lowBatt)) && (
+              <div className="banners">
+                {isOffline(s) && (
+                  <p className="banner">
+                    <WifiOff size={20} aria-hidden="true" />
+                    <span>You're offline. Showing what was saved at {clock(s.savedAt)}.</span>
+                  </p>
+                )}
+                {s.batteryHint && !lowBatt && (
+                  <div className="banner">
+                    <BatteryLow size={20} aria-hidden="true" />
+                    <div className="banner-body">
+                      <span>Battery is under 20%. Low-Battery Mode keeps the guidance and uses a simple map.</span>
+                      <div className="cluster">
+                        <button className="btn btn-primary btn-sm" onClick={() => setLowBattery(true)}>Turn on</button>
+                        <button className="btn btn-quiet btn-sm" onClick={dismissBatteryHint}>Not now</button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
             {route === 'home' && <Home />}
-            {route === 'map' && <SafeSpots />}
+            {route === 'go' && <Destination arg={loc.arg} />}
+            {route === 'map' && <MapScreen arg={loc.arg} alerts={count} />}
             {route === 'share' && <Share />}
             {route === 'alerts' && <Alerts />}
-            {route === 'profile' && <Profile />}
           </main>
-
-          {wide && (
-            <aside className="pane-map" aria-label="Map">
-              <CorridorMap mode="student" />
-            </aside>
-          )}
         </div>
       )}
 
-      <div className="toast-region">
+      <div className={`toast-region${isMap ? ' toast-region-map' : ''}`}>
         <div role="status" aria-live="polite">
           {s.toast && !s.toast.urgent && <p className="toast" key={s.toast.id}><Info size={20} aria-hidden="true" />{s.toast.text}</p>}
         </div>
