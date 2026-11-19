@@ -1,8 +1,8 @@
 import { straightLineWalkMin } from '../lib/coords'
 import { selectCorridorGeometry } from '../lib/previewGeometry'
 import type { Campus, Corridor, LatLng } from '../types'
-import { ALANGILAN_PREVIEW_ROADS } from './alangilan.preview.roads'
 import { alangilanRoads } from './alangilan.roads'
+import { ALANGILAN_TRIP_ROADS } from './alangilan.trip.roads'
 
 // BatStateU Alangilan, Batangas City
 const LOCATION: LatLng = [13.7842, 121.0744]
@@ -22,9 +22,11 @@ export const ALANGILAN_HAND_DRAWN_CORRIDORS: Corridor[] = [
     path: [LOCATION, [13.795, 121.078], [13.82, 121.085], [13.85, 121.095]] },
 ]
 
-// Road-following geometry (the OSRM-derived routes in ./alangilan.preview.roads.ts) is shown to users in every
-// build, not only in the dev server: hand-drawn lines cut across fields and buildings. It is still validated at
-// runtime (all five or none) and formal reviewed geometry, once approved, takes precedence.
+// Road-following geometry is shown to users in every build: hand-drawn lines cut across fields and buildings.
+// The routes in use are full trips from campus to each town (./alangilan.trip.roads.ts, npm run routes:campuses).
+// The earlier preview (./alangilan.preview.roads.ts) stopped at the hand-drawn corridor ends, 3-26 km short of the
+// towns; it is kept only as the record of the reviewed diagnostic run. Still validated at runtime (all five or
+// none), and formal reviewed geometry, once approved, takes precedence.
 export const PREVIEW_ON = true
 
 // Formal reviewed paths (all five or none) take precedence; invalid formal data falls back to hand-drawn,
@@ -32,7 +34,7 @@ export const PREVIEW_ON = true
 export const alangilanRouteGeometry = selectCorridorGeometry({
   handDrawn: ALANGILAN_HAND_DRAWN_CORRIDORS,
   formal: alangilanRoads,
-  preview: PREVIEW_ON ? ALANGILAN_PREVIEW_ROADS : null,
+  preview: PREVIEW_ON ? ALANGILAN_TRIP_ROADS : null,
   previewEnabled: PREVIEW_ON,
   ctx: { campusId: 'alangilan', anchor: LOCATION },
 })

@@ -15,7 +15,7 @@ const publicDiagnostics = Object.keys(import.meta.glob(['/public/**/*.geojson', 
 
 describe('route generator isolation (production files only)', () => {
   it('scans production files and no test files', () => {
-    expect(production.some(([p]) => p.endsWith('components/CorridorMap.tsx'))).toBe(true)
+    expect(production.some(([p]) => p.endsWith('components/map/MapView.tsx'))).toBe(true)
     // Same-folder files are keyed as './geo.js', others as '../dir/file'.
     expect(production.some(([p]) => /(^|\/)geo\.js$/.test(p))).toBe(true)
     expect(production.some(([p]) => p.endsWith('.test.ts'))).toBe(false)
