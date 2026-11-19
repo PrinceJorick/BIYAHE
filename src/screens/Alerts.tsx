@@ -1,102 +1,155 @@
-import { Building2, CircleCheck, Clock, CloudRain, Info, Megaphone, OctagonAlert, TriangleAlert } from 'lucide-react'
+// Alerts (wireframe 5): one card per advisory, with its source and severity as labels, then forecast and traffic
+// notices the app derives, then local news. Students see only published advisories that are current; ended ones
+// are listed separately for a few hours, clearly marked, never as current warnings.
+import { Building2, CircleCheck, Clock, CloudRain, ExternalLink, Gauge, Megaphone, Newspaper } from 'lucide-react'
 import { useState } from 'react'
 import Badge from '../components/Badge'
+import Lvl from '../components/Lvl'
 import { corridors, type Advisory, type AdvisorySource, type Severity } from '../data'
 import { endedAt, otherCorridorAdvisories, phaseOf, recentlyEnded, scopeLabel, studentAdvisories } from '../lib/advisories'
-import { ago, clock, studentView } from '../lib/derive'
-import { useApp, useNow } from '../lib/store'
+import { ago, clock } from '../lib/derive'
+import { rainNotice, trafficNotices } from '../lib/notices'
+import type { Level } from '../lib/traffic'
+import { newsNote, useTrip } from './useTrip'
 
-const filters: ('All' | AdvisorySource)[] = ['All', 'PAGASA', 'LGU', 'Campus']
+const filters = ['All', 'PAGASA', 'LGU', 'Campus', 'Forecast', 'News'] as const
+type Filter = (typeof filters)[number]
 const sourceIcon = { PAGASA: CloudRain, LGU: Building2, Campus: Megaphone }
-const severity: Record<Severity, { Icon: typeof Info; label: string; tone: string }> = {
-  info: { Icon: Info, label: 'Info', tone: 'saved' },
-  warning: { Icon: TriangleAlert, label: 'Warning', tone: 'warn' },
-  critical: { Icon: OctagonAlert, label: 'Critical', tone: 'danger' },
+const severity: Record<Severity, { label: string; level: Level }> = {
+  info: { label: 'Info', level: 'none' },
+  warning: { label: 'Warning', level: 'mid' },
+  critical: { label: 'Critical', level: 'high' },
 }
 
-// Students see only published advisories that are current (not drafts, not resolved, not past their end time).
-// Ended ones are listed separately for a few hours, clearly marked, never as current warnings.
 export default function Alerts() {
-  const s = useApp()
-  const now = useNow()
-  const v = studentView(s, now)
-  const [filter, setFilter] = useState<(typeof filters)[number]>('All')
-  const bySource = (list: Advisory[]) => list.filter((a) => filter === 'All' || a.source === filter)
+  const { s, now, view, routes } = useTrip()
+  const [filter, setFilter] = useState<Filter>('All')
+  const show = (f: Filter) => filter === 'All' || filter === f
+  const bySource = (list: Advisory[]) => list.filter((a) => show(a.source as AdvisorySource))
   const mine = bySource(studentAdvisories(s.snapshot.advisories, s.corridorId, now))
   const others = bySource(otherCorridorAdvisories(s.snapshot.advisories, s.corridorId, now))
   const ended = bySource(recentlyEnded(s.snapshot.advisories, s.corridorId, now))
+  const rain = rainNotice(s.weather.hourly, s.weather.fetchedAt, now)
+  const notices = show('Forecast') ? [...(rain ? [rain] : []), ...trafficNotices(routes)] : []
+  const news = show('News') ? s.news?.items ?? [] : []
+  const note = newsNote(s)
 
-  const item = (a: Advisory, current: boolean) => {
+  const card = (a: Advisory, current: boolean) => {
     const Src = sourceIcon[a.source]
     const sev = severity[a.severity]
     const end = endedAt(a, now)
     const updated = a.updatedAt != null && a.updatedAt > a.issuedAt
     return (
       <li key={a.id}>
-        <article className={`row ${current ? '' : 'tone-saved'}`} style={{ alignItems: 'flex-start' }}>
-          <Src size={22} aria-hidden="true" style={{ marginTop: 2 }} />
-          <div className="row-body" style={{ gap: 6 }}>
-            <p className="meta">
-              {a.issuer} · issued {clock(a.issuedAt)} ({ago(a.issuedAt, now)})
-              {current && updated ? ` · updated ${clock(a.updatedAt!)}` : ''}
-            </p>
-            <h2 className="row-title">{a.title}</h2>
-            <p className="meta"><strong>Affects:</strong> {scopeLabel(a.scope, corridors)}</p>
-            {a.body && <p className="body">{a.body}</p>}
-            <div className="cluster" style={{ gap: 12 }}>
-              {current
-                ? <span className={`tag tone-${sev.tone}`}><sev.Icon size={16} aria-hidden="true" />{sev.label}</span>
-                : <span className="tag tone-saved"><CircleCheck size={16} aria-hidden="true" />{phaseOf(a, now) === 'resolved' ? 'Resolved' : 'Expired'}{end != null ? ` ${clock(end)}` : ''} · no longer current</span>}
-              {a.scope === s.corridorId && <span className="tag">Your route</span>}
-              {current && a.expiresAt != null && <span className="tag"><Clock size={16} aria-hidden="true" />Until {clock(a.expiresAt)}</span>}
-              {current && <Badge kind={v.offline ? 'saved' : 'official'} />}
-            </div>
+        <article className={`card alert${current ? '' : ' alert-ended'}`} aria-labelledby={`a-${a.id}`}>
+          <div className="alert-head">
+            <span className="chip-label"><Src size={14} aria-hidden="true" />{a.source}</span>
+            {current
+              ? <span className="chip-label"><Lvl level={sev.level}>{sev.label}</Lvl></span>
+              : <span className="chip-label"><CircleCheck size={14} aria-hidden="true" />{phaseOf(a, now) === 'resolved' ? 'Resolved' : 'Expired'}{end != null ? ` ${clock(end)}` : ''}</span>}
+            {a.scope === s.corridorId && <span className="chip-label">Your route</span>}
+            <span className="caption alert-time">{ago(a.issuedAt, now)}</span>
           </div>
+          <h2 className="h3" id={`a-${a.id}`}>{a.title}</h2>
+          {a.body && <p className="body">{a.body}</p>}
+          <p className="caption">
+            {a.issuer} · issued {clock(a.issuedAt)}{current && updated ? ` · updated ${clock(a.updatedAt!)}` : ''} · Affects: {scopeLabel(a.scope, corridors)}
+            {current && a.expiresAt != null && <> · <Clock size={12} aria-hidden="true" /> until {clock(a.expiresAt)}</>}
+          </p>
+          {!current && <p className="caption">No longer current.</p>}
         </article>
       </li>
     )
   }
 
+  const nothing = mine.length + others.length + notices.length + news.length === 0
+
   return (
     <div className="page">
       <div className="page-head">
         <h1 className="h1">Alerts</h1>
-        <p className="body">Current advisories from PAGASA, Batangas City and the campus DRRMO for the campus and your route.</p>
+        <p className="meta">Advisories from PAGASA, the LGU and the campus DRRMO, forecast and traffic notices, and local news.</p>
       </div>
-      {!v.offline && v.stale && (
-        <p className="banner tone-saved">
-          <Clock size={20} aria-hidden="true" />
-          <span>Last update {ago(s.snapshot.updatedAt, now)}. Advisories may have changed since; reconnect or check for an update.</span>
-        </p>
+      {!view.offline && view.stale && (
+        <p className="banner"><Clock size={20} aria-hidden="true" /><span>Last update {ago(s.snapshot.updatedAt, now)}. Advisories may have changed since.</span></p>
       )}
-      <div className="chips" role="group" aria-label="Filter by source">
-        {filters.map((f) => (
-          <button key={f} className="chip" aria-pressed={filter === f} onClick={() => setFilter(f)}>{f}</button>
-        ))}
+      <div className="chips chips-scroll" role="group" aria-label="Filter alerts">
+        {filters.map((f) => <button key={f} type="button" className="chip" aria-pressed={filter === f} onClick={() => setFilter(f)}>{f}</button>)}
       </div>
-      {mine.length === 0 ? (
-        <div className="empty">
-          <CircleCheck size={28} aria-hidden="true" />
-          <p className="h2">{filter === 'All' ? 'No active alerts' : `No ${filter} alerts right now`}</p>
+
+      {nothing && (
+        <section className="card empty">
+          <CircleCheck size={24} aria-hidden="true" />
+          <h2 className="h2">{filter === 'All' ? 'No active alerts' : `Nothing from ${filter} right now`}</h2>
           <p className="body">New advisories appear here the moment they are issued, and are kept for offline reading.</p>
-        </div>
-      ) : (
-        <ul className="rows" aria-label="Current advisories for you">{mine.map((a) => item(a, true))}</ul>
+        </section>
+      )}
+
+      {mine.length > 0 && (
+        <section className="stack" aria-labelledby="for-you">
+          <h2 className="eyebrow" id="for-you">For you and your route <Badge kind={view.offline ? 'saved' : 'official'} /></h2>
+          <ul className="stack">{mine.map((a) => card(a, true))}</ul>
+        </section>
+      )}
+
+      {notices.length > 0 && (
+        <section className="stack" aria-labelledby="notices">
+          <h2 className="eyebrow" id="notices">Forecast and traffic</h2>
+          <ul className="stack">
+            {notices.map((n) => (
+              <li key={n.id}>
+                <article className="card alert" aria-labelledby={`n-${n.id}`}>
+                  <div className="alert-head">
+                    <span className="chip-label">{n.kind === 'rain' ? <CloudRain size={14} aria-hidden="true" /> : <Gauge size={14} aria-hidden="true" />}{n.source}</span>
+                    <span className="chip-label"><Lvl level={n.level}>{n.word}</Lvl></span>
+                  </div>
+                  <h3 className="h3" id={`n-${n.id}`}>{n.title}</h3>
+                  <p className="body">{n.detail}</p>
+                  <p className="caption">Worked out by BIYAHE from {n.source}. Not an official advisory.</p>
+                </article>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {others.length > 0 && (
-        <section className="section" aria-labelledby="alerts-others" style={{ marginTop: 24 }}>
-          <h2 id="alerts-others" className="h2">Other routes</h2>
-          <p className="meta">Current advisories for routes other than yours.</p>
-          <ul className="rows">{others.map((a) => item(a, true))}</ul>
+        <section className="stack" aria-labelledby="others">
+          <h2 className="eyebrow" id="others">Other routes</h2>
+          <ul className="stack">{others.map((a) => card(a, true))}</ul>
+        </section>
+      )}
+
+      {(news.length > 0 || (show('News') && note)) && (
+        <section className="stack" aria-labelledby="news">
+          <h2 className="eyebrow" id="news">Local news</h2>
+          {news.length > 0 && (
+            <section className="card">
+              <ul className="list">
+                {news.map((n) => (
+                  <li key={n.id}>
+                    <a className="item item-top" href={n.url} target="_blank" rel="noreferrer">
+                      <span className="item-icon"><Newspaper size={20} aria-hidden="true" /></span>
+                      <span className="item-body">
+                        <span className="caption">{n.source} · {ago(n.publishedAt, now)}</span>
+                        <span className="item-title">{n.title}</span>
+                      </span>
+                      <ExternalLink className="item-chev" size={16} aria-hidden="true" /><span className="sr-only"> (opens the article)</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+              <p className="caption">News reports, not official advisories.</p>
+            </section>
+          )}
+          {note && <p className="caption">{note}</p>}
         </section>
       )}
 
       {ended.length > 0 && (
-        <section className="section" aria-labelledby="alerts-ended" style={{ marginTop: 24 }}>
-          <h2 id="alerts-ended" className="h2">Recently ended</h2>
-          <p className="meta">Resolved or expired in the last few hours. These are no longer current.</p>
-          <ul className="rows">{ended.map((a) => item(a, false))}</ul>
+        <section className="stack" aria-labelledby="ended">
+          <h2 className="eyebrow" id="ended">Recently ended</h2>
+          <ul className="stack">{ended.map((a) => card(a, false))}</ul>
         </section>
       )}
     </div>

@@ -6,7 +6,7 @@ import { CAMPUS, corridorById, corridors, fallbackWeather, fixture } from '../da
 import { studentView } from '../lib/derive'
 import type { State } from '../lib/store'
 import { alangilan, ALANGILAN_HAND_DRAWN_CORRIDORS, alangilanRouteGeometry } from './alangilan'
-import { ALANGILAN_PREVIEW_ROADS } from './alangilan.preview.roads'
+import { ALANGILAN_TRIP_ROADS } from './alangilan.trip.roads'
 import { campuses, DEFAULT_CAMPUS, DEFAULT_CAMPUS_ID, getCampus } from './index'
 import { malvar, malvarRouteGeometry } from './malvar'
 import { pabloBorbon, pabloBorbonRouteGeometry } from './pabloBorbon'
@@ -40,7 +40,7 @@ describe('Alangilan reference data (pinned before the registry move)', () => {
   it('draws the road-following paths, with every other corridor field unchanged', () => {
     expect(alangilanRouteGeometry.source).toBe('preview')
     expect(corridors.map(({ path: _p, ...rest }) => rest)).toEqual(ALANGILAN_HAND_DRAWN_CORRIDORS.map(({ path: _p, ...rest }) => rest))
-    for (const c of corridors) expect(c.path).toEqual(ALANGILAN_PREVIEW_ROADS.routes.find((r) => r.routeId === c.id)!.path)
+    for (const c of corridors) expect(c.path).toEqual(ALANGILAN_TRIP_ROADS.routes.find((r) => r.routeId === c.id)!.path)
   })
 })
 
@@ -132,6 +132,7 @@ describe('spot seeds and fixture snapshots', () => {
       ready: true, role: 'student', staffRole: 'DRRMO Coordinator', corridorId: 'lipa', scenario: 'disrupted',
       lowBattery: false, batteryHint: false, online: true, backend: 'device', snapshot: snap, savedAt: NOW,
       weather: fallbackWeather(NOW), spotId: null, walk: null, walkLoading: null, toast: null,
+      traffic: null, trafficError: null, departures: {}, news: null,
     } satisfies State
     studentView(state, NOW)
     fixture('clear', NOW)

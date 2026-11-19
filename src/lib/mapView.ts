@@ -14,8 +14,9 @@ export type MapMode = 'student' | 'staff'
 export type MapExtent = 'route' | 'nearby'
 
 // ── Zoom ────────────────────────────────────────────────────────────────────
-/** Users cannot zoom out past the regional view or in past street level. */
-export const MIN_ZOOM = 10
+/** Users cannot zoom out past the regional view or in past street level. 9 fits the longest trip (Alangilan to
+ * Tanauan, about 33 km north) on a phone-sized map. */
+export const MIN_ZOOM = 9
 export const MAX_ZOOM = 18
 /** Fitting never zooms in further than this, so a few close points don't produce a street-level view. */
 export const FIT_MAX_ZOOM = 16

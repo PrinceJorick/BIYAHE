@@ -1,68 +1,59 @@
-// Official BIYAHE logo: "Locator b" (Minimal startup marks, concept 1, in the team's "BIYAHE Logo Concepts"
-// canvas). The bowl of the "b" doubles as a "you are here" marker with the sun at its centre.
-// Geometry is copied from that artboard, not redrawn; public/favicon.svg and the PWA icons use the same paths
-// (scripts/build-icons.mjs). The artboard's own small-size tiers are kept: heavier strokes and a larger sun at
-// 40 px and at 32 px and below, so the mark stays legible as a favicon.
+// Official BIYAHE logo: "Go Pin" (BIYAHE Brand Guidelines artboard in the team's "BIYAHE Logo Concepts" canvas).
+// A map pin holding a forward arrow, with the rising sun; the wordmark is BIYAHE in Poppins ExtraBold.
+// Geometry is copied from the artboard (./logoGeometry.ts); public/favicon.svg and the PWA icons are generated
+// from the same values (scripts/build-icons.mjs).
 
-import { LOGO_COLORS, markTier, type LogoVariant } from './logoGeometry'
+import type { CSSProperties } from 'react'
+import { GO_PIN, iconTier, LOGO_COLORS } from './logoGeometry'
 
 type A11y = {
   /** Accessible name. Pass null when the mark sits beside text that already names BIYAHE (decorative). */
   label?: string | null
-  /** Optional tooltip / SVG <title>. */
-  title?: string
 }
 
-export function LogoMark({ size = 40, variant = 'dark', className, label = null, title }: { size?: number; variant?: LogoVariant; className?: string } & A11y) {
-  const { stroke, sun } = markTier(size)
-  const tile = variant === 'dark' ? LOGO_COLORS.deep : LOGO_COLORS.cloud
-  const ink = variant === 'dark' ? LOGO_COLORS.cloud : LOGO_COLORS.deep
-  const named = label != null
+const named = (label: string | null | undefined) => (label != null ? { role: 'img', 'aria-label': label } : { 'aria-hidden': true as const })
+
+/** The standalone pin + sun (no tile). `size` is the height; on dark surfaces the pin turns cloud white. */
+export function LogoMark({ size = 32, onDark = false, sun = true, className, label = null }: { size?: number; onDark?: boolean; sun?: boolean; className?: string } & A11y) {
+  const body = onDark ? LOGO_COLORS.cloud : LOGO_COLORS.deep
+  const ink = onDark ? LOGO_COLORS.deep : LOGO_COLORS.cloud
   return (
-    <svg className={className} width={size} height={size} viewBox="0 0 256 256" focusable="false"
-      {...(named ? { role: 'img', 'aria-label': label } : { 'aria-hidden': true })}>
-      {title && <title>{title}</title>}
-      <rect width="256" height="256" rx="60" fill={tile} {...(variant === 'light' ? { stroke: LOGO_COLORS.line, strokeWidth: 4 } : {})} />
-      <path d="M92 58V150" stroke={ink} strokeWidth={stroke} strokeLinecap="round" />
-      <circle cx="140" cy="150" r="48" fill="none" stroke={ink} strokeWidth={stroke} />
-      <circle cx="140" cy="150" r={sun} fill={LOGO_COLORS.sun} />
+    <svg className={className} width={Math.round((size * 166) / 188)} height={size} viewBox={GO_PIN.markViewBox} focusable="false" {...named(label)}>
+      <path d={GO_PIN.pin} fill={body} />
+      <path d={GO_PIN.arrow} fill="none" stroke={ink} strokeWidth={16} strokeLinecap="round" strokeLinejoin="round" />
+      {sun && <circle cx={GO_PIN.sun.cx} cy={GO_PIN.sun.cy} r={GO_PIN.sun.r} fill={LOGO_COLORS.sun} />}
     </svg>
   )
 }
 
-// The original stroked "biyahe" wordmark from the same canvas (the lockups beside the marks), with the sun as
-// the dot of the i. viewBox and paths unchanged.
-export function Wordmark({ height = 28, onDark = false }: { height?: number; onDark?: boolean }) {
+/** The app icon: Deep Blue rounded tile, cloud pin, deep arrow; small sizes use the artboard's favicon tiers. */
+export function AppIcon({ size = 48, className, label = null }: { size?: number; className?: string } & A11y) {
+  const tier = iconTier(size)
   return (
-    <svg className="logo-word" width={(height * 520) / 170} height={height} viewBox="-10 0 520 170" aria-hidden="true" focusable="false">
-      <g stroke={onDark ? LOGO_COLORS.cloud : LOGO_COLORS.deep} strokeWidth="22" strokeLinecap="round" strokeLinejoin="round" fill="none">
-        <path d="M12 12V100" />
-        <circle cx="43" cy="69" r="31" />
-        <path d="M106 46V100" />
-        <path d="M140 46V72A27 27 0 0 0 194 72V46" />
-        <path d="M194 72V110Q194 144 156 144H140" />
-        <circle cx="257" cy="69" r="31" />
-        <path d="M288 46V100" />
-        <path d="M322 12V100" />
-        <path d="M322 70A30 30 0 0 1 382 70V100" />
-        <path d="M414 69H476A31 31 0 1 0 466 93" />
-      </g>
-      <circle cx="106" cy="16" r="14" fill={LOGO_COLORS.sun} />
+    <svg className={className} width={size} height={size} viewBox="0 0 256 256" focusable="false" {...named(label)}>
+      <rect width="256" height="256" rx="60" fill={LOGO_COLORS.deep} />
+      <path d={GO_PIN.pin} fill={LOGO_COLORS.cloud} />
+      <path d={GO_PIN.arrow} fill="none" stroke={LOGO_COLORS.deep} strokeWidth={tier.arrow} strokeLinecap="round" strokeLinejoin="round" />
+      {tier.sun && <circle cx={GO_PIN.sun.cx} cy={GO_PIN.sun.cy} r={GO_PIN.sun.r} fill={LOGO_COLORS.sun} />}
     </svg>
   )
 }
 
 /**
- * Mark + wordmark lockup. Named "BIYAHE" for assistive tech by default; pass label={null} inside a link or
- * heading that already carries the name.
+ * Horizontal lockup: pin + BIYAHE wordmark, optionally with the "People • Places • Safer tomorrows" line.
+ * Named "BIYAHE" for assistive tech by default; pass label={null} inside a link that already carries the name.
  */
-export default function Logo({ size = 36, onDark = false, className, label = 'BIYAHE', title }: { size?: number; onDark?: boolean; className?: string } & A11y) {
-  const named = label != null
+export default function Logo({ size = 32, onDark = false, tagline = false, className, label = 'BIYAHE' }: {
+  size?: number; onDark?: boolean; tagline?: boolean; className?: string
+} & A11y) {
   return (
-    <span className={className ? `logo ${className}` : 'logo'} {...(named ? { role: 'img', 'aria-label': label } : {})} title={title}>
-      {/* On the deep-blue rail the light tile keeps the mark's edge visible. */}
-      <LogoMark size={size} variant={onDark ? 'light' : 'dark'} />
-      <Wordmark height={Math.round(size * 0.9)} onDark={onDark} />
+    <span className={`logo${onDark ? ' logo-on-dark' : ''}${className ? ` ${className}` : ''}`} {...(label != null ? { role: 'img', 'aria-label': label } : {})}
+      style={{ '--logo-h': `${size}px` } as CSSProperties}>
+      <LogoMark size={size} onDark={onDark} />
+      <span className="logo-text" aria-hidden="true">
+        <span className="logo-word">BIYAHE</span>
+        {tagline && <span className="logo-tagline">People • Places • Safer tomorrows</span>}
+      </span>
     </span>
   )
 }

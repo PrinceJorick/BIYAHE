@@ -2,8 +2,10 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 import { ACTIVE_CAMPUS } from '../campuses/active'
 import { advisoryId, CAMPUS, corridors, fallbackWeather, fixture, spotSeeds, type Amenity, type Snapshot, type Spot, type Weather } from '../data'
 import * as adv from './advisories'
+import { fetchGoogleRoute, GOOGLE_MAPS_KEY, type LiveRoute } from './googleRoutes'
 import { idbGet, idbSet, ROUTES } from './idb'
 import { logBuildInfo } from './buildInfo'
+import { fetchNews, readNews, type NewsSnapshot } from './news'
 import { reconcileSnapshot } from './spotData'
 import * as remote from './supabase'
 import { resolveWalkRoute, WALK_ROUTER_URL, type WalkRoute } from './walkRoute'
@@ -33,8 +35,17 @@ export type State = {
   // Walking directions to the safe spot on screen (src/lib/walkRoute.ts) and the spot being looked up.
   walk: WalkRoute | null
   walkLoading: string | null
+  // Google Routes: live traffic and road geometry per route (src/lib/googleRoutes.ts); null without a key.
+  traffic: TrafficSnapshot | null
+  trafficError: string | null
+  // Google's traffic forecast for leaving later, per route (map → When should I leave?).
+  departures: Record<string, { forecast: Partial<Record<number, LiveRoute>>; fetchedAt: number }>
+  // Local news from /api/news (api/news.ts).
+  news: NewsSnapshot | null
   toast: { id: number; text: string; urgent: boolean } | null
 }
+
+export type TrafficSnapshot = { routes: Partial<Record<string, LiveRoute>>; fetchedAt: number }
 
 type Prefs = Pick<State, 'role' | 'staffRole' | 'corridorId' | 'scenario' | 'lowBattery'>
 
@@ -43,6 +54,8 @@ const MIN = 60_000
 // Offline copies and tab sync are per campus, so switching campus never shows another campus's data.
 const SNAPSHOT_KEY = `snapshot:${ACTIVE_CAMPUS.id}`
 const WEATHER_KEY = `weather:${ACTIVE_CAMPUS.id}`
+const TRAFFIC_KEY = `traffic:${ACTIVE_CAMPUS.id}`
+const NEWS_KEY = `news:${ACTIVE_CAMPUS.id}`
 
 // Each tab keeps its own copy first, so a staff tab and a student tab can sit side by side.
 function readPrefs(): Partial<Prefs> {
@@ -79,6 +92,10 @@ let state: State = {
   spotId: null,
   walk: null,
   walkLoading: null,
+  traffic: null,
+  trafficError: null,
+  departures: {},
+  news: null,
   toast: null,
   ...readPrefs(),
 }
@@ -180,14 +197,21 @@ async function pull() {
   }
 }
 
-async function refreshWeather() {
+// A failed weather request is retried once after WEATHER_RETRY_MS (slow first connections on mobile data are
+// common), instead of leaving the saved reading on screen until the next 10-minute poll.
+const WEATHER_RETRY_MS = 30_000
+let weatherRetry: ReturnType<typeof setTimeout> | undefined
+
+async function refreshWeather(retry = true) {
   if (!navigator.onLine) return
+  clearTimeout(weatherRetry)
   try {
     const weather = await fetchWeather()
     set({ weather })
     void idbSet(WEATHER_KEY, weather)
   } catch {
     set({ weather: { ...state.weather, live: false } })
+    if (retry) weatherRetry = setTimeout(() => void refreshWeather(false), WEATHER_RETRY_MS)
   }
 }
 
@@ -200,6 +224,8 @@ export async function init() {
 
   const stored = await idbGet<{ snapshot: Snapshot; savedAt: number }>(SNAPSHOT_KEY)
   const weather = await idbGet<Weather>(WEATHER_KEY)
+  const traffic = await idbGet<TrafficSnapshot>(TRAFFIC_KEY)
+  const news = readNews(await idbGet(NEWS_KEY))
   // Saved copies keep their occupancy, amenities, advisories and route status; safe-spot names, positions and
   // capacities always come from the current registry (src/lib/spotData.ts).
   const saved = stored?.snapshot?.corridors ? { ...stored, snapshot: reconcileSnapshot(stored.snapshot, spotSeeds) } : null
@@ -208,6 +234,8 @@ export async function init() {
     void idbSet(SNAPSHOT_KEY, saved)
   } else void idbSet(SNAPSHOT_KEY, { snapshot: state.snapshot, savedAt: state.savedAt })
   if (weather) set({ weather: { ...weather, live: false } })
+  if (traffic?.routes && Number.isFinite(traffic.fetchedAt)) set({ traffic })
+  if (news) set({ news })
   set({ ready: true })
 
   if (bc) bc.onmessage = (e: MessageEvent<Snapshot>) => receive(e.data)
@@ -216,6 +244,8 @@ export async function init() {
     set({ online: true })
     void pull()
     void refreshWeather()
+    void refreshTraffic()
+    void refreshNews()
   })
   addEventListener('offline', () => set({ online: false }))
 
@@ -229,11 +259,15 @@ export async function init() {
   }
 
   void refreshWeather()
-  // Low-Battery Mode polls the network half as often.
+  void refreshTraffic()
+  void refreshNews()
+  // Low-Battery Mode polls the network half as often (and never asks for traffic).
   let tick = 0
   setInterval(() => {
     if (isLowBattery(state) && tick++ % 2) return
     void refreshWeather()
+    void refreshTraffic()
+    void refreshNews()
   }, 10 * MIN)
 
   // Battery Status API (Chromium). Suggests Low-Battery Mode; never switches it on silently.
@@ -248,6 +282,74 @@ export async function init() {
     } catch {
       // not permitted: the manual toggle still works
     }
+  }
+}
+
+// ── Traffic (Google Routes) and news ────────────────────────────────────────
+// Traffic: one traffic-aware route per corridor, campus → the town at the end of its path. Only with a Google key,
+// online and outside Low-Battery Mode; the last good result is kept in IndexedDB but is never shown as live
+// (src/lib/traffic.ts ignores readings older than LIVE_FRESH_MS).
+
+const TRAFFIC_EVERY_MS = 5 * MIN
+let trafficBusy = false
+
+const destination = (id: string) => corridors.find((c) => c.id === id)?.path.at(-1)
+
+export async function refreshTraffic(force = false) {
+  if (!GOOGLE_MAPS_KEY || isOffline(state) || isLowBattery(state) || trafficBusy) return
+  if (!force && state.traffic && Date.now() - state.traffic.fetchedAt < TRAFFIC_EVERY_MS) return
+  trafficBusy = true
+  try {
+    const results = await Promise.allSettled(corridors.map((c) => fetchGoogleRoute(CAMPUS, c.path.at(-1)!)))
+    const routes: TrafficSnapshot['routes'] = {}
+    let error: string | null = null
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled') routes[corridors[i].id] = r.value
+      else error ??= (r.reason as Error).message
+    })
+    if (Object.keys(routes).length) {
+      const traffic = { routes, fetchedAt: Date.now() }
+      set({ traffic, trafficError: error })
+      void idbSet(TRAFFIC_KEY, traffic)
+    } else {
+      set({ trafficError: error })
+      if (error) console.warn(`[biyahe] Live traffic unavailable: ${error}`)
+    }
+  } finally {
+    trafficBusy = false
+  }
+}
+
+const FORECAST_OFFSETS = [30, 60, 120]
+
+/** Google's traffic forecast for leaving in 30 min, 1 h and 2 h on one route (kept 10 minutes). */
+export async function loadDepartures(corridorId: string) {
+  const to = destination(corridorId)
+  if (!to || !GOOGLE_MAPS_KEY || isOffline(state) || isLowBattery(state)) return
+  const cur = state.departures[corridorId]
+  if (cur && Date.now() - cur.fetchedAt < 10 * MIN) return
+  const now = Date.now()
+  const results = await Promise.allSettled(FORECAST_OFFSETS.map((m) => fetchGoogleRoute(CAMPUS, to, { departureTime: now + m * MIN })))
+  const forecast: Partial<Record<number, LiveRoute>> = {}
+  results.forEach((r, i) => {
+    if (r.status === 'fulfilled') forecast[FORECAST_OFFSETS[i]] = r.value
+  })
+  set({ departures: { ...state.departures, [corridorId]: { forecast, fetchedAt: now } } })
+}
+
+export async function refreshNews() {
+  if (isOffline(state) || isLowBattery(state)) return
+  try {
+    const news = await fetchNews(ACTIVE_CAMPUS.id)
+    // A provider error keeps the last good list on screen, marked with the error.
+    if (news.error && state.news?.items.length) set({ news: { ...state.news, error: news.error } })
+    else {
+      set({ news })
+      if (!news.error) void idbSet(NEWS_KEY, news)
+    }
+  } catch (e) {
+    const error = (e as Error).message || 'news unavailable'
+    set({ news: state.news ? { ...state.news, error } : { items: [], provider: 'none', fetchedAt: 0, error } })
   }
 }
 
@@ -327,6 +429,7 @@ export function setScenario(scenario: Scenario) {
 // Asks the backend for anything newer. Returns false when there is nothing to ask.
 export async function refresh(): Promise<boolean> {
   void refreshWeather()
+  void refreshTraffic(true)
   if (!remote.configured || isOffline(state)) return false
   await pull()
   return true

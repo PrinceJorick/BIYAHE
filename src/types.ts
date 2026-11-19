@@ -72,13 +72,21 @@ export type Snapshot = {
   updatedAt: number
 }
 
+/** One forecast hour (Open-Meteo hourly). rainPct: chance of rain, 0-100, null when the model gives none. */
+export type HourForecast = { t: number; rainPct: number | null; code: number; tempC: number }
+
 export type Weather = {
   tempC: number
   precipMm: number
   windKph: number
   label: string
+  /** WMO weather code (absent in copies saved by older versions). */
+  code?: number
+  isDay?: boolean
   fetchedAt: number
   live: boolean
+  /** The next hours, from the current hour. Absent in copies saved by older versions. */
+  hourly?: HourForecast[]
 }
 
 // ── Campus registry ────────────────────────────────────────────────────────
