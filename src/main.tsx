@@ -12,6 +12,8 @@ import { setupServiceWorker } from './lib/pwa'
 import { normalizeEntryPath } from './lib/router'
 import { init } from './lib/store'
 
+// The app restores each page's scroll itself (App.tsx); the browser's own restoration would fight it.
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
 normalizeEntryPath()
 void init()
 setupServiceWorker()
