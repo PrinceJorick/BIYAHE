@@ -45,7 +45,7 @@ export function declutter(root: HTMLElement | null) {
   if (!root) return
   // Obstacles: pins, the map's zoom controls (Google's and Leaflet's) and the notes drawn over the map.
   const scope = root.closest('.map') ?? root
-  const pins = [...root.querySelectorAll('.pin, .map-campus'), ...scope.querySelectorAll('.gm-bundled-control, .leaflet-control-zoom, .map-meta > *')]
+  const pins = [...root.querySelectorAll('.pin, .map-campus'), ...scope.querySelectorAll('.gm-bundled-control, .gm-control-active, .leaflet-control-zoom, .map-meta > *')]
     .map((p) => p.getBoundingClientRect()).filter((r) => r.width > 0)
   const els = [...root.querySelectorAll<HTMLElement>('.map-tag, .map-label-spot')].sort((a, b) => priority(b) - priority(a))
   // Measure every label at its own spot first (moves from a previous run are undone).
