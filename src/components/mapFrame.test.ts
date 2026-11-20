@@ -60,7 +60,7 @@ describe('road-following routes: subtle "About routes" indicator', () => {
     const html = onMap()
     expect(html).toContain('class="map-demo-badge"')
     expect(html).toContain('aria-haspopup="dialog" aria-label="About routes: generated from OpenStreetMap, not checked on site. Show details and route limitations."')
-    expect(html).toContain('About routes</button>')
+    expect(html).toContain('About routes</span></button>')
     expect(html).not.toContain(PREVIEW_NOTICE)                 // the large banner paragraph
     expect(html).not.toContain('Route limitations')
     expect(html).not.toMatch(/<details|<ul|<li/)
@@ -120,10 +120,10 @@ describe('map wiring (source guards)', () => {
     expect(mapViewSource).toContain('<SchematicMap ')
   })
 
-  it('the simple map draws OSM street tiles only when asked (online, Google unavailable), never offline or on low battery', () => {
+  it('the simple map draws OSM street tiles without Google (online or offline from saved tiles), never on low battery', () => {
     expect(schematicSource).toContain('attributionControl={false}')
     expect(schematicSource).toContain('{tiles && <TileLayer')
-    expect(mapViewSource).toContain("const osm = why === 'nokey' || why === 'error'")
+    expect(mapViewSource).toContain("const osm = why === 'nokey' || why === 'error' || why === 'offline'")
     expect(mapViewSource).toContain('tiles={osm}')
   })
 

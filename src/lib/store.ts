@@ -6,6 +6,7 @@ import { cachedGoogleRoute, GOOGLE_ROUTES_KEY, type LiveRoute } from './googleRo
 import { idbClearAll, idbDelete, idbGet, idbSet, ROUTES } from './idb'
 import { logBuildInfo } from './buildInfo'
 import { fetchNews, readNews, savedNewsUsable, type NewsSnapshot } from './news'
+import { saveOfflineTiles } from './offlineTiles'
 import { reconcileSnapshot } from './spotData'
 import * as remote from './supabase'
 import { resolveWalkRoute, WALK_ROUTER_URL, type WalkRoute } from './walkRoute'
@@ -313,6 +314,8 @@ export async function init() {
   void refreshWeather()
   void refreshTraffic()
   void refreshNews()
+  // Street tiles for the offline map: a small set around campus and its routes, at most once a week.
+  if (!isOffline(state) && !isLowBattery(state)) void saveOfflineTiles([CAMPUS, ...corridors.flatMap((c) => c.path), ...spotSeeds.map((x) => x.pos)])
   // Low-Battery Mode polls the network half as often (and never asks for traffic).
   let tick = 0
   setInterval(() => {
