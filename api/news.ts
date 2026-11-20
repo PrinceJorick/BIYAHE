@@ -75,7 +75,7 @@ export const PLACES: Record<string, { re: RegExp; ctx?: boolean }> = {
 const TOPICS: Record<NewsTopic, RegExp> = {
   flood: /\bflood|\bbaha\b|binaha|pagbaha|\bsubmerged\b|\bstorm surge/i,
   rain: /\bheavy rain|\brainfall\b|\bulan\b|\bbagyo\b|\btyphoon\b|tropical (storm|depression)|\bhabagat\b|low pressure area|\bpagasa\b|thunderstorm/i,
-  road: /road closure|\bclosed road|\btraffic\b|\blandslide|\bgridlock\b|\breroute|\bimpassable\b|\bdetour\b|road accident|\bcollision\b/i,
+  road: /road closure|\bclosed road|\b(heavy|slow|monster|road) traffic\b|traffic (jam|advisory|congestion|rerouting|scheme)|\blandslide|\bgridlock\b|\breroute|\bimpassable\b|\bdetour\b|road accident|vehicular accident|\bcollision\b/i,
   classes: /class(es)? suspen|suspen\w* (of )?classes|walang pasok|no classes|\bsuspended\b.*\bclasses\b/i,
 }
 

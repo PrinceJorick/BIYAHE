@@ -39,6 +39,8 @@ export default function MapView({ mode, label, focus = null, showAll = false, tr
   const battery = isLowBattery(s)
   const why = !GOOGLE_MAPS_KEY ? 'nokey' : offline ? 'offline' : battery ? 'battery' : gm === 'error' ? 'error' : null
   const useGoogle = why === null
+  // Google unavailable but online: OpenStreetMap streets under the app's lines. Offline/battery: the plain simple map.
+  const osm = why === 'nokey' || why === 'error'
   const model = buildMapModel({
     mode, campus: CAMPUS, corridors, snapshot: s.snapshot, mineId: s.corridorId, focus, showAll, extent,
     googlePaths: useGoogle ? s.traffic?.routes ?? null : null, walk: s.walk,
@@ -50,16 +52,16 @@ export default function MapView({ mode, label, focus = null, showAll = false, tr
   const note = why && (
     <p className="map-note">
       <MapPinned size={14} aria-hidden="true" />
-      {why === 'offline' ? 'Simple map: offline' : why === 'battery' ? 'Simple map: saving battery' : why === 'error' ? 'Simple map: street map unavailable'
-        : import.meta.env.DEV ? 'Simple map: add VITE_GOOGLE_MAPS_API_KEY to .env' : 'Simple map'}
+      {why === 'offline' ? 'Simple map: offline' : why === 'battery' ? 'Simple map: saving battery' : why === 'error' ? 'OpenStreetMap: Google map unavailable'
+        : import.meta.env.DEV ? 'OpenStreetMap: add VITE_GOOGLE_MAPS_API_KEY for the Google map' : 'OpenStreetMap'}
     </p>
   )
 
   return (
-    <MapFrame label={label} warning={warning} notice={notice} note={note} credit={model.osmCredit} fill={fill}>
+    <MapFrame label={label} warning={warning} notice={notice} note={note} credit={model.osmCredit || osm} fill={fill}>
       {useGoogle
         ? <GoogleMapView model={model} fill={fill} padding={padding} traffic={traffic} onSpot={onSpot} />
-        : <SchematicMap model={model} fill={fill} padding={padding} onSpot={onSpot} still={battery} />}
+        : <SchematicMap model={model} fill={fill} padding={padding} onSpot={onSpot} still={battery} tiles={osm} />}
     </MapFrame>
   )
 }
