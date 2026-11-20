@@ -65,7 +65,7 @@ export const CAMPUS_POINTS: Record<string, readonly [number, number]> = {
 const HOURS = 8
 const TIMEOUT_MS = 8000
 
-export const isWeatherCampus = (v: string | null): v is string => v != null && Object.hasOwn(CAMPUS_POINTS, v)
+export const isWeatherCampus = (v: string | null): v is string => v != null && Object.prototype.hasOwnProperty.call(CAMPUS_POINTS, v)
 
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 const text = (v: unknown, max = 600) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, max) : '')
