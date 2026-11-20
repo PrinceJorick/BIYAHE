@@ -2,14 +2,15 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 import { ACTIVE_CAMPUS } from '../campuses/active'
 import { advisoryId, CAMPUS, corridors, fixture, spotSeeds, type Amenity, type Snapshot, type Spot, type Weather } from '../data'
 import * as adv from './advisories'
-import { fetchGoogleRoute, GOOGLE_ROUTES_KEY, type LiveRoute } from './googleRoutes'
+import { cachedGoogleRoute, GOOGLE_ROUTES_KEY, type LiveRoute } from './googleRoutes'
 import { idbClearAll, idbDelete, idbGet, idbSet, ROUTES } from './idb'
 import { logBuildInfo } from './buildInfo'
 import { fetchNews, readNews, savedNewsUsable, type NewsSnapshot } from './news'
 import { reconcileSnapshot } from './spotData'
 import * as remote from './supabase'
 import { resolveWalkRoute, WALK_ROUTER_URL, type WalkRoute } from './walkRoute'
-import { fetchWeather } from './weather'
+import { fetchWeather, weatherCacheKey } from './weather'
+import { clearApiCache, isQuotaError, latestEntry } from './apiCache'
 import type { Advisory } from '../types'
 
 export type Role = 'student' | 'staff'
@@ -34,7 +35,7 @@ export type State = {
   snapshot: Snapshot
   // When this device last stored the snapshot in IndexedDB.
   savedAt: number
-  // Google Weather at the campus point; null until the first reading (never stored on the device).
+  // Google Weather at the campus point; null until there is a reading (live, or the last one saved in apiCache).
   weather: Weather | null
   weatherError: string | null
   spotId: string | null
@@ -66,7 +67,7 @@ const MIN = 60_000
 // Offline copies and tab sync are per campus, so switching campus never shows another campus's data.
 const SNAPSHOT_KEY = `snapshot:${ACTIVE_CAMPUS.id}`
 // Older versions saved weather (Open-Meteo) and Google traffic results here; both are removed on start, because
-// Google Maps Platform content is not stored on the device.
+// Google answers now live in src/lib/apiCache.ts (localStorage, at most 24 hours), not in IndexedDB.
 const LEGACY_KEYS = [`weather:${ACTIVE_CAMPUS.id}`, `traffic:${ACTIVE_CAMPUS.id}`, `news:${ACTIVE_CAMPUS.id}`]
 // News is the same list for every campus (relevance is worked out on the device).
 const NEWS_KEY = 'news:v2'
@@ -240,21 +241,24 @@ async function pull() {
   }
 }
 
-// A failed weather request is retried once after WEATHER_RETRY_MS (slow first connections on mobile data are
-// common), instead of leaving the saved reading on screen until the next 10-minute poll.
+// Weather goes through the shared cache (src/lib/apiCache.ts): a reading under 20 minutes old is reused, and a
+// failure shows the last good reading as a saved copy with its original time. A failure with nothing to show is
+// retried once after WEATHER_RETRY_MS (slow first connections on mobile data), except quota (429) and denied (403),
+// which are never retried.
 const WEATHER_RETRY_MS = 30_000
 let weatherRetry: ReturnType<typeof setTimeout> | undefined
 
-async function refreshWeather(retry = true): Promise<boolean> {
+async function refreshWeather({ retry = true, manual = false } = {}): Promise<boolean> {
   if (!navigator.onLine || state.scenario === 'offline') return false
   clearTimeout(weatherRetry)
   try {
-    const weather = await fetchWeather(ACTIVE_CAMPUS.id)
-    set({ weather, weatherError: null })
-    return true
+    const r = await fetchWeather(ACTIVE_CAMPUS.id, { manual })
+    const stale = r.source === 'stale'
+    set({ weather: { ...r.data, live: r.data.live && !stale }, weatherError: stale ? r.error ?? 'Weather unavailable' : null })
+    return !stale
   } catch (e) {
     set({ weather: state.weather ? { ...state.weather, live: false } : null, weatherError: (e as Error).message || 'Weather unavailable' })
-    if (retry) weatherRetry = setTimeout(() => void refreshWeather(false), WEATHER_RETRY_MS)
+    if (retry && !isQuotaError(e)) weatherRetry = setTimeout(() => void refreshWeather({ retry: false }), WEATHER_RETRY_MS)
     return false
   }
 }
@@ -281,6 +285,9 @@ export async function init() {
   if (news && savedNewsUsable(news, Date.now())) set({ news })
   else void idbDelete(NEWS_KEY)
   if (Array.isArray(newsRead)) set({ newsRead: newsRead.filter((x) => typeof x === 'string').slice(-200) })
+  // The last weather reading, as a saved copy with its own time, until a live one arrives (or for an offline start).
+  const savedWeather = latestEntry<Weather>(weatherCacheKey(ACTIVE_CAMPUS.id))
+  if (savedWeather) set({ weather: { ...savedWeather.data, live: false } })
   set({ ready: true })
 
   if (bc) bc.onmessage = (e: MessageEvent<Snapshot>) => receive(e.data)
@@ -309,6 +316,8 @@ export async function init() {
   // Low-Battery Mode polls the network half as often (and never asks for traffic).
   let tick = 0
   setInterval(() => {
+    // A hidden tab never polls; when it is shown again the next tick asks, and the cache answers anything still fresh.
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
     if (isLowBattery(state) && tick++ % 2) return
     void refreshWeather()
     void refreshTraffic()
@@ -332,32 +341,38 @@ export async function init() {
 
 // ── Traffic (Google Routes) and news ────────────────────────────────────────
 // Traffic: one traffic-aware route per corridor, campus → the town at the end of its path. Only with a Google key,
-// online and outside Low-Battery Mode; the last good result is kept in IndexedDB but is never shown as live
-// (src/lib/traffic.ts ignores readings older than LIVE_FRESH_MS).
+// online and outside Low-Battery Mode. Requests go through the shared cache (src/lib/googleRoutes.ts
+// cachedGoogleRoute): reused for 10 minutes, a manual refresh at most every 30 seconds, and the last good route as
+// a fallback that src/lib/traffic.ts never shows as live once older than LIVE_FRESH_MS.
 
-const TRAFFIC_EVERY_MS = 5 * MIN
 let trafficBusy = false
 
 const destination = (id: string) => corridors.find((c) => c.id === id)?.path.at(-1)
 
 export async function refreshTraffic(force = false) {
   if (!GOOGLE_ROUTES_KEY || isOffline(state) || isLowBattery(state) || trafficBusy) return
-  if (!force && state.traffic && Date.now() - state.traffic.fetchedAt < TRAFFIC_EVERY_MS) return
   trafficBusy = true
   try {
-    const results = await Promise.allSettled(corridors.map((c) => fetchGoogleRoute(CAMPUS, c.path.at(-1)!)))
+    const results = await Promise.allSettled(corridors.map((c) =>
+      cachedGoogleRoute({ campusId: ACTIVE_CAMPUS.id, destinationId: c.id }, CAMPUS, c.path.at(-1)!, { manual: force })))
     const routes: TrafficSnapshot['routes'] = {}
     let error: string | null = null
     results.forEach((r, i) => {
-      if (r.status === 'fulfilled') routes[corridors[i].id] = r.value
-      else error ??= (r.reason as Error).message
+      if (r.status === 'fulfilled') {
+        routes[corridors[i].id] = r.value.data
+        if (r.value.error) error ??= r.value.error
+      } else error ??= (r.reason as Error).message
     })
-    if (Object.keys(routes).length) {
-      // Kept in memory only (Google Maps Platform content is not stored on the device).
-      set({ traffic: { routes, fetchedAt: Date.now() }, trafficError: error })
-    } else {
+    const ids = Object.keys(routes)
+    // Same answers as on screen (a cache hit): no state change, so no re-render and no map redraw.
+    const same = state.traffic && ids.length === Object.keys(state.traffic.routes).length
+      && ids.every((id) => state.traffic!.routes[id]?.fetchedAt === routes[id]!.fetchedAt)
+    if (ids.length && !same) {
+      // fetchedAt is when Google answered (the newest route), never the time a cached copy was read.
+      set({ traffic: { routes, fetchedAt: Math.max(...ids.map((id) => routes[id]!.fetchedAt)) }, trafficError: error })
+    } else if (!ids.length || error !== state.trafficError) {
       set({ trafficError: error })
-      if (error) console.warn(`[biyahe] Live traffic unavailable: ${error}`)
+      if (!ids.length && error) console.warn(`[biyahe] Live traffic unavailable: ${error}`)
     }
   } finally {
     trafficBusy = false
@@ -366,18 +381,19 @@ export async function refreshTraffic(force = false) {
 
 const FORECAST_OFFSETS = [30, 60, 120]
 
-/** Google's traffic forecast for leaving in 30 min, 1 h and 2 h on one route (kept 10 minutes). */
+/** Google's traffic forecast for leaving in 30 min, 1 h and 2 h on one route (cached 10 minutes per departure). */
 export async function loadDepartures(corridorId: string) {
   const to = destination(corridorId)
   if (!to || !GOOGLE_ROUTES_KEY || isOffline(state) || isLowBattery(state)) return
-  const cur = state.departures[corridorId]
-  if (cur && Date.now() - cur.fetchedAt < 10 * MIN) return
   const now = Date.now()
-  const results = await Promise.allSettled(FORECAST_OFFSETS.map((m) => fetchGoogleRoute(CAMPUS, to, { departureTime: now + m * MIN })))
+  const results = await Promise.allSettled(FORECAST_OFFSETS.map((m) =>
+    cachedGoogleRoute({ campusId: ACTIVE_CAMPUS.id, destinationId: corridorId, departInMin: m }, CAMPUS, to)))
   const forecast: Partial<Record<number, LiveRoute>> = {}
   results.forEach((r, i) => {
-    if (r.status === 'fulfilled') forecast[FORECAST_OFFSETS[i]] = r.value
+    if (r.status === 'fulfilled') forecast[FORECAST_OFFSETS[i]] = r.value.data
   })
+  const cur = state.departures[corridorId]?.forecast
+  if (cur && FORECAST_OFFSETS.every((m) => cur[m]?.fetchedAt === forecast[m]?.fetchedAt)) return
   set({ departures: { ...state.departures, [corridorId]: { forecast, fetchedAt: now } } })
 }
 
@@ -503,7 +519,7 @@ export async function syncNow(): Promise<'ok' | 'partial' | 'offline' | 'busy'> 
   if (isOffline(state)) return 'offline'
   set({ syncing: true })
   try {
-    const [w, n] = await Promise.all([refreshWeather(false), refreshNews(), refreshTraffic(true), remote.configured ? pull() : Promise.resolve()])
+    const [w, n] = await Promise.all([refreshWeather({ retry: false, manual: true }), refreshNews(), refreshTraffic(true), remote.configured ? pull() : Promise.resolve()])
     const ok = w && (n || isLowBattery(state))
     if (ok) set({ lastSync: Date.now() })
     return ok ? 'ok' : 'partial'
@@ -515,6 +531,7 @@ export async function syncNow(): Promise<'ok' | 'partial' | 'offline' | 'busy'> 
 /** Settings → Clear offline data: BIYAHE's own IndexedDB stores only. Preferences stay; the app reloads its data. */
 export async function clearOfflineData() {
   await idbClearAll()
+  clearApiCache()
   set({ news: null, newsRead: [], walk: null })
   const now = Date.now()
   persist(fixture(state.scenario === 'clear' ? 'clear' : 'disrupted', now))
@@ -527,7 +544,7 @@ export function setAlertPrefs(patch: Partial<AlertPrefs>) {
 
 // Asks the backend for anything newer. Returns false when there is nothing to ask.
 export async function refresh(): Promise<boolean> {
-  void refreshWeather()
+  void refreshWeather({ manual: true })
   void refreshTraffic(true)
   void refreshNews()
   if (!remote.configured || isOffline(state)) return false

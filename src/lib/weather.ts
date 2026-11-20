@@ -1,7 +1,9 @@
 // Client side of /api/weather (api/weather.ts, Google Weather API): current conditions at the campus point, the
 // next hours' chance of rain (Home weather card, the map's "When should I leave?") and public weather alerts from
 // PAGASA. Conditions and forecasts are estimates; only alerts carry their issuing authority.
+import { campuses } from '../campuses'
 import type { CampusId, HourForecast, Weather, WeatherAlert } from '../types'
+import { cachedRequest, HttpError, type Cached } from './apiCache'
 
 // WMO-style codes (api/weather.ts maps Google's condition types onto them), grouped to the wording a commuter needs.
 export function weatherLabel(code: number): string {
@@ -47,13 +49,16 @@ function readAlert(x: unknown): WeatherAlert | null {
 /** Validates an /api/weather answer. Throws when it has no current conditions; drops malformed hours and alerts. */
 export function parseWeatherPayload(json: unknown, now = Date.now()): Weather {
   const d = json as {
-    provider?: unknown; error?: unknown; fetchedAt?: unknown
+    provider?: unknown; error?: unknown; fetchedAt?: unknown; status?: unknown; stale?: unknown
     current?: { observedAt?: unknown; tempC?: unknown; feelsLikeC?: unknown; label?: unknown; code?: unknown; isDay?: unknown; rainPct?: unknown; thunderPct?: unknown; precipMm?: unknown; windKph?: unknown }
     hourly?: unknown[]; alerts?: unknown[]
   } | null
   if (d?.provider === 'none') throw new Error('Weather is not configured on the server')
   const c = d?.current
-  if (!c || !finite(c.tempC) || !finite(c.code) || typeof c.label !== 'string') throw new Error(typeof d?.error === 'string' ? d.error : 'Google Weather: no current conditions')
+  if (!c || !finite(c.tempC) || !finite(c.code) || typeof c.label !== 'string') {
+    const msg = typeof d?.error === 'string' ? d.error : 'Google Weather: no current conditions'
+    throw finite(d?.status) ? new HttpError(d.status, msg) : new Error(msg)
+  }
   const hourStart = now - (now % 3_600_000)
   const hourly: HourForecast[] = (Array.isArray(d!.hourly) ? d!.hourly : [])
     .map((h) => h as Partial<HourForecast>)
@@ -68,7 +73,8 @@ export function parseWeatherPayload(json: unknown, now = Date.now()): Weather {
     isDay: c.isDay !== false,
     observedAt: finite(c.observedAt) ? c.observedAt : now,
     fetchedAt: finite(d!.fetchedAt) ? d!.fetchedAt : now,
-    live: true,
+    // The server's last good answer (Google refused or failed just now) is a saved copy, not a live reading.
+    live: d!.stale !== true,
     source: 'google',
     rainPct: finite(c.rainPct) ? c.rainPct : null,
     thunderPct: finite(c.thunderPct) ? c.thunderPct : null,
@@ -80,16 +86,37 @@ export function parseWeatherPayload(json: unknown, now = Date.now()): Weather {
 
 export const weatherUrl = (campus: CampusId) => `/api/weather?campus=${encodeURIComponent(campus)}`
 
-export async function fetchWeather(campus: CampusId, fetchImpl: typeof fetch = fetch): Promise<Weather> {
+// One /api/weather answer (current conditions, next hours and PAGASA alerts, all used by Home, Map and Alerts)
+// per campus, fresh for 20 minutes; a manual refresh may skip that once a minute.
+export const WEATHER_TTL_MS = 1_200_000
+export const WEATHER_COOLDOWN_MS = 60_000
+export const weatherCacheKey = (campus: CampusId) => {
+  const [lat, lng] = campuses[campus].location
+  return `weather:${campus}:${lat.toFixed(3)},${lng.toFixed(3)}:api-weather`
+}
+
+async function requestWeather(campus: CampusId, fetchImpl: typeof fetch): Promise<Weather> {
   const ctl = new AbortController()
   const timer = setTimeout(() => ctl.abort(), 12_000)
   try {
     const res = await fetchImpl(weatherUrl(campus), { signal: ctl.signal })
-    if (!res.ok) throw new Error(`weather HTTP ${res.status}`)
+    if (!res.ok) throw new HttpError(res.status, `weather HTTP ${res.status}`)
     return parseWeatherPayload(await res.json())
   } finally {
     clearTimeout(timer)
   }
+}
+
+/**
+ * Weather for a campus through the shared cache (src/lib/apiCache.ts): concurrent callers share one Promise, an
+ * answer within WEATHER_TTL_MS is reused, and a failure returns the last good answer marked `stale` with its
+ * original time. Rejects only when there is nothing to fall back on.
+ */
+export function fetchWeather(campus: CampusId, o: { manual?: boolean; fetchImpl?: typeof fetch; now?: () => number } = {}): Promise<Cached<Weather>> {
+  return cachedRequest({
+    key: weatherCacheKey(campus), ttlMs: WEATHER_TTL_MS, cooldownMs: WEATHER_COOLDOWN_MS, manual: o.manual, now: o.now,
+    fetcher: () => requestWeather(campus, o.fetchImpl ?? fetch),
+  })
 }
 
 /** Alerts that are in force at `now` (no start yet counts as started; no expiry counts as current). */

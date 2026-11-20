@@ -46,7 +46,7 @@ function WeatherCard({ s, now, offline }: { s: State; now: number; offline: bool
           <CloudOff className="wx-icon" size={44} strokeWidth={1.6} aria-hidden="true" />
           <div className="wx-desc">
             <p className="h3">Weather unavailable</p>
-            <p className="meta">{offline ? 'Weather needs a connection. It is not stored on this device.' : s.weatherError ? 'Google Weather could not be reached. BIYAHE will try again.' : 'Loading the weather…'}</p>
+            <p className="meta">{offline ? 'No saved weather on this device yet. Weather needs a connection.' : s.weatherError ? 'Google Weather could not be reached. BIYAHE will try again.' : 'Loading the weather…'}</p>
           </div>
         </div>
       </section>

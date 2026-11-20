@@ -8,10 +8,12 @@
 // authority (PAGASA for the Philippines) and are passed on with that authority's name, times and link.
 //
 // Billing: every lookup is a billable Weather API event (a monthly free allowance, then paid). One refresh costs
-// 3 lookups; the answer is cached at the edge for 30 minutes and in this instance's memory for 15 minutes.
+// 3 lookups; each is cached for 20 minutes per instance (src/lib/apiCache.ts) and the answer at the edge as long.
 //
-// Self-contained (no imports) so Vercel can build it as-is; the pure helpers are unit-tested in
+// Imports only src/lib/apiCache.ts (no browser APIs on the server); the pure helpers are unit-tested in
 // src/lib/weather.test.ts, which also checks that these coordinates match src/campuses.
+
+import { cachedRequest, HttpError } from '../src/lib/apiCache.js'
 
 export type HourForecast = { t: number; rainPct: number | null; code: number; tempC: number }
 
@@ -32,8 +34,13 @@ export type WeatherAlert = {
 
 export type WeatherPayload = {
   provider: 'google' | 'none'
+  /** When Google computed the current conditions shown (an older time when `stale`). */
   fetchedAt: number
   error?: string
+  /** Upstream HTTP status of a failed lookup (429 quota, 403 denied). */
+  status?: number
+  /** The last good answer, returned because Google could not be asked now. */
+  stale?: boolean
   current?: {
     observedAt: number
     tempC: number
@@ -182,72 +189,63 @@ export function parseAlerts(json: unknown): WeatherAlert[] {
 const lookup = (path: string, [lat, lng]: readonly [number, number], key: string, extra: Record<string, string> = {}) =>
   `${WEATHER_BASE}/${path}?${new URLSearchParams({ key, 'location.latitude': String(lat), 'location.longitude': String(lng), languageCode: 'en', ...extra })}`
 
+// Each Google endpoint is cached on its own key (campus + point rounded to 3 decimals + endpoint) for
+// WEATHER_TTL_MS, with one request in flight per key. A failed lookup (429 quota, 403 denied, outage) falls back to
+// that endpoint's last good answer with its original time, and is never retried here.
+export const WEATHER_TTL_MS = 1_200_000
+export const weatherKey = (campus: string, [lat, lng]: readonly [number, number], endpoint: string) => `gweather:${campus}:${lat.toFixed(3)},${lng.toFixed(3)}:${endpoint}`
+
 export async function getWeather(campus: string, env: Env, fetchImpl: typeof fetch = fetch, now = Date.now()): Promise<WeatherPayload> {
   const key = (env.GOOGLE_WEATHER_API_KEY ?? env.WEATHER_API_KEY)?.trim()
   if (!key) return { provider: 'none', fetchedAt: now }
   const point = CAMPUS_POINTS[campus]
-  const ctl = new AbortController()
-  const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS)
   const get = async (url: string) => {
-    const res = await fetchImpl(url, { signal: ctl.signal })
-    if (res.status === 429) throw new Error('Google Weather quota reached')
-    if (!res.ok) throw new Error(`Google Weather HTTP ${res.status}`)
-    return res.json()
-  }
-  try {
-    const [cur, hrs, alerts] = await Promise.allSettled([
-      get(lookup('currentConditions:lookup', point, key)),
-      get(lookup('forecast/hours:lookup', point, key, { hours: String(HOURS), pageSize: String(HOURS) })),
-      get(lookup('publicAlerts:lookup', point, key)),
-    ])
-    if (cur.status === 'rejected') throw cur.reason
-    return {
-      provider: 'google', fetchedAt: now,
-      current: parseCurrent(cur.value),
-      hourly: hrs.status === 'fulfilled' ? parseHours(hrs.value) : [],
-      // A failed alerts lookup is reported, never shown as "no alerts".
-      ...(alerts.status === 'fulfilled' ? { alerts: parseAlerts(alerts.value) } : { error: 'Weather alerts unavailable' }),
+    const ctl = new AbortController()
+    const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS)
+    try {
+      const res = await fetchImpl(url, { signal: ctl.signal })
+      if (res.status === 429) throw new HttpError(429, 'Google Weather quota reached')
+      if (!res.ok) throw new HttpError(res.status, `Google Weather HTTP ${res.status}`)
+      return res.json()
+    } catch (e) {
+      throw e instanceof HttpError ? e : new Error(ctl.signal.aborted ? 'Google Weather timed out' : 'Google Weather unreachable')
+    } finally {
+      clearTimeout(timer)
     }
-  } catch (e) {
-    const msg = ctl.signal.aborted ? 'Google Weather timed out' : (e as Error).message.startsWith('Google Weather') ? (e as Error).message : 'Google Weather unreachable'
-    return { provider: 'google', fetchedAt: now, error: msg }
-  } finally {
-    clearTimeout(timer)
+  }
+  const one = <T>(endpoint: string, url: string, parse: (j: unknown) => T) =>
+    cachedRequest({ key: weatherKey(campus, point, endpoint), ttlMs: WEATHER_TTL_MS, cooldownMs: 0, now: () => now, fetcher: () => get(url).then(parse) })
+  const [cur, hrs, alerts] = await Promise.allSettled([
+    one('currentConditions', lookup('currentConditions:lookup', point, key), parseCurrent),
+    one('forecastHours', lookup('forecast/hours:lookup', point, key, { hours: String(HOURS), pageSize: String(HOURS) }), parseHours),
+    one('publicAlerts', lookup('publicAlerts:lookup', point, key), parseAlerts),
+  ])
+  if (cur.status === 'rejected') {
+    const e = cur.reason as Error
+    return { provider: 'google', fetchedAt: now, error: e.message.startsWith('Google Weather') ? e.message : 'Google Weather unreachable', ...(e instanceof HttpError ? { status: e.status } : {}) }
+  }
+  const stale = cur.value.source === 'stale'
+  return {
+    provider: 'google', fetchedAt: cur.value.fetchedAt,
+    ...(stale ? { stale: true, error: cur.value.error } : {}),
+    current: cur.value.data,
+    hourly: hrs.status === 'fulfilled' ? hrs.value.data : [],
+    // A failed alerts lookup is reported, never shown as "no alerts".
+    ...(alerts.status === 'fulfilled' && alerts.value.source !== 'stale' ? { alerts: alerts.value.data } : { error: stale ? cur.value.error : 'Weather alerts unavailable' }),
   }
 }
 
 const serverEnv = (): Env => (globalThis as { process?: { env: Env } }).process?.env ?? {}
-
-const MEMO_MS = 15 * 60_000
-const memo = new Map<string, { at: number; body: WeatherPayload }>()
-const inflight = new Map<string, Promise<WeatherPayload>>()
-
-export function resetWeatherMemo() {
-  memo.clear()
-  inflight.clear()
-}
 
 /** Shared by the Vercel Function and the Vite dev/preview middleware. */
 export async function handleWeather(request: Request, env: Env = serverEnv(), fetchImpl: typeof fetch = fetch): Promise<Response> {
   if (request.method !== 'GET' && request.method !== 'HEAD') return Response.json({ error: 'method not allowed' }, { status: 405, headers: { Allow: 'GET, HEAD' } })
   const campus = new URL(request.url).searchParams.get('campus')
   if (!isWeatherCampus(campus)) return Response.json({ error: 'unknown campus' }, { status: 400 })
-  const now = Date.now()
-  const hit = memo.get(campus)
-  let body: WeatherPayload
-  if (hit && now - hit.at < MEMO_MS) body = hit.body
-  else {
-    let p = inflight.get(campus)
-    if (!p) {
-      p = getWeather(campus, env, fetchImpl, now).finally(() => inflight.delete(campus))
-      inflight.set(campus, p)
-    }
-    body = await p
-    if (body.current) memo.set(campus, { at: now, body })
-  }
+  const body = await getWeather(campus, env, fetchImpl)
   const cacheable = body.current && !body.error
   return Response.json(body, {
-    headers: { 'Cache-Control': cacheable ? 'public, s-maxage=1800, stale-while-revalidate=1800' : 'no-store', 'X-Content-Type-Options': 'nosniff' },
+    headers: { 'Cache-Control': cacheable ? 'public, s-maxage=1200, stale-while-revalidate=600' : 'no-store', 'X-Content-Type-Options': 'nosniff' },
   })
 }
 

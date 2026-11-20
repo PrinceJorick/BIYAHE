@@ -75,8 +75,8 @@ export default function Settings() {
   const sources = [
     { name: 'Route status, safe spots, advisories', at: s.savedAt, note: s.backend === 'supabase' ? 'Supabase, saved on this device' : 'Simulated demo data, saved on this device' },
     { name: 'Local news', at: s.news?.fetchedAt || null, note: s.news?.fetchedAt ? `Currents, saved copy kept for ${NEWS_CACHE_TTL_MS / 3_600_000} hours` : 'Not saved yet' },
-    { name: 'Weather', at: s.weather?.source === 'google' ? s.weather.fetchedAt : null, note: 'Google Weather, kept in memory only (not stored)' },
-    { name: 'Live traffic', at: s.traffic?.fetchedAt ?? null, note: 'Google Routes, kept in memory only (not stored)' },
+    { name: 'Weather', at: s.weather?.source === 'google' ? s.weather.fetchedAt : null, note: 'Google Weather, reused for 20 minutes, saved copy up to 24 hours' },
+    { name: 'Live traffic', at: s.traffic?.fetchedAt ?? null, note: 'Google Routes, reused for 10 minutes, saved copy up to 24 hours' },
   ]
 
   return (
@@ -169,7 +169,7 @@ export default function Settings() {
           <li>BIYAHE asks for one thing: your campus and usual route home. It stays on this device.</li>
           <li>No account, no check-in, no location request and no background GPS. BIYAHE never sends where you are.</li>
           <li>Staff see only how many students use each route, never who (aggregate counts, RA 10173).</li>
-          <li>Saved on this device: route status, safe spots and advisories; local news for up to 24 hours; your settings and which articles you opened.</li>
+          <li>Saved on this device: route status, safe spots and advisories; local news, the last weather reading and route times for up to 24 hours; your settings and which articles you opened.</li>
           <li>Asked over the internet: Google Weather and Google Routes (campus and town points only), Currents for news, Google Maps for the map{s.backend === 'supabase' ? ', Supabase for shared campus data' : ''}. AI explanations send only BIYAHE's own reasons to Google Gemini.</li>
         </ul>
       </section>

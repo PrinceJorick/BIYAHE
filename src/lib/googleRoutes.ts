@@ -3,6 +3,7 @@
 // no-traffic duration and Google's road geometry, so the drawn line matches Google's map exactly.
 // Pure apart from the injected fetch, so parsing and failure handling are unit-tested (googleRoutes.test.ts).
 import type { LatLng } from '../types'
+import { cachedRequest, HttpError, type Cached } from './apiCache'
 import { isValidLatLng } from './coords'
 
 export const GOOGLE_MAPS_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? '').trim()
@@ -105,13 +106,45 @@ export async function fetchGoogleRoute(from: LatLng, to: LatLng, o: RouteFetchOp
       body: JSON.stringify(routesRequestBody(from, to, o)),
     })
     const body = await res.json().catch(() => null)
-    if (!res.ok) throw new Error((body as { error?: { message?: string } } | null)?.error?.message ?? `Routes API HTTP ${res.status}`)
+    if (!res.ok) throw new HttpError(res.status, (body as { error?: { message?: string } } | null)?.error?.message ?? `Routes API HTTP ${res.status}`)
     const parsed = parseComputeRoutes(body)
     if ('error' in parsed) throw new Error(parsed.error)
     return { ...parsed, fetchedAt: (o.now ?? Date.now)() }
   } catch (e) {
+    if (e instanceof HttpError) throw e
     throw new Error(ctl.signal.aborted ? `no answer within ${timeoutMs / 1000} s` : (e as Error).message || 'request failed', { cause: e })
   } finally {
     clearTimeout(timer)
   }
+}
+
+// ── Cached requests ─────────────────────────────────────────────────────────
+// Traffic-aware routes change slowly enough to reuse for 10 minutes; a manual refresh may skip that once every
+// 30 seconds. One request per key is ever in flight (src/lib/apiCache.ts). Walking routes (no traffic) are never
+// cached here: they keep their existing behaviour.
+export const ROUTES_TTL_MS = 600_000
+export const ROUTES_COOLDOWN_MS = 30_000
+
+export type RouteRequest = {
+  campusId: string
+  destinationId: string
+  mode?: TravelMode
+  /** Leaving this many minutes from now (Google's traffic forecast); omitted = leaving now. */
+  departInMin?: number
+}
+
+export const routeCacheKey = ({ campusId, destinationId, mode = 'DRIVE', departInMin }: RouteRequest) =>
+  `routes:${campusId}:${destinationId}:${mode}:${departInMin == null ? 'now' : `+${departInMin}m`}`
+
+/**
+ * A route through the shared cache. Concurrent callers for the same campus, destination, mode and departure share
+ * one Promise; a failed request (429 quota, 403 denied, network) returns the last good route marked `stale` with
+ * its original fetchedAt, which src/lib/traffic.ts never shows as live once older than LIVE_FRESH_MS.
+ */
+export function cachedGoogleRoute(r: RouteRequest, from: LatLng, to: LatLng, o: Omit<RouteFetchOptions, 'mode' | 'departureTime'> & { manual?: boolean } = {}): Promise<Cached<LiveRoute>> {
+  const mode = r.mode ?? 'DRIVE'
+  const now = o.now ?? Date.now
+  const fetcher = () => fetchGoogleRoute(from, to, { ...o, mode, ...(r.departInMin != null ? { departureTime: now() + r.departInMin * 60_000 } : {}) })
+  if (mode !== 'DRIVE') return fetcher().then((data) => ({ data, fetchedAt: data.fetchedAt, expiresAt: data.fetchedAt, source: 'network' as const }))
+  return cachedRequest({ key: routeCacheKey(r), ttlMs: ROUTES_TTL_MS, cooldownMs: ROUTES_COOLDOWN_MS, manual: o.manual, now, fetcher })
 }
