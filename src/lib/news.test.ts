@@ -52,6 +52,8 @@ describe('Currents parsing (server)', () => {
     expect(placesIn('San Jose, Occidental Mindoro flood')).toEqual([])
     expect(placesIn('San Jose, Batangas flood')).toEqual(['batangas', 'san-jose'])
     expect(topicsIn('Walang pasok: class suspensions on Friday')).toEqual(['classes'])
+    expect(topicsIn('Passenger traffic at Batangas Port rises')).toEqual([])
+    expect(topicsIn('Heavy traffic on STAR Tollway after collision')).toEqual(['road'])
   })
 
   it('reads Currents dates and refuses junk', () => {

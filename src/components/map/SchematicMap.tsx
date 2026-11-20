@@ -1,9 +1,11 @@
-// The app's own simple map: route lines, safe spots and the campus on the brand dot grid, with no street tiles.
-// Used whenever Google Maps is not available (no key, offline, Low-Battery Mode, key rejected). Everything it
-// draws ships in the app, so it works with no network at all.
+// The app's own simple map: route lines, safe spots and the campus. Used whenever Google Maps is not available.
+// Online (no key, key rejected) it draws OpenStreetMap street tiles underneath for street context; offline and in
+// Low-Battery Mode it uses the brand dot grid only, so everything it draws ships in the app and needs no network.
+// OSM tiles: tile.openstreetmap.org usage policy (attribution, browser Referer, no offline prefetch); the service
+// worker never caches them.
 import L from 'leaflet'
 import { useEffect, useRef } from 'react'
-import { MapContainer, Marker, Polyline, Tooltip, useMap, ZoomControl } from 'react-leaflet'
+import { MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap, ZoomControl } from 'react-leaflet'
 import { statusLevel, statusWord, type MapLine, type MapModel } from '../../lib/mapModel'
 import { FIT_MAX_ZOOM, fitKey, MAX_ZOOM, MIN_ZOOM } from '../../lib/mapView'
 import type { LatLng } from '../../types'
@@ -72,6 +74,15 @@ function Declutter({ version }: { version: string }) {
   return null
 }
 
+// Leaflet applies MapContainer's className only once, so the OSM look follows `tiles` here (offline → dot grid).
+function TilesClass({ on }: { on: boolean }) {
+  const map = useMap()
+  useEffect(() => {
+    map.getContainer().classList.toggle('map-osm', on)
+  }, [map, on])
+  return null
+}
+
 function Fit({ points, padding }: { points: LatLng[]; padding: Padding }) {
   const map = useMap()
   const key = `${fitKey(points)}|${padding.top},${padding.right},${padding.bottom},${padding.left}`
@@ -88,15 +99,21 @@ function Fit({ points, padding }: { points: LatLng[]; padding: Padding }) {
   return null
 }
 
-export default function SchematicMap({ model, fill, padding, onSpot, still }: {
+export const OSM_TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+
+export default function SchematicMap({ model, fill, padding, onSpot, still, tiles = false }: {
   model: MapModel; fill: boolean; padding: Padding; onSpot?: (id: string) => void
   /** Low-Battery Mode: no animation, no wheel zoom. */
   still: boolean
+  /** OpenStreetMap street tiles underneath (online only). */
+  tiles?: boolean
 }) {
   return (
     <MapContainer className="map-schematic" center={model.campus} zoom={14} minZoom={MIN_ZOOM} maxZoom={MAX_ZOOM} attributionControl={false} zoomControl={false}
       scrollWheelZoom={fill && !still} zoomAnimation={!still} fadeAnimation={!still} markerZoomAnimation={!still}>
       <ZoomControl position={fill ? 'topright' : 'bottomright'} />
+      <TilesClass on={tiles} />
+      {tiles && <TileLayer url={OSM_TILES} maxZoom={MAX_ZOOM} minZoom={MIN_ZOOM} crossOrigin="anonymous" />}
       <SizeSync />
       <Fit points={model.fit} padding={padding} />
       <Declutter version={model.lines.map((l) => `${l.id}${l.status}${l.focus}`).join() + model.spots.map((x) => `${x.id}${x.selected}`).join()} />

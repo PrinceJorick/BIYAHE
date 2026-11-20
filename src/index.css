@@ -362,7 +362,7 @@ a.item:focus-visible { outline-offset: 0; }
 
 /* ── Chips ── */
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.chips-scroll { flex-wrap: nowrap; overflow-x: auto; margin-inline: calc(var(--gutter) * -1); padding: 2px var(--gutter); scrollbar-width: none; scroll-padding-inline: var(--gutter); }
+.chips-scroll { position: relative; flex-wrap: nowrap; overflow-x: auto; margin-inline: calc(var(--gutter) * -1); padding: 2px var(--gutter); scrollbar-width: none; scroll-padding-inline: var(--gutter); }
 .chips-scroll::-webkit-scrollbar { display: none; }
 .chip {
   display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 22px; flex: none;
@@ -664,3 +664,6 @@ button.item { cursor: pointer; }
 .badge-simulated { border-style: dashed; border-color: var(--deep); }
 h2 > svg, .item-title > svg { vertical-align: -3px; }
 @media (min-width: 1000px) { .coord-split-news { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } }
+/* OSM fallback tiles: muted so BIYAHE's route lines and levels stay the strongest marks (no tint, no hue). */
+.map-osm { background-image: none !important; }
+.map-osm .leaflet-tile-pane { filter: grayscale(.85) contrast(.9) brightness(1.04); }
