@@ -66,7 +66,8 @@ export function buildMapModel(i: MapModelInput): MapModel {
   const chosenSpot = i.snapshot.spots.find((s) => s.id === focusSpot)
   const spots: MapSpot[] = i.snapshot.spots.map((s: Spot) => ({
     id: s.id, pos: s.pos, name: s.name, short: shortSpotName(s), full: isFull(s), selected: s.id === focusSpot,
-    label: `${s.name}: ${spaceText(s)}${s.id === focusSpot ? ' (selected)' : ''}`,
+    // Starts with the short name shown on the map (WCAG 2.5.3: the name contains the visible label).
+    label: `${shortSpotName(s) === s.name ? s.name : `${shortSpotName(s)} (${s.name})`}: ${spaceText(s)}${s.id === focusSpot ? ' (selected)' : ''}`,
   }))
   const ends: MapEnd[] = lines.filter((l) => l.focus).map((l) => ({ id: l.id, pos: l.path[l.path.length - 1], name: l.name }))
   const walk = chosenSpot && i.walk?.spotId === chosenSpot.id && (i.walk.mode === 'live' || i.walk.mode === 'cached') ? i.walk.path : null

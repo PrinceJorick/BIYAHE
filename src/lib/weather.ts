@@ -1,15 +1,11 @@
-// Open-Meteo (no key): current conditions at the campus point plus the next hours' chance of rain, used by the
-// Home weather card and the map's "When should I leave?" options.
-import { CAMPUS, type Weather } from '../data'
-import type { HourForecast } from '../types'
+// Client side of /api/weather (api/weather.ts, Google Weather API): current conditions at the campus point, the
+// next hours' chance of rain (Home weather card, the map's "When should I leave?") and public weather alerts from
+// PAGASA. Conditions and forecasts are estimates; only alerts carry their issuing authority.
+import { campuses } from '../campuses'
+import type { CampusId, HourForecast, Weather, WeatherAlert } from '../types'
+import { cachedRequest, HttpError, type Cached } from './apiCache'
 
-const HOURS = 8
-export const weatherUrl = ([lat, lng]: readonly [number, number]) =>
-  `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}` +
-  '&current=temperature_2m,precipitation,weather_code,wind_speed_10m,is_day' +
-  `&hourly=precipitation_probability,weather_code,temperature_2m&forecast_hours=${HOURS}&timezone=Asia%2FManila`
-
-// WMO weather interpretation codes, grouped to the wording a commuter needs.
+// WMO-style codes (api/weather.ts maps Google's condition types onto them), grouped to the wording a commuter needs.
 export function weatherLabel(code: number): string {
   if (code === 0) return 'Clear sky'
   if (code <= 2) return 'Partly cloudy'
@@ -35,56 +31,97 @@ export function skyOf(code: number | undefined, precipMm = 0): Sky {
   return 'clear'
 }
 
-// Open-Meteo returns local wall-clock times ("2026-11-19T18:00") plus the zone's offset in seconds.
-const localToEpoch = (local: string, offsetS: number) => Date.parse(`${local}:00Z`) - offsetS * 1000
-
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
+const str = (v: unknown) => (typeof v === 'string' ? v : '')
 
-/** Validates an Open-Meteo forecast response. Throws on a malformed current block; drops malformed hours. */
-export function parseOpenMeteo(json: unknown, now = Date.now()): Weather {
-  const d = json as {
-    utc_offset_seconds?: number
-    current?: { temperature_2m?: number; precipitation?: number; weather_code?: number; wind_speed_10m?: number; is_day?: number }
-    hourly?: { time?: string[]; precipitation_probability?: (number | null)[]; weather_code?: number[]; temperature_2m?: number[] }
-  }
-  const c = d?.current
-  if (!c || !finite(c.temperature_2m) || !finite(c.weather_code)) throw new Error('Open-Meteo: no current conditions')
-  const offset = finite(d.utc_offset_seconds) ? d.utc_offset_seconds : 8 * 3600
-  const h = d.hourly
-  const hourStart = now - (now % 3_600_000)
-  const hourly: HourForecast[] = []
-  for (let i = 0; i < (h?.time?.length ?? 0); i++) {
-    const t = localToEpoch(h!.time![i], offset)
-    const code = h!.weather_code?.[i]
-    const temp = h!.temperature_2m?.[i]
-    if (!Number.isFinite(t) || t < hourStart || !finite(code) || !finite(temp)) continue
-    const p = h!.precipitation_probability?.[i]
-    hourly.push({ t, rainPct: finite(p) ? Math.max(0, Math.min(100, Math.round(p))) : null, code, tempC: Math.round(temp) })
-  }
+function readAlert(x: unknown): WeatherAlert | null {
+  const a = x as Partial<WeatherAlert> | null
+  if (!a || !str(a.id) || !str(a.title) || !str(a.authority)) return null
   return {
-    tempC: Math.round(c.temperature_2m),
-    precipMm: finite(c.precipitation) ? c.precipitation : 0,
-    windKph: finite(c.wind_speed_10m) ? Math.round(c.wind_speed_10m) : 0,
-    label: weatherLabel(c.weather_code),
-    code: c.weather_code,
-    isDay: c.is_day !== 0,
-    fetchedAt: now,
-    live: true,
-    hourly,
+    id: a.id!, title: a.title!, authority: a.authority!, description: str(a.description),
+    authorityUrl: typeof a.authorityUrl === 'string' && a.authorityUrl.startsWith('https://') ? a.authorityUrl : null,
+    severity: str(a.severity) || 'UNKNOWN', urgency: str(a.urgency) || 'UNKNOWN', areaName: str(a.areaName),
+    instructions: Array.isArray(a.instructions) ? a.instructions.filter((i): i is string => typeof i === 'string') : [],
+    startAt: finite(a.startAt) ? a.startAt : null, expiresAt: finite(a.expiresAt) ? a.expiresAt : null,
   }
 }
 
-export async function fetchWeather(): Promise<Weather> {
+/** Validates an /api/weather answer. Throws when it has no current conditions; drops malformed hours and alerts. */
+export function parseWeatherPayload(json: unknown, now = Date.now()): Weather {
+  const d = json as {
+    provider?: unknown; error?: unknown; fetchedAt?: unknown; status?: unknown; stale?: unknown
+    current?: { observedAt?: unknown; tempC?: unknown; feelsLikeC?: unknown; label?: unknown; code?: unknown; isDay?: unknown; rainPct?: unknown; thunderPct?: unknown; precipMm?: unknown; windKph?: unknown }
+    hourly?: unknown[]; alerts?: unknown[]
+  } | null
+  if (d?.provider === 'none') throw new Error('Weather is not configured on the server')
+  const c = d?.current
+  if (!c || !finite(c.tempC) || !finite(c.code) || typeof c.label !== 'string') {
+    const msg = typeof d?.error === 'string' ? d.error : 'Google Weather: no current conditions'
+    throw finite(d?.status) ? new HttpError(d.status, msg) : new Error(msg)
+  }
+  const hourStart = now - (now % 3_600_000)
+  const hourly: HourForecast[] = (Array.isArray(d!.hourly) ? d!.hourly : [])
+    .map((h) => h as Partial<HourForecast>)
+    .filter((h): h is HourForecast => finite(h?.t) && finite(h.code) && finite(h.tempC) && (h.rainPct === null || finite(h.rainPct)) && h.t >= hourStart)
+    .map((h) => ({ t: h.t, rainPct: h.rainPct == null ? null : Math.max(0, Math.min(100, Math.round(h.rainPct))), code: h.code, tempC: Math.round(h.tempC) }))
+  return {
+    tempC: Math.round(c.tempC),
+    precipMm: finite(c.precipMm) ? c.precipMm : 0,
+    windKph: finite(c.windKph) ? Math.round(c.windKph) : 0,
+    label: c.label,
+    code: c.code,
+    isDay: c.isDay !== false,
+    observedAt: finite(c.observedAt) ? c.observedAt : now,
+    fetchedAt: finite(d!.fetchedAt) ? d!.fetchedAt : now,
+    // The server's last good answer (Google refused or failed just now) is a saved copy, not a live reading.
+    live: d!.stale !== true,
+    source: 'google',
+    rainPct: finite(c.rainPct) ? c.rainPct : null,
+    thunderPct: finite(c.thunderPct) ? c.thunderPct : null,
+    feelsLikeC: finite(c.feelsLikeC) ? c.feelsLikeC : null,
+    hourly,
+    ...(Array.isArray(d!.alerts) ? { alerts: d!.alerts.map(readAlert).filter((a): a is WeatherAlert => a !== null) } : {}),
+  }
+}
+
+export const weatherUrl = (campus: CampusId) => `/api/weather?campus=${encodeURIComponent(campus)}`
+
+// One /api/weather answer (current conditions, next hours and PAGASA alerts, all used by Home, Map and Alerts)
+// per campus, fresh for 20 minutes; a manual refresh may skip that once a minute.
+export const WEATHER_TTL_MS = 1_200_000
+export const WEATHER_COOLDOWN_MS = 60_000
+export const weatherCacheKey = (campus: CampusId) => {
+  const [lat, lng] = campuses[campus].location
+  return `weather:${campus}:${lat.toFixed(3)},${lng.toFixed(3)}:api-weather`
+}
+
+async function requestWeather(campus: CampusId, fetchImpl: typeof fetch): Promise<Weather> {
   const ctl = new AbortController()
-  const timer = setTimeout(() => ctl.abort(), 10_000)
+  const timer = setTimeout(() => ctl.abort(), 12_000)
   try {
-    const res = await fetch(weatherUrl(CAMPUS), { signal: ctl.signal })
-    if (!res.ok) throw new Error(`Open-Meteo ${res.status}`)
-    return parseOpenMeteo(await res.json())
+    const res = await fetchImpl(weatherUrl(campus), { signal: ctl.signal })
+    if (!res.ok) throw new HttpError(res.status, `weather HTTP ${res.status}`)
+    return parseWeatherPayload(await res.json())
   } finally {
     clearTimeout(timer)
   }
 }
+
+/**
+ * Weather for a campus through the shared cache (src/lib/apiCache.ts): concurrent callers share one Promise, an
+ * answer within WEATHER_TTL_MS is reused, and a failure returns the last good answer marked `stale` with its
+ * original time. Rejects only when there is nothing to fall back on.
+ */
+export function fetchWeather(campus: CampusId, o: { manual?: boolean; fetchImpl?: typeof fetch; now?: () => number } = {}): Promise<Cached<Weather>> {
+  return cachedRequest({
+    key: weatherCacheKey(campus), ttlMs: WEATHER_TTL_MS, cooldownMs: WEATHER_COOLDOWN_MS, manual: o.manual, now: o.now,
+    fetcher: () => requestWeather(campus, o.fetchImpl ?? fetch),
+  })
+}
+
+/** Alerts that are in force at `now` (no start yet counts as started; no expiry counts as current). */
+export const currentAlerts = (alerts: readonly WeatherAlert[] | undefined, now: number) =>
+  (alerts ?? []).filter((a) => (a.startAt == null || a.startAt <= now) && (a.expiresAt == null || a.expiresAt > now))
 
 /** The forecast hour that contains `t` (or null when the forecast does not reach that far). */
 export const hourAt = (hourly: readonly HourForecast[] | undefined, t: number) =>

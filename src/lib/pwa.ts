@@ -35,5 +35,8 @@ export function setupServiceWorker() {
     }).catch(() => {})
     return
   }
+  // Runtime caches made by older versions (Open-Meteo weather, news responses): removed, since weather is no
+  // longer stored and news has its own expiring copy in IndexedDB.
+  if (typeof caches !== 'undefined') for (const name of ['weather', 'news']) void caches.delete(name).catch(() => {})
   registerSW({ immediate: true, onNeedReload: reloadOnce, onRegisterError: (e) => console.warn('[biyahe] Service worker not registered; the app still works online.', e) })
 }

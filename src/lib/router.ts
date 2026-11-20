@@ -1,27 +1,34 @@
 import { useMemo, useSyncExternalStore } from 'react'
 
-// Screens. Student: home → go (details for one place) → map; alerts; share. Setup holds campus, route and app
-// settings (the old Profile screen is gone). Staff: staff access → coordinator.
-export type Route = 'welcome' | 'setup' | 'home' | 'go' | 'map' | 'share' | 'alerts' | 'staff' | 'coordinator'
+// Screens. Student: home → go (details for one place) → map; alerts; share; settings (the old Profile screen).
+// Setup asks for campus and route. Staff: staff access → coordinator.
+export type Route = 'welcome' | 'setup' | 'home' | 'go' | 'map' | 'share' | 'alerts' | 'settings' | 'staff' | 'coordinator'
 
-const routes: Route[] = ['welcome', 'setup', 'home', 'go', 'map', 'share', 'alerts', 'staff', 'coordinator']
+const routes: Route[] = ['welcome', 'setup', 'home', 'go', 'map', 'share', 'alerts', 'settings', 'staff', 'coordinator']
 
-/** A parsed hash route: `#/go/route/lipa` → { name: 'go', arg: 'route/lipa' }. */
-export type Loc = { name: Route | null; arg: string | null }
+/**
+ * A parsed hash route: `#/go/route/lipa` → { name: 'go', arg: 'route/lipa' }; `#/alerts?filter=news` also has
+ * query 'filter=news' (only present when there is one).
+ */
+export type Loc = { name: Route | null; arg: string | null; query?: string }
 
 // Older and path-style names for the same screens (/safespots, #/profile, …).
 const aliases: Record<string, Route> = {
-  safespots: 'map', 'safe-spots': 'map', 'where-to-wait': 'map', profile: 'setup', settings: 'setup',
+  safespots: 'map', 'safe-spots': 'map', 'where-to-wait': 'map', profile: 'settings',
 }
 
 const known = (seg: string): Route | null => aliases[seg] ?? (routes.includes(seg as Route) ? (seg as Route) : null)
 
 export function parseHash(hash: string): Loc {
-  const [head = '', ...rest] = hash.replace(/^#\/?/, '').split('/')
+  const [path = '', query = ''] = hash.replace(/^#\/?/, '').split('?')
+  const [head = '', ...rest] = path.split('/')
   const name = known(head.toLowerCase())
   const arg = rest.filter(Boolean).map(decodeURIComponent).join('/')
-  return { name, arg: name && arg ? arg : null }
+  return { name, arg: name && arg ? arg : null, ...(name && query ? { query } : {}) }
 }
+
+/** One query parameter of the current route, e.g. param(loc, 'filter'). */
+export const param = (loc: Loc, key: string) => (loc.query ? new URLSearchParams(loc.query).get(key) : null)
 
 const subscribe = (l: () => void) => {
   addEventListener('hashchange', l)
@@ -33,7 +40,7 @@ export function useRoute(): Loc {
   return useMemo(() => parseHash(hash), [hash])
 }
 
-export const hrefOf = (name: Route, arg?: string | null) => `#/${name}${arg ? `/${arg}` : ''}`
+export const hrefOf = (name: Route, arg?: string | null, query?: string | null) => `#/${name}${arg ? `/${arg}` : ''}${query ? `?${query}` : ''}`
 
 /**
  * The app routes with the hash (#/map), so any host serves it from one index.html. A path-style deep link is

@@ -1,18 +1,22 @@
 // Home (wireframe 1): weather and date, traffic flow, "Where do you want to go?" with three options, and every
 // place the student can go. Choosing an option or a place opens its details (#/go/<kind>/<id>).
-import { ChevronRight, Cloud, CloudFog, CloudLightning, CloudRain, Megaphone, Moon, Sun, type LucideIcon } from 'lucide-react'
-import { createElement } from 'react'
+import { ChevronRight, Cloud, CloudFog, CloudLightning, CloudOff, CloudRain, Megaphone, Moon, ShieldAlert, Sparkles, Sun, type LucideIcon } from 'lucide-react'
+import { createElement, useState } from 'react'
 import { ACTIVE_CAMPUS } from '../campuses/active'
+import Badge from '../components/Badge'
 import Lvl from '../components/Lvl'
+import NewsArticleRow, { NewsCredit } from '../components/NewsArticleRow'
 import { PlaceIcon, PlaceRow, TrafficSource, TrafficWord } from '../components/places'
 import { corridors } from '../data'
 import { studentAdvisories } from '../lib/advisories'
 import { ago, clock, fmtMin, fmtRange, studentView } from '../lib/derive'
-import { placeArg, placeShort, recommend, routePlaces, spotPlaces, walkText, type RoutePlace } from '../lib/places'
+import { fetchExplanation } from '../lib/explain'
+import { placeArg, placeShort, recommend, recommendationReason, routePlaces, spotPlaces, walkText, type Reason, type RoutePlace } from '../lib/places'
 import { hrefOf } from '../lib/router'
-import { useApp, useNow, type State } from '../lib/store'
+import { isOffline, useApp, useNow, type State } from '../lib/store'
 import { levelOfTraffic, rainLevel } from '../lib/traffic'
-import { skyOf, type Sky } from '../lib/weather'
+import { currentAlerts, skyOf, type Sky } from '../lib/weather'
+import { visibleNews } from './useTrip'
 
 const skyIcons: Record<Sky, LucideIcon> = { clear: Sun, cloud: Cloud, fog: CloudFog, rain: CloudRain, storm: CloudLightning }
 
@@ -27,19 +31,41 @@ const hourFmt = (t: number) => new Date(t).toLocaleTimeString('en-PH', { hour: '
 
 function WeatherCard({ s, now, offline }: { s: State; now: number; offline: boolean }) {
   const w = s.weather
+  const warnings = currentAlerts(w?.alerts, now)
+  const head = (
+    <div className="card-head">
+      <p className="eyebrow" id="wx-date">{dateFmt.format(now)}</p>
+      <p className="meta"><time>{clock(now)}</time></p>
+    </div>
+  )
+  if (!w) {
+    return (
+      <section className="card card-weather" aria-labelledby="wx-date">
+        {head}
+        <div className="wx-now">
+          <CloudOff className="wx-icon" size={44} strokeWidth={1.6} aria-hidden="true" />
+          <div className="wx-desc">
+            <p className="h3">Weather unavailable</p>
+            <p className="meta">{offline ? 'No saved weather on this device yet. Weather needs a connection.' : s.weatherError ? 'Google Weather could not be reached. BIYAHE will try again.' : 'Loading the weather…'}</p>
+          </div>
+        </div>
+      </section>
+    )
+  }
   const hours = (w.hourly ?? []).filter((h) => h.t + 3_600_000 > now).slice(0, 5)
+  const live = w.live && !offline
   return (
     <section className="card card-weather" aria-labelledby="wx-date">
-      <div className="card-head">
-        <p className="eyebrow" id="wx-date">{dateFmt.format(now)}</p>
-        <p className="meta"><time>{clock(now)}</time></p>
-      </div>
+      {head}
       <div className="wx-now">
         <SkyIcon code={w.code} precip={w.precipMm} day={w.isDay ?? true} />
         <p className="wx-temp num">{w.tempC}°<span className="sr-only">C</span></p>
         <div className="wx-desc">
           <p className="h3">{w.label}</p>
-          <p className="meta">{w.precipMm > 0 ? `${w.precipMm} mm rain` : 'No rain now'} · wind {w.windKph} km/h</p>
+          <p className="meta">
+            {w.rainPct != null ? `${w.rainPct}% chance of rain` : w.precipMm > 0 ? `${w.precipMm} mm rain` : 'No rain now'} · wind {w.windKph} km/h
+            {w.thunderPct != null && w.thunderPct >= 30 ? ` · ${w.thunderPct}% thunderstorm chance` : ''}
+          </p>
         </div>
       </div>
       {hours.length > 0 && (
@@ -55,7 +81,47 @@ function WeatherCard({ s, now, offline }: { s: State; now: number; offline: bool
           </ol>
         </div>
       )}
-      <p className="caption">Open-Meteo · {w.live && !offline ? `updated ${ago(w.fetchedAt, now)}` : `saved ${clock(w.fetchedAt)}`}</p>
+      {warnings.length > 0 && (
+        <a className="item" href="#/alerts?filter=pagasa">
+          <span className="item-icon"><ShieldAlert size={20} aria-hidden="true" /></span>
+          <span className="item-body">
+            <span className="caption">{warnings[0].authority} · official warning</span>
+            <span className="item-title">{warnings[0].title}{warnings.length > 1 ? ` and ${warnings.length - 1} more` : ''}</span>
+          </span>
+          <ChevronRight className="item-chev" size={18} aria-hidden="true" />
+        </a>
+      )}
+      <p className="caption cluster">
+        <Badge kind={live ? 'estimate' : 'saved'} />
+        {w.source === 'demo' ? 'Simulated weather' : 'Google Weather'} · {live ? `updated ${ago(w.fetchedAt, now)}` : `last reading ${clock(w.observedAt ?? w.fetchedAt)}`}
+        {w.alerts === undefined && live ? ' · weather warnings could not be checked' : ''}
+      </p>
+    </section>
+  )
+}
+
+function WhyCard({ reason, offline }: { reason: Reason; offline: boolean }) {
+  const [ai, setAi] = useState<{ text: string } | { error: string } | 'loading' | null>(null)
+  const ask = () => {
+    setAi('loading')
+    fetchExplanation(reason).then((text) => setAi({ text }), (e: Error) => setAi({ error: e.message || 'AI explanation unavailable' }))
+  }
+  return (
+    <section className="card card-why" aria-labelledby="why">
+      <div className="card-head">
+        <h2 className="h3" id="why">Why this suggestion</h2>
+        <Badge kind="estimate" />
+      </div>
+      <p className="body">{reason.rule}</p>
+      <ul className="meta bullets">{reason.facts.map((f) => <li key={f}>{f}</li>)}</ul>
+      <div aria-live="polite">
+        {ai && ai !== 'loading' && 'text' in ai && (
+          <p className="body"><Sparkles size={16} aria-hidden="true" /> {ai.text} <span className="caption">(AI-written summary of the facts above · Gemini)</span></p>
+        )}
+        {ai && ai !== 'loading' && 'error' in ai && <p className="caption">{ai.error}. The facts above are what BIYAHE used.</p>}
+      </div>
+      {!offline && ai === null && <button type="button" className="btn btn-quiet btn-sm" onClick={ask}><Sparkles size={16} aria-hidden="true" />Explain in plain words</button>}
+      {ai === 'loading' && <p className="caption" role="status">Asking Gemini…</p>}
     </section>
   )
 }
@@ -98,6 +164,9 @@ export default function Home() {
   const alerts = studentAdvisories(s.snapshot.advisories, s.corridorId, now)
   const urgent = alerts.find((a) => a.severity === 'critical') ?? alerts.find((a) => a.scope === s.corridorId)
   const saved = v.provenance === 'saved'
+  const peak = Math.max(-1, ...(s.weather?.hourly ?? []).filter((h) => h.t + 3_600_000 > now && h.t < now + 6 * 3_600_000).map((h) => h.rainPct ?? -1))
+  const reason = recommendationReason(options, { rainPeakPct: peak >= 0 ? peak : null, warnings: currentAlerts(s.weather?.alerts, now).length })
+  const top = visibleNews(s, now)[0]
 
   return (
     <div className="page home">
@@ -119,6 +188,16 @@ export default function Home() {
 
       <WeatherCard s={s} now={now} offline={v.offline} />
       <TrafficCard mine={mine} others={routes.filter((r) => !r.mine)} saved={saved} />
+      {top && (
+        <section className="card card-news" aria-labelledby="today-news">
+          <h2 className="h3" id="today-news">Today near your route</h2>
+          <ul className="list">
+            <li><NewsArticleRow item={top} now={now} offline={isOffline(s)} savedAt={s.news?.fetchedAt ?? now} /></li>
+          </ul>
+          <a className="card-foot-link" href="#/alerts?filter=news">More local news<ChevronRight size={16} aria-hidden="true" /></a>
+          <NewsCredit />
+        </section>
+      )}
 
       <section className="card card-options" aria-labelledby="where">
         <div>
@@ -129,36 +208,33 @@ export default function Home() {
           {options.map((o) => (
             <li key={placeArg(o.place)}>
               <a className={`option${o.recommended ? ' option-best' : ''}`} href={hrefOf('go', placeArg(o.place))}>
-                <span className="option-top">
-                  <span className="option-icon"><PlaceIcon place={o.place} /></span>
-                  {o.recommended && <span className="option-flag">Best now</span>}
+                <span className="item-icon"><PlaceIcon place={o.place} /></span>
+                <span className="option-body">
+                  <span className="meta option-eyebrow">{o.verb}{o.recommended && <span className="option-flag"> · Best now</span>}</span>
+                  <span className="h3 option-title">{placeShort(o.place)}</span>
+                  <span className="meta">
+                    {o.place.kind === 'route'
+                      ? <>{o.place.traffic.level === 'closed' ? '' : `${fmtRange(o.place.traffic.minLo, o.place.traffic.minHi)} · `}<Lvl level={levelOfTraffic[o.place.traffic.level]}>{o.place.traffic.level === 'closed' ? 'Closed' : o.place.cs.status === 'slow' ? 'Slow' : 'Open'}</Lvl></>
+                      : walkText(o.place.spot.walkMin)}
+                  </span>
+                  {o.verb === 'Suggested alternative' && <span className="option-caveat">Not verified safe</span>}
                 </span>
-                <span className="caption">{o.verb}</span>
-                <span className="option-title">{placeShort(o.place)}</span>
-                <span className="meta option-meta">
-                  {o.place.kind === 'route'
-                    ? <>{o.place.traffic.level === 'closed' ? '' : `${fmtRange(o.place.traffic.minLo, o.place.traffic.minHi)} · `}<Lvl level={levelOfTraffic[o.place.traffic.level]}>{o.place.traffic.level === 'closed' ? 'Closed' : o.place.cs.status === 'slow' ? 'Slow' : 'Open'}</Lvl></>
-                    : walkText(o.place.spot.walkMin)}
-                </span>
+                <ChevronRight className="item-chev" size={18} aria-hidden="true" />
               </a>
             </li>
           ))}
         </ul>
       </section>
 
+      {reason && <WhyCard reason={reason} offline={v.offline} />}
+
       <section className="card" aria-labelledby="places-routes">
-        <div>
-          <p className="eyebrow">Available places</p>
-          <h2 className="h2" id="places-routes">Routes home</h2>
-        </div>
+        <h2 className="h2" id="places-routes">Routes home</h2>
         <ul className="list">{routes.map((r) => <li key={r.id}><PlaceRow place={r} /></li>)}</ul>
       </section>
 
       <section className="card" aria-labelledby="places-spots">
-        <div>
-          <p className="eyebrow">Available places</p>
-          <h2 className="h2" id="places-spots">Safe spots on campus</h2>
-        </div>
+        <h2 className="h2" id="places-spots">Safe spots on campus</h2>
         <ul className="list">{spots.map((p) => <li key={p.id}><PlaceRow place={p} /></li>)}</ul>
       </section>
     </div>

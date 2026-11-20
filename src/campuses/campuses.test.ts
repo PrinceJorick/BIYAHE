@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest'
 import { CAMPUS, corridorById, corridors, fallbackWeather, fixture } from '../data'
 import { studentView } from '../lib/derive'
-import type { State } from '../lib/store'
+import { defaultAlertPrefs, type State } from '../lib/store'
 import { alangilan, ALANGILAN_HAND_DRAWN_CORRIDORS, alangilanRouteGeometry } from './alangilan'
 import { ALANGILAN_TRIP_ROADS } from './alangilan.trip.roads'
 import { campuses, DEFAULT_CAMPUS, DEFAULT_CAMPUS_ID, getCampus } from './index'
@@ -133,6 +133,7 @@ describe('spot seeds and fixture snapshots', () => {
       lowBattery: false, batteryHint: false, online: true, backend: 'device', snapshot: snap, savedAt: NOW,
       weather: fallbackWeather(NOW), spotId: null, walk: null, walkLoading: null, toast: null,
       traffic: null, trafficError: null, departures: {}, news: null,
+      weatherError: null, newsRead: [], alertPrefs: defaultAlertPrefs, lastSync: null, syncing: false,
     } satisfies State
     studentView(state, NOW)
     fixture('clear', NOW)
