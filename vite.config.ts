@@ -85,9 +85,21 @@ export default defineConfig(({ mode }) => ({
         // Offline: any page path (e.g. a /map deep link) gets the app shell; the router turns it into #/map.
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api\//],
-        // No runtime caching: Google Maps tiles/scripts and Google Weather answers are never stored (Google Maps
-        // Platform terms), and the news copy lives in IndexedDB with its own expiry (src/lib/news.ts). Offline,
-        // the app shows its own simple map and its saved copies, each marked as such.
+        // Google Maps tiles/scripts are never stored (Google Maps Platform terms); the news copy lives in IndexedDB
+        // with its own expiry (src/lib/news.ts). OpenStreetMap tiles the app shows are kept for a week so the
+        // offline map has streets (OSM tile policy: clients should cache; no bulk download, see offlineTiles.ts).
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/tile\.openstreetmap\.org\//,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'osm-tiles',
+              expiration: { maxEntries: 400, maxAgeSeconds: 7 * 24 * 3600 },
+              cacheableResponse: { statuses: [200] },
+              matchOptions: { ignoreVary: true },
+            },
+          },
+        ],
       },
     }),
   ],

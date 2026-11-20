@@ -40,7 +40,7 @@ export default function DemoRoutes({ routes, shown, exitNote = CAMPUS_EXIT_NOTE 
     <>
       <button type="button" className="map-demo-badge" aria-haspopup="dialog" onClick={() => setOpen(true)}
         aria-label="About routes: generated from OpenStreetMap, not checked on site. Show details and route limitations.">
-        <Info size={14} aria-hidden="true" />About routes
+        <Info size={14} aria-hidden="true" /><span className="map-demo-label">About routes</span>
       </button>
       <Dialog open={open} onClose={() => setOpen(false)} title="About these routes">
         <DemoRoutesDetails routes={routes} shown={shown} exitNote={exitNote} />
