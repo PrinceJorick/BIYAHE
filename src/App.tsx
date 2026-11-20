@@ -1,36 +1,39 @@
-import { BatteryLow, Info, TriangleAlert, WifiOff } from 'lucide-react'
+import { BatteryLow, FlaskConical, Info, TriangleAlert, WifiOff } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { ACTIVE_CAMPUS } from './campuses/active'
 import Logo from './components/Logo'
 import { tabOf, tabs } from './components/navTabs'
 import { studentAdvisories } from './lib/advisories'
 import { clock } from './lib/derive'
-import { hrefOf, useRoute, type Loc, type Route } from './lib/router'
+import { currentAlerts } from './lib/weather'
+import { hrefOf, param, useRoute, type Loc, type Route } from './lib/router'
 import { dismissBatteryHint, isLowBattery, isOffline, setLowBattery, useApp, useNow, type State } from './lib/store'
 import Alerts from './screens/Alerts'
 import Coordinator from './screens/Coordinator'
 import Destination from './screens/Destination'
 import Home from './screens/Home'
 import MapScreen from './screens/MapScreen'
+import Settings from './screens/Settings'
 import Setup from './screens/Setup'
 import Share from './screens/Share'
 import StaffAccess from './screens/StaffAccess'
+import { unreadNews } from './screens/useTrip'
 import Welcome from './screens/Welcome'
 
 const titles: Record<Route, string> = {
   welcome: 'Welcome', setup: 'Campus and route', home: 'Home', go: 'Trip details', map: 'Map', share: "Tell family you're safe",
-  alerts: 'Alerts', staff: 'Staff quick access', coordinator: 'Coordinator Command',
+  alerts: 'Alerts', settings: 'Settings', staff: 'Staff quick access', coordinator: 'Coordinator Command',
 }
 
-const studentRoutes: Route[] = ['home', 'go', 'map', 'share', 'alerts']
+const studentRoutes: Route[] = ['home', 'go', 'map', 'share', 'alerts', 'settings']
 
 // Where the current role is allowed to be.
-function resolve({ name, arg }: Loc, s: State): Loc {
+function resolve({ name, arg, query }: Loc, s: State): Loc {
   if (!s.role || name === 'welcome') return { name: 'welcome', arg: null }
   if (s.role === 'staff') return { name: name === 'staff' ? 'staff' : 'coordinator', arg: null }
   if (name === 'setup' || !s.corridorId) return { name: 'setup', arg: null }
   if (name === 'go' && !arg) return { name: 'home', arg: null }
-  if (name && studentRoutes.includes(name)) return { name, arg: name === 'go' || name === 'map' ? arg : null }
+  if (name && studentRoutes.includes(name)) return { name, arg: name === 'go' || name === 'map' ? arg : null, ...(name === 'alerts' && query ? { query } : {}) }
   return { name: 'home', arg: null }
 }
 
@@ -42,7 +45,7 @@ export default function App() {
   const raw = useRoute()
   const loc = resolve(raw, s)
   const route = loc.name!
-  const href = hrefOf(route, loc.arg)
+  const href = hrefOf(route, loc.arg, loc.query)
   const lowBatt = isLowBattery(s)
   const first = useRef(true)
 
@@ -67,7 +70,8 @@ export default function App() {
   if (!s.ready) return null
 
   const solo = route === 'welcome' ? <Welcome /> : route === 'setup' ? <Setup /> : route === 'staff' ? <StaffAccess /> : route === 'coordinator' ? <Coordinator /> : null
-  const count = studentAdvisories(s.snapshot.advisories, s.corridorId, now).length
+  // Alerts badge: current advisories and PAGASA warnings, plus local news for this route not opened yet.
+  const count = studentAdvisories(s.snapshot.advisories, s.corridorId, now).length + currentAlerts(s.weather?.alerts, now).length + unreadNews(s, now).length
   const isMap = route === 'map'
 
   return (
@@ -83,14 +87,14 @@ export default function App() {
                   <a className="tab" href={`#/${id}`} aria-current={tabOf(route) === id ? 'page' : undefined}>
                     <Icon size={22} aria-hidden="true" />
                     <span>{label}</span>
-                    {id === 'alerts' && count > 0 && <span className="tab-count">{count}<span className="sr-only"> active</span></span>}
+                    {id === 'alerts' && count > 0 && <span className="tab-count">{count}<span className="sr-only"> new or active</span></span>}
                   </a>
                 </li>
               ))}
             </ul>
             <div className="nav-foot">
               <p>{ACTIVE_CAMPUS.shortName}</p>
-              <a href="#/setup">Campus, route and settings</a>
+              <a href="#/setup">Change campus or route</a>
             </div>
           </nav>
 
@@ -105,8 +109,14 @@ export default function App() {
                 </button>
               </header>
             )}
-            {!isMap && (isOffline(s) || (s.batteryHint && !lowBatt)) && (
+            {!isMap && (isOffline(s) || (s.batteryHint && !lowBatt) || s.backend === 'device') && (
               <div className="banners">
+                {s.backend === 'device' && !isOffline(s) && (
+                  <p className="banner">
+                    <FlaskConical size={20} aria-hidden="true" />
+                    <span><span className="strong">Simulated campus data.</span> Route status, safe spots and campus advisories are demo data until a campus database is connected. Weather, traffic and news are live.</span>
+                  </p>
+                )}
                 {isOffline(s) && (
                   <p className="banner">
                     <WifiOff size={20} aria-hidden="true" />
@@ -131,7 +141,8 @@ export default function App() {
             {route === 'go' && <Destination arg={loc.arg} />}
             {route === 'map' && <MapScreen arg={loc.arg} alerts={count} />}
             {route === 'share' && <Share />}
-            {route === 'alerts' && <Alerts />}
+            {route === 'alerts' && <Alerts filterParam={param(loc, 'filter')} />}
+            {route === 'settings' && <Settings />}
           </main>
         </div>
       )}

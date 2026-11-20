@@ -6,6 +6,8 @@ import type { LatLng } from '../types'
 import { isValidLatLng } from './coords'
 
 export const GOOGLE_MAPS_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? '').trim()
+// Optional separate Routes API key; falls back to the Maps key.
+export const GOOGLE_ROUTES_KEY = (import.meta.env.VITE_GOOGLE_ROUTES_API_KEY ?? '').trim() || GOOGLE_MAPS_KEY
 export const GOOGLE_MAP_ID = (import.meta.env.VITE_GOOGLE_MAPS_MAP_ID ?? '').trim()
 
 export const ROUTES_URL = 'https://routes.googleapis.com/directions/v2:computeRoutes'
@@ -90,7 +92,7 @@ export type RouteFetchOptions = { key?: string; mode?: TravelMode; departureTime
 
 /** Fetches one route. Throws with a short reason on any failure (no key, network, HTTP, invalid answer). */
 export async function fetchGoogleRoute(from: LatLng, to: LatLng, o: RouteFetchOptions = {}): Promise<LiveRoute> {
-  const key = o.key ?? GOOGLE_MAPS_KEY
+  const key = o.key ?? GOOGLE_ROUTES_KEY
   if (!key) throw new Error('no Google Maps key')
   const ctl = new AbortController()
   const timeoutMs = o.timeoutMs ?? ROUTES_TIMEOUT_MS

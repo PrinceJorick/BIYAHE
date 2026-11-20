@@ -7,7 +7,7 @@ import {
   type Advisory, type CorridorStatus, type Snapshot, type Spot,
 } from '../data'
 import { concernsStudent, shareMessage, STALE_AFTER_MIN, studentView } from './derive'
-import type { State } from './store'
+import { defaultAlertPrefs, type State } from './store'
 
 const MIN = 60_000
 const NOW = Date.UTC(2026, 10, 16, 7, 0)
@@ -27,6 +27,11 @@ function makeState(overrides: Partial<State> = {}): State {
     snapshot: fixture('disrupted', NOW),
     savedAt: NOW,
     weather: fallbackWeather(NOW),
+    weatherError: null,
+    newsRead: [],
+    alertPrefs: defaultAlertPrefs,
+    lastSync: null,
+    syncing: false,
     spotId: null,
     walk: null,
     walkLoading: null,

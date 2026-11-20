@@ -42,7 +42,7 @@ function Departures({ r }: { r: RoutePlace }) {
     if (net) void loadDepartures(r.id)
   }, [r.id, net])
   const forecast = s.departures[r.id]?.forecast
-  const options = departureOptions(r.corridor, r.cs, now, s.weather.hourly, s.traffic?.routes[r.id], forecast)
+  const options = departureOptions(r.corridor, r.cs, now, s.weather?.hourly, s.traffic?.routes[r.id], forecast)
   const closed = r.cs.status === 'closed'
   const anyLive = options.some((o) => o.offsetMin > 0 && o.traffic.source === 'live')
   return (
@@ -65,7 +65,7 @@ function Departures({ r }: { r: RoutePlace }) {
         </tbody>
       </table>
       <p className="caption">
-        {anyLive ? 'Later trips use Google\'s traffic forecast' : 'Later trips assume today\'s conditions continue'}; rain chance from Open-Meteo.
+        {anyLive ? 'Later trips use Google\'s traffic forecast' : 'Later trips assume today\'s conditions continue'}; rain chance from the Google Weather forecast.
         {!closed && ' Best balances time on the road and rain; waiting on campus counts for less.'}
       </p>
     </section>

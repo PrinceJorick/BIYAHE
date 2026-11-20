@@ -1,4 +1,4 @@
-// Notices the app derives from its own data sources (Open-Meteo forecast, Google live traffic), shown beside
+// Notices the app derives from its own data sources (Google Weather forecast, Google live traffic), shown beside
 // official advisories and news on the details and Alerts screens. They are labelled with their source and are
 // never presented as official advisories. Pure, tested in notices.test.ts.
 import type { HourForecast } from '../types'
@@ -21,7 +21,7 @@ export function rainNotice(hourly: readonly HourForecast[] | undefined, fetchedA
     id: `rain-${peak.t}`, kind: 'rain', word: level === 'high' ? 'Likely' : 'Possible',
     title: level === 'high' ? `Rain likely ${when}` : `Rain possible ${when}`,
     detail: `${peak.rainPct}% chance of rain. Bring an umbrella and allow extra time if you head out.`,
-    level, source: 'Open-Meteo forecast', at: fetchedAt,
+    level, source: 'Google Weather forecast', at: fetchedAt,
   }
 }
 

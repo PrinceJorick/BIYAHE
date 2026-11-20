@@ -10,7 +10,7 @@ const hours = (pcts: (number | null)[]): HourForecast[] => pcts.map((p, i) => ({
 describe('rain notice', () => {
   it('names the wettest of the next hours when rain is likely', () => {
     const n = rainNotice(hours([20, 40, 75, 10]), NOW - 60_000, NOW)!
-    expect(n).toMatchObject({ title: 'Rain likely around 7 PM', level: 'high', source: 'Open-Meteo forecast', at: NOW - 60_000 })
+    expect(n).toMatchObject({ title: 'Rain likely around 7 PM', level: 'high', source: 'Google Weather forecast', at: NOW - 60_000 })
     expect(n.detail).toMatch(/^75% chance of rain/)
   })
   it('says "possible" for 30-59% and "this hour" for the current hour', () => {
