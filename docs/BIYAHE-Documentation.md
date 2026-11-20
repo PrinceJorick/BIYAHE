@@ -184,7 +184,7 @@ role can publish; marshals and guards see advisories read-only.
 |---|---|---|---|---|
 | **Google Maps JavaScript API** | The street map, live traffic layer | `VITE_GOOGLE_MAPS_API_KEY` (browser) | Browser | The app's simple map (route lines on a dot grid) |
 | **Google Routes API** (computeRoutes) | Traffic-aware and free-flow trip time per route, road geometry that matches the Google map, traffic forecasts for later departures | Same key | Browser (CORS supported) | Times and levels estimated from route reports |
-| **Google Weather API** | Current conditions, hourly chance of rain, PAGASA public alerts | `GOOGLE_WEATHER_API_KEY` (server only) | `/api/weather` | "Weather unavailable" (not stored on the device; a failed request is retried after 30 s) |
+| **Google Weather API** | Current conditions, hourly chance of rain, PAGASA public alerts | `GOOGLE_WEATHER_API_KEY` (server only) | `/api/weather` | Last reading as a saved copy (device cache, up to 24 h), else "Weather unavailable"; no retry on 429/403 |
 | **Currents News API** | Local news on floods, traffic, storms and suspensions | `CURRENTS_API_KEY` (server only) | `/api/news` (Vercel Function; Vite middleware locally) | News section says it is off |
 | **Supabase** (PostgreSQL + PostGIS + Realtime) | Shared route status, safe spots, advisories across devices | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Browser | Device data + cross-tab sync |
 | **OSRM foot router** (FOSSGIS) | Walking route from the campus point to a safe spot | none (`VITE_WALK_ROUTER_URL` optional) | Browser | Saved route, then straight-line estimate |
@@ -197,7 +197,7 @@ Notes:
   give the current figure for an open one.
 - Trip times are the route's usual commute time scaled by the live delay (traffic-aware ÷ free-flow duration), so
   they stay comparable with the usual jeepney/bus time instead of showing a private-car time.
-- Google route geometry is kept in memory only and is not stored on the device (Google Maps Platform terms). Map
+- Weather and traffic-aware routes are reused from a device cache (src/lib/apiCache.ts) for 20 and 10 minutes and kept at most 24 hours as a saved-copy fallback. Map
   tiles are never cached by the service worker.
 - Google News RSS is **not** used: its terms limit it to personal feed readers.
 

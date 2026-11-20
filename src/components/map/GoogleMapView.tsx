@@ -85,17 +85,31 @@ function pattern(status: MapLine['status'], color: string, weight: number): goog
   return [{ icon, offset: '0', repeat: status === 'slow' ? `${weight * 2.4}px` : `${weight * 4}px` }]
 }
 
+// The two polylines are created once per line and updated in place: the model is rebuilt on every store update
+// with new (equal) path arrays, so the path is compared by its coordinates, never by array identity.
 function Line({ map, path, status, color, weight, z }: { map: google.maps.Map; path: LatLng[]; status: MapLine['status']; color: string; weight: number; z: number }) {
+  const lines = useRef<{ casing: google.maps.Polyline; stroke: google.maps.Polyline } | null>(null)
   useEffect(() => {
-    const p = path.map(toLL)
-    const icons = pattern(status, color, weight)
-    const casing = new google.maps.Polyline({ map, path: p, strokeColor: '#FFFFFF', strokeOpacity: 0.95, strokeWeight: weight + 4, zIndex: z, clickable: false })
-    const stroke = new google.maps.Polyline({ map, path: p, strokeColor: color, strokeOpacity: icons ? 0 : 1, strokeWeight: weight, icons, zIndex: z + 1, clickable: false })
+    const casing = new google.maps.Polyline({ map, strokeColor: '#FFFFFF', strokeOpacity: 0.95, clickable: false })
+    const stroke = new google.maps.Polyline({ map, clickable: false })
+    lines.current = { casing, stroke }
     return () => {
       casing.setMap(null)
       stroke.setMap(null)
+      lines.current = null
     }
-  }, [map, path, status, color, weight, z])
+  }, [map])
+  const key = fitKey(path)
+  useEffect(() => {
+    const p = key ? key.split(';').map((pt) => toLL(pt.split(',').map(Number) as LatLng)) : []
+    lines.current?.casing.setPath(p)
+    lines.current?.stroke.setPath(p)
+  }, [map, key])
+  useEffect(() => {
+    const icons = pattern(status, color, weight)
+    lines.current?.casing.setOptions({ strokeWeight: weight + 4, zIndex: z })
+    lines.current?.stroke.setOptions({ strokeColor: color, strokeOpacity: icons ? 0 : 1, strokeWeight: weight, icons: icons ?? [], zIndex: z + 1 })
+  }, [map, status, color, weight, z])
   return null
 }
 
@@ -106,27 +120,39 @@ export default function GoogleMapView({ model, fill, padding, traffic, onSpot }:
 }) {
   const el = useRef<HTMLDivElement>(null)
   const [map, setMap] = useState<google.maps.Map | null>(null)
-  const [campusLat, campusLng] = model.campus
+  // The first campus centres the new map; later changes are handled by the fit below, without a new map.
+  const start = useRef(model.campus)
 
+  // One google.maps.Map (one billable map load) per mount. Campus, routes, pins and traffic update it in place.
   useEffect(() => {
     let cancelled = false
+    let created: google.maps.Map | null = null
     loadGoogleMaps()
       .then(() => google.maps.importLibrary('maps'))
       .then(() => {
         if (cancelled || !el.current) return
-        setMap(new google.maps.Map(el.current, {
-          center: { lat: campusLat, lng: campusLng }, zoom: 14, minZoom: MIN_ZOOM, maxZoom: MAX_ZOOM,
+        const [lat, lng] = start.current
+        created = new google.maps.Map(el.current, {
+          center: { lat, lng }, zoom: 14, minZoom: MIN_ZOOM, maxZoom: MAX_ZOOM,
           ...(GOOGLE_MAP_ID ? { mapId: GOOGLE_MAP_ID } : { styles: MUTED }),
           disableDefaultUI: true, zoomControl: true, clickableIcons: false, keyboardShortcuts: true,
-          zoomControlOptions: { position: fill ? google.maps.ControlPosition.RIGHT_CENTER : google.maps.ControlPosition.RIGHT_BOTTOM },
-          gestureHandling: fill ? 'greedy' : 'cooperative',
-        }))
+        })
+        setMap(created)
       })
       .catch(() => { /* status is reported by googleMapsLoader; MapView switches to the simple map */ })
     return () => {
       cancelled = true
+      if (created) google.maps.event.clearInstanceListeners(created)
     }
-  }, [campusLat, campusLng, fill])
+  }, [])
+
+  // Full-screen or inline: controls and gestures change in place.
+  useEffect(() => {
+    map?.setOptions({
+      zoomControlOptions: { position: fill ? google.maps.ControlPosition.RIGHT_CENTER : google.maps.ControlPosition.RIGHT_BOTTOM },
+      gestureHandling: fill ? 'greedy' : 'cooperative',
+    })
+  }, [map, fill])
 
   // Fit the features on screen whenever they (or the space kept clear for panels) change. The key strings are
   // the source of truth, so a re-render with equal points never refits (and never fights the user's panning).
@@ -145,8 +171,9 @@ export default function GoogleMapView({ model, fill, padding, traffic, onSpot }:
     return () => once.remove()
   }, [map, fit, pad])
 
-  // Hide labels that would cover a pin or a more important label, whenever the view settles.
+  // Hide labels that would cover a pin or a more important label, whenever the view settles or the labels change.
   const root = useRef<HTMLDivElement>(null)
+  const labels = model.lines.map((l) => `${l.id}${l.status}${l.focus}`).join() + model.spots.map((x) => `${x.id}${x.selected}`).join()
   useEffect(() => {
     if (!map) return
     const l = map.addListener('idle', () => declutter(root.current))
@@ -155,7 +182,7 @@ export default function GoogleMapView({ model, fill, padding, traffic, onSpot }:
       l.remove()
       clearTimeout(t)
     }
-  }, [map, model])
+  }, [map, labels])
 
   useEffect(() => {
     if (!map || !traffic) return

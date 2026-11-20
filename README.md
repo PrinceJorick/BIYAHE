@@ -66,14 +66,14 @@ npm run preview    # http://localhost:4173, the installable offline build
 |---|---|---|
 | Google Maps JavaScript API | Street map, live traffic layer | The app's simple map (route lines and pins on the brand dot grid) |
 | Google Routes API | Traffic-aware trip times, Google road geometry, traffic forecast for later departures | Times estimated from route reports |
-| Google Weather API (via `/api/weather`) | Current conditions, hourly chance of rain (Estimate), PAGASA public alerts (Official) | "Weather unavailable"; never stored on the device |
+| Google Weather API (via `/api/weather`) | Current conditions, hourly chance of rain (Estimate), PAGASA public alerts (Official) | Last reading as a saved copy (cached up to 24 h); otherwise "Weather unavailable" |
 | Currents News API (via `/api/news`) | Local Batangas news, matched to campus and route by place | Saved copy for up to 24 hours, then none |
 | Gemini (via `/api/explain`) | Optional rewording of BIYAHE's own recommendation reason | The rule and facts BIYAHE used, shown as is |
 | Supabase (PostgreSQL + PostGIS + Realtime) | Route status, safe spots, advisories | IndexedDB snapshot, fixtures in `src/data.ts` |
 | OSRM foot router (FOSSGIS) | Walking route to a safe spot | Saved route, then straight-line estimate |
 | PAGASA / Batangas City LGU | Advisory schemas | Simulated fixtures; no public feed exists |
 
-Official status always wins: a route the DRRMO or LGU closed shows *Closed* whatever traffic data says. Google route geometry, traffic and weather are kept in memory only, and map tiles are never cached (Google Maps Platform terms). News shows the publisher, time and original link with Currents attribution; article text is never fetched and never sent to an AI model.
+Official status always wins: a route the DRRMO or LGU closed shows *Closed* whatever traffic data says. Weather (20 min) and traffic-aware routes (10 min) are reused from a small device cache (`src/lib/apiCache.ts`, at most 24 h, one request per key in flight, manual refresh cooldowns of 60 s and 30 s, no retries on 429/403), and map tiles are never cached (Google Maps Platform terms). News shows the publisher, time and original link with Currents attribution; article text is never fetched and never sent to an AI model.
 
 ## Campuses, routes and safe spots
 

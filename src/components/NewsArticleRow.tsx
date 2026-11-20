@@ -24,7 +24,7 @@ export default function NewsArticleRow({ item, now, offline, savedAt, compact = 
     <>
       <span className="item-icon"><Newspaper size={20} aria-hidden="true" /></span>
       <span className="item-body">
-        <span className="h3 item-title">{item.title}{!offline && <span className="sr-only"> — opens article on {item.source} in a new tab</span>}</span>
+        <span className="h3 item-title">{item.title}{!offline && <span className="sr-only"> (opens article on {item.source} in a new tab)</span>}</span>
         {!compact && item.summary && <span className="meta clamp-2">{item.summary}</span>}
         <span className="caption news-meta">
           Local news · {item.source}{!offline && <ExternalLink size={14} aria-hidden="true" />} · {when}
