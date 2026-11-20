@@ -113,9 +113,9 @@ describe('road-following routes: subtle "About routes" indicator', () => {
 })
 
 describe('map wiring (source guards)', () => {
-  it('MapView wraps both renderers in MapFrame and credits OSM whenever OSM geometry or OSM tiles are drawn', () => {
+  it('MapView credits OSM on the app\'s own map, never over Google\'s map (the About routes dialog carries it there)', () => {
     expect(mapViewSource).toMatch(/<MapFrame[\s>]/)
-    expect(mapViewSource).toContain('credit={model.osmCredit || osm}')
+    expect(mapViewSource).toContain('credit={!useGoogle && (model.osmCredit || osm)}')
     expect(mapViewSource).toContain('<GoogleMapView ')
     expect(mapViewSource).toContain('<SchematicMap ')
   })
