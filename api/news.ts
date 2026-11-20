@@ -1,4 +1,5 @@
-// GET /api/news: recent local news about Batangas commuter places (floods, rain, roads, class suspensions).
+// GET /api/news: recent local weather news about Batangas commuter places (rain, storms, floods). Anything that is
+// not about the weather is left out, however local it is.
 //
 // Runs server-side so the key never reaches the browser: as a Vercel Function in production (this file), and
 // through the Vite dev/preview server locally (vite.config.ts mounts the same handler). Provider: Currents News
@@ -6,8 +7,8 @@
 // the response is an empty list with provider "none".
 //
 // Currents' /v1/search ORs every keyword (AND and parentheses are ignored) and returns at most 20 articles, so
-// two searches are made (places, then hazards in the Philippines) and every article is kept only if its title or
-// description names a known Batangas place. The free plan allows 250 requests a day: one refresh costs 2, the
+// two searches are made (places, then weather in the Philippines) and an article is kept only if its title or
+// description names a known Batangas place and is about the weather (WEATHER_TOPICS). The free plan allows 250 requests a day: one refresh costs 2, the
 // response is cached at the edge for 30 minutes and in this instance's memory for 15, and a 429 is passed on with
 // its Retry-After so the app backs off.
 //
@@ -48,7 +49,7 @@ type Env = Record<string, string | undefined>
 export const CURRENTS_SEARCH = 'https://api.currentsapi.services/v1/search'
 export const NEWS_QUERIES = [
   { keywords: 'Batangas OR "Lipa City" OR Tanauan OR Malvar' },
-  { keywords: 'flood OR baha OR "class suspension" OR "walang pasok" OR "road closure" OR landslide OR bagyo', country: 'PH' },
+  { keywords: 'flood OR baha OR ulan OR bagyo OR typhoon OR "heavy rain" OR PAGASA OR "storm surge" OR landslide', country: 'PH' },
 ]
 const PAGE_SIZE = 20
 const WINDOW_DAYS = 7
@@ -148,13 +149,17 @@ export function placesIn(text: string): string[] {
   return Object.entries(PLACES).filter(([, p]) => p.re.test(text) && (!p.ctx || batangas)).map(([k]) => k)
 }
 
+/** Only weather news is shown: rain and storms, and the floods they cause. Roads and classes tag an article that is
+ * already about the weather (e.g. classes suspended for rain), never qualify one on their own. */
+export const WEATHER_TOPICS: NewsTopic[] = ['flood', 'rain']
+
 export const topicsIn = (text: string) => (Object.keys(TOPICS) as NewsTopic[]).filter((t) => TOPICS[t].test(text))
 
 const titleKey = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 
 /**
- * Currents search responses → news items about Batangas places, newest first. Drops anything without a title, an
- * https publisher link, a valid date or a Batangas place, and duplicates (same link or same headline).
+ * Currents search responses → weather news about Batangas places, newest first. Drops anything without a title,
+ * an https publisher link, a valid date, a Batangas place or a weather topic, and duplicates (same link or headline).
  */
 export function parseCurrents(responses: unknown[], now = Date.now()): NewsItem[] {
   const out: NewsItem[] = []
@@ -170,11 +175,12 @@ export function parseCurrents(responses: unknown[], now = Date.now()): NewsItem[
       const summary = clean(a.description, 300)
       const text = `${title} ${summary}`
       const places = placesIn(text)
-      if (!places.length) continue
+      const topics = topicsIn(text)
+      if (!places.length || !topics.some((t) => WEATHER_TOPICS.includes(t))) continue
       if (out.some((x) => x.url === url || titleKey(x.title) === titleKey(title))) continue
       const pub = publisherOf(new URL(url).hostname)
       const id = typeof a.id === 'string' && a.id ? a.id.slice(0, 80) : url
-      out.push({ id, title, summary, source: pub.name, sourceDomain: pub.domain, url, publishedAt, places, topics: topicsIn(text) })
+      out.push({ id, title, summary, source: pub.name, sourceDomain: pub.domain, url, publishedAt, places, topics })
     }
   }
   return out.sort((a, b) => b.publishedAt - a.publishedAt)
