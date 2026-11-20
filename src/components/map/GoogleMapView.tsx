@@ -37,19 +37,18 @@ function overlayClass(): OverlayCtor {
   class HtmlOverlay extends google.maps.OverlayView {
     private readonly pos: google.maps.LatLngLiteral
     private readonly el: HTMLElement
-    private readonly interactive: boolean
     private readonly z: number
     constructor(pos: google.maps.LatLngLiteral, el: HTMLElement, interactive: boolean, z: number) {
       super()
       this.pos = pos
       this.el = el
-      this.interactive = interactive
       this.z = z
       if (interactive) google.maps.OverlayView.preventMapHitsAndGesturesFrom(el)
     }
     onAdd() {
       this.el.style.zIndex = String(this.z)
-      this.getPanes()?.[this.interactive ? 'overlayMouseTarget' : 'overlayLayer'].appendChild(this.el)
+      // floatPane: above Google's own place icons and labels (a cloud-styled vector map draws those over overlayLayer).
+      this.getPanes()?.floatPane.appendChild(this.el)
     }
     draw() {
       const p = this.getProjection()?.fromLatLngToDivPixel(this.pos)

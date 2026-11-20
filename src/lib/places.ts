@@ -99,7 +99,7 @@ export function recommendationReason(options: readonly Option[], ctx: { rainPeak
   const facts = [
     mine.cs.status === 'closed'
       ? `${mine.corridor.name} via ${mine.corridor.via} is closed (${mine.cs.source}).`
-      : `${mine.corridor.name} via ${mine.corridor.via}: ${t.level} traffic, about ${t.minLo}–${t.minHi} min now, usually ${mine.corridor.usualMin} min (${sourceWord[t.source]}).`,
+      : `${mine.corridor.name} via ${mine.corridor.via}: ${t.level} traffic, about ${t.minLo === t.minHi ? t.minLo : `${t.minLo}–${t.minHi}`} min now, usually ${mine.corridor.usualMin} min (${sourceWord[t.source]}).`,
   ]
   if (best.place.kind === 'spot') {
     const sp = best.place.spot

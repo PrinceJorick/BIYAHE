@@ -1,6 +1,6 @@
 // Home (wireframe 1): weather and date, traffic flow, "Where do you want to go?" with three options, and every
 // place the student can go. Choosing an option or a place opens its details (#/go/<kind>/<id>).
-import { ChevronRight, Cloud, CloudFog, CloudLightning, CloudOff, CloudRain, Lightbulb, Megaphone, Moon, ShieldAlert, Sparkles, Sun, type LucideIcon } from 'lucide-react'
+import { ChevronRight, Cloud, CloudFog, CloudLightning, CloudOff, CloudRain, Megaphone, Moon, ShieldAlert, Sparkles, Sun, type LucideIcon } from 'lucide-react'
 import { createElement, useState } from 'react'
 import { ACTIVE_CAMPUS } from '../campuses/active'
 import Badge from '../components/Badge'
@@ -109,7 +109,7 @@ function WhyCard({ reason, offline }: { reason: Reason; offline: boolean }) {
   return (
     <section className="card" aria-labelledby="why">
       <div className="card-head">
-        <h2 className="h3 cluster" id="why"><Lightbulb size={18} aria-hidden="true" />Why this suggestion</h2>
+        <h2 className="h3" id="why">Why this suggestion</h2>
         <Badge kind="estimate" />
       </div>
       <p className="body">{reason.rule}</p>
@@ -208,18 +208,18 @@ export default function Home() {
           {options.map((o) => (
             <li key={placeArg(o.place)}>
               <a className={`option${o.recommended ? ' option-best' : ''}`} href={hrefOf('go', placeArg(o.place))}>
-                <span className="option-top">
-                  <span className="option-icon"><PlaceIcon place={o.place} /></span>
-                  {o.recommended && <span className="option-flag">Best now</span>}
+                <span className="item-icon"><PlaceIcon place={o.place} /></span>
+                <span className="option-body">
+                  <span className="meta option-eyebrow">{o.verb}{o.recommended && <span className="option-flag"> · Best now</span>}</span>
+                  <span className="h3 option-title">{placeShort(o.place)}</span>
+                  <span className="meta">
+                    {o.place.kind === 'route'
+                      ? <>{o.place.traffic.level === 'closed' ? '' : `${fmtRange(o.place.traffic.minLo, o.place.traffic.minHi)} · `}<Lvl level={levelOfTraffic[o.place.traffic.level]}>{o.place.traffic.level === 'closed' ? 'Closed' : o.place.cs.status === 'slow' ? 'Slow' : 'Open'}</Lvl></>
+                      : walkText(o.place.spot.walkMin)}
+                  </span>
+                  {o.verb === 'Suggested alternative' && <span className="option-caveat">Not verified safe</span>}
                 </span>
-                <span className="caption">{o.verb}</span>
-                <span className="option-title">{placeShort(o.place)}</span>
-                <span className="meta option-meta">
-                  {o.place.kind === 'route'
-                    ? <>{o.place.traffic.level === 'closed' ? '' : `${fmtRange(o.place.traffic.minLo, o.place.traffic.minHi)} · `}<Lvl level={levelOfTraffic[o.place.traffic.level]}>{o.place.traffic.level === 'closed' ? 'Closed' : o.place.cs.status === 'slow' ? 'Slow' : 'Open'}</Lvl></>
-                    : walkText(o.place.spot.walkMin)}
-                </span>
-                {o.verb === 'Suggested alternative' && <span className="caption">Not verified safe</span>}
+                <ChevronRight className="item-chev" size={18} aria-hidden="true" />
               </a>
             </li>
           ))}
