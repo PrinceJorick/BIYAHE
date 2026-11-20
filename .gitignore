@@ -32,3 +32,5 @@ docs/routes/diagnostics/*.geojson
 *.sln
 *.sw?
 .playwright-mcp/
+.vercel
+.env*
