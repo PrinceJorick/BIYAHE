@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { corridors, fixture } from '../data'
-import { findPlace, placeArg, recommend, routePlaces, shortSpotName, spotPlaces } from './places'
+import { findPlace, placeArg, recommend, recommendationReason, routePlaces, shortSpotName, spotPlaces } from './places'
 
 const NOW = Date.parse('2026-11-19T09:00:00Z')
 
@@ -57,5 +57,36 @@ describe('recommendations', () => {
     const o = recommend(routePlaces(snap, corridors, null, 'lipa', NOW), spotPlaces(full))
     expect(o.some((x) => x.recommended && x.place.kind === 'spot')).toBe(false)
     expect(o.find((x) => x.place.id === 'lipa')?.recommended).toBe(false)
+  })
+})
+
+describe('recommendation reasons', () => {
+  it('open route: the rule and the traffic fact with its source; alternatives are labelled, never "safe"', () => {
+    const snap = fixture('clear', NOW)
+    const o = recommend(routePlaces(snap, corridors, null, 'batangas', NOW), spotPlaces(snap.spots))
+    const r = recommendationReason(o, { rainPeakPct: null, warnings: 0 })!
+    expect(r.rule).toBe('Your usual route is open, so heading home comes first.')
+    expect(r.facts).toHaveLength(1)
+    expect(r.facts[0]).toMatch(/usually \d+ min \(estimate from route reports\)/)
+    expect(o.find((x) => x.verb === 'Suggested alternative')).toBeDefined()
+    expect(JSON.stringify(r)).not.toMatch(/\bsafe\b(?! spot)/i)
+  })
+
+  it('closed route: the nearest safe spot with room, its count, rain and warnings as context', () => {
+    const snap = fixture('disrupted', NOW)
+    const o = recommend(routePlaces(snap, corridors, null, 'lipa', NOW), spotPlaces(snap.spots))
+    const r = recommendationReason(o, { rainPeakPct: 70, warnings: 1 })!
+    expect(r.rule).toMatch(/closed by an advisory/)
+    expect(r.facts[0]).toMatch(/is closed/)
+    expect(r.facts.some((f) => /spaces left|not confirmed/.test(f))).toBe(true)
+    expect(r.facts).toContain('Up to 70% chance of rain in the next 6 hours (Google Weather forecast, estimate).')
+    expect(r.facts).toContain('1 weather warning from PAGASA in force (official).')
+  })
+
+  it('no rain fact below 30%, and nothing without options', () => {
+    const snap = fixture('clear', NOW)
+    const o = recommend(routePlaces(snap, corridors, null, 'batangas', NOW), spotPlaces(snap.spots))
+    expect(recommendationReason(o, { rainPeakPct: 20, warnings: 0 })!.facts.join()).not.toMatch(/rain/)
+    expect(recommendationReason([], { rainPeakPct: null, warnings: 0 })).toBeNull()
   })
 })

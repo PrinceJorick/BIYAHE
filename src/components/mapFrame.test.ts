@@ -113,16 +113,18 @@ describe('road-following routes: subtle "About routes" indicator', () => {
 })
 
 describe('map wiring (source guards)', () => {
-  it('MapView wraps both renderers in MapFrame and credits OSM exactly when OSM geometry is drawn', () => {
+  it('MapView wraps both renderers in MapFrame and credits OSM whenever OSM geometry or OSM tiles are drawn', () => {
     expect(mapViewSource).toMatch(/<MapFrame[\s>]/)
-    expect(mapViewSource).toContain('credit={model.osmCredit}')
+    expect(mapViewSource).toContain('credit={model.osmCredit || osm}')
     expect(mapViewSource).toContain('<GoogleMapView ')
     expect(mapViewSource).toContain('<SchematicMap ')
   })
 
-  it('the simple map draws no street tiles and turns off Leaflet\'s own attribution', () => {
+  it('the simple map draws OSM street tiles only when asked (online, Google unavailable), never offline or on low battery', () => {
     expect(schematicSource).toContain('attributionControl={false}')
-    expect(schematicSource).not.toMatch(/TileLayer|tile\.openstreetmap\.org/)
+    expect(schematicSource).toContain('{tiles && <TileLayer')
+    expect(mapViewSource).toContain("const osm = why === 'nokey' || why === 'error'")
+    expect(mapViewSource).toContain('tiles={osm}')
   })
 
   it('both renderers apply the zoom limits and the capped fit', () => {

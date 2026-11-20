@@ -76,8 +76,39 @@ export function recommend(routes: readonly RoutePlace[], spots: readonly SpotPla
     add(nearest, 'Wait at')
   }
   const others = routes.filter((r) => !r.mine && r.cs.status !== 'closed').sort((a, b) => rank[a.traffic.level] - rank[b.traffic.level] || a.corridor.usualMin - b.corridor.usualMin)
-  add(others[0], 'Other route')
+  add(others[0], 'Suggested alternative')
   for (const s of spots) if (out.length < 3 && !s.full) add(s, 'Wait at')
   for (const r of routes) if (out.length < 3) add(r, 'Route')
   return out.slice(0, 3)
+}
+
+/** Why the first option is suggested: the rule applied and the facts it used, each with its source. */
+export type Reason = { rule: string; facts: string[] }
+
+const sourceWord = { official: 'official advisory', live: 'Google live traffic, estimate', estimate: 'estimate from route reports' } as const
+
+/**
+ * The explanation of recommend(): built only from the inputs it used, so it can never cite something BIYAHE did not
+ * see. Rain and weather warnings are listed as context; they never change the route status on their own.
+ */
+export function recommendationReason(options: readonly Option[], ctx: { rainPeakPct: number | null; warnings: number }): Reason | null {
+  const best = options.find((o) => o.recommended)
+  const mine = options.map((o) => o.place).find((p): p is RoutePlace => p.kind === 'route' && p.mine)
+  if (!best || !mine) return null
+  const t = mine.traffic
+  const facts = [
+    mine.cs.status === 'closed'
+      ? `${mine.corridor.name} via ${mine.corridor.via} is closed (${mine.cs.source}).`
+      : `${mine.corridor.name} via ${mine.corridor.via}: ${t.level} traffic, about ${t.minLo === t.minHi ? t.minLo : `${t.minLo}–${t.minHi}`} min now, usually ${mine.corridor.usualMin} min (${sourceWord[t.source]}).`,
+  ]
+  if (best.place.kind === 'spot') {
+    const sp = best.place.spot
+    facts.push(`${sp.name}: ${sp.capacity == null ? 'capacity not yet assessed, not confirmed' : `${sp.capacity - sp.occupied} of ${sp.capacity} spaces left`} (campus DRRMO count).`)
+  }
+  if (ctx.rainPeakPct != null && ctx.rainPeakPct >= 30) facts.push(`Up to ${ctx.rainPeakPct}% chance of rain in the next 6 hours (Google Weather forecast, estimate).`)
+  if (ctx.warnings > 0) facts.push(`${ctx.warnings} weather warning${ctx.warnings > 1 ? 's' : ''} from PAGASA in force (official).`)
+  const rule = best.place.kind === 'spot'
+    ? 'Your usual route is closed by an advisory, so the nearest safe spot with room comes first.'
+    : mine.cs.status === 'slow' ? 'Your usual route is open but slow, so it stays first; allow the longer time.' : 'Your usual route is open, so heading home comes first.'
+  return { rule, facts }
 }

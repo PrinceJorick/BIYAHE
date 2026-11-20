@@ -3,7 +3,9 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { handleExplain } from './api/explain.ts'
 import { handleNews } from './api/news.ts'
+import { handleWeather } from './api/weather.ts'
 
 // Which code a build contains (Setup → About this build). Vercel provides the commit; locally git does.
 function buildStamp() {
@@ -18,32 +20,41 @@ function buildStamp() {
   return { commit, dirty: !process.env.VERCEL && git('git status --porcelain') !== '', builtAt: new Date().toISOString() }
 }
 
-// /api/news locally: the same handler the Vercel Function runs (api/news.ts), with the server-only keys from .env.
-function newsApi(env: Record<string, string>): Plugin {
-  const serve = async (req: IncomingMessage, res: ServerResponse) => {
+// /api/* locally: the same handlers the Vercel Functions run (api/*.ts), with the server-only keys from .env.
+type Handler = (request: Request, env: Record<string, string>) => Promise<Response>
+const API: Record<string, Handler> = { '/api/news': handleNews, '/api/weather': handleWeather, '/api/explain': handleExplain }
+
+function localApi(env: Record<string, string>): Plugin {
+  const serve = async (handler: Handler, req: IncomingMessage, res: ServerResponse) => {
     try {
-      const out = await handleNews(new Request(new URL(req.url ?? '/', 'http://localhost')), env)
+      const chunks: Buffer[] = []
+      if (req.method === 'POST') for await (const c of req) chunks.push(c as Buffer)
+      const headers = new Headers()
+      for (const [k, v] of Object.entries(req.headers)) if (typeof v === 'string') headers.set(k, v)
+      const out = await handler(new Request(new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`), {
+        method: req.method, headers, ...(chunks.length ? { body: Buffer.concat(chunks) } : {}),
+      }), env)
       res.statusCode = out.status
       out.headers.forEach((v, k) => res.setHeader(k, v))
       res.end(await out.text())
-    } catch (e) {
+    } catch {
       res.statusCode = 500
-      res.end(JSON.stringify({ error: (e as Error).message }))
+      res.end(JSON.stringify({ error: 'server error' }))
     }
   }
-  // connect strips the mount path from req.url; the handler only reads the query string.
+  // connect strips the mount path from req.url; the handlers only read the query string and body.
   // Returns nothing: a function returned from configureServer would be run by Vite as a post-middleware hook.
   const mount = (s: { middlewares: { use: (path: string, fn: (req: IncomingMessage, res: ServerResponse) => void) => unknown } }): void => {
-    s.middlewares.use('/api/news', (req, res) => void serve(req, res))
+    for (const [path, handler] of Object.entries(API)) s.middlewares.use(path, (req, res) => void serve(handler, req, res))
   }
-  return { name: 'biyahe-news-api', configureServer: mount, configurePreviewServer: mount }
+  return { name: 'biyahe-local-api', configureServer: mount, configurePreviewServer: mount }
 }
 
 export default defineConfig(({ mode }) => ({
   define: { __BUILD__: JSON.stringify(buildStamp()) },
   plugins: [
     react(),
-    newsApi(loadEnv(mode, process.cwd(), '')),
+    localApi(loadEnv(mode, process.cwd(), '')),
     VitePWA({
       registerType: 'autoUpdate',
       // Registered from src/lib/pwa.ts (reloads open pages once after an update; removes stray workers in dev).
@@ -74,20 +85,9 @@ export default defineConfig(({ mode }) => ({
         // Offline: any page path (e.g. a /map deep link) gets the app shell; the router turns it into #/map.
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api\//],
-        // Google Maps tiles and scripts are never cached by the app (Google Maps Platform terms); offline, the app
-        // shows its own simple map instead. Weather and news keep a short network-first copy.
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/api\.open-meteo\.com\/.*/,
-            handler: 'NetworkFirst',
-            options: { cacheName: 'weather', networkTimeoutSeconds: 4, expiration: { maxEntries: 4 } },
-          },
-          {
-            urlPattern: ({ url }) => url.pathname === '/api/news',
-            handler: 'NetworkFirst',
-            options: { cacheName: 'news', networkTimeoutSeconds: 5, expiration: { maxEntries: 6 } },
-          },
-        ],
+        // No runtime caching: Google Maps tiles/scripts and Google Weather answers are never stored (Google Maps
+        // Platform terms), and the news copy lives in IndexedDB with its own expiry (src/lib/news.ts). Offline,
+        // the app shows its own simple map and its saved copies, each marked as such.
       },
     }),
   ],
