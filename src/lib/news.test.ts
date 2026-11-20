@@ -46,6 +46,16 @@ describe('Currents parsing (server)', () => {
     expect(items).toHaveLength(1)
   })
 
+  it('keeps only weather news: local stories about anything else are dropped', () => {
+    const items = parseCurrents([body([
+      art({ id: 'biz', url: 'https://x.ph/biz', title: 'Chemrez to build Batangas biodiesel plant', description: 'A new plant in Batangas City.' }),
+      art({ id: 'road', url: 'https://x.ph/road', title: 'Heavy traffic on STAR Tollway near Lipa City', description: 'A collision slowed traffic.' }),
+      art({ id: 'wx', url: 'https://x.ph/wx', title: 'Heavy rain floods streets in Lipa City', description: 'PAGASA warned of more rain.' }),
+      art({ id: 'cls', url: 'https://x.ph/cls', title: 'Walang pasok in Batangas City due to bagyo', description: 'Classes suspended as the typhoon nears.' }),
+    ])], NOW)
+    expect(items.map((n) => n.id).sort()).toEqual(['cls', 'wx'])
+  })
+
   it('ignores Dua Lipa and needs a Batangas mention for common place names', () => {
     expect(placesIn('Dua Lipa buys a mansion')).toEqual([])
     expect(placesIn('Lipa City traffic')).toEqual(['lipa'])

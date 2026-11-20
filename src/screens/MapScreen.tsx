@@ -1,7 +1,8 @@
-// Map (wireframes 3 and 4). Phones: the place and a Show/Hide details toggle at the top, the details (where it
-// goes, how long it takes now, when to leave, map layers, every other place) open below them, and the map fills
-// the rest down to the app's bottom navigation. Wide screens: the details sit in a panel on the left, open.
-import { ArrowRight, Building2, ChevronDown, ChevronUp, CloudRain, Layers, Route as RouteIcon } from 'lucide-react'
+// Map (wireframes 3 and 4): the map fills the screen above the app's bottom navigation. Phones: the place sits in
+// a chip at the top and one Details button just above the navigation opens the details (where it goes, how long
+// it takes now, when to leave, map layers, every other place) at the top of the map. Wide screens: the details
+// sit in a panel on the left, open.
+import { ArrowRight, Building2, ChevronUp, CloudRain, Layers, Route as RouteIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import Badge from '../components/Badge'
 import Lvl from '../components/Lvl'
@@ -143,7 +144,7 @@ export default function MapScreen({ arg }: { arg: string | null }) {
   // Phones: the details sit above the map, not over it, so only the map's own notes need room.
   const padding = wide
     ? { top: 80, right: 72, bottom: 48, left: open ? 440 : 96 }
-    : { top: 56, right: 56, bottom: 24, left: 24 }
+    : { top: open ? Math.round(innerHeight * 0.55) + 16 : 112, right: 56, bottom: 88, left: 24 }
   const show = (p: Place) => go('map', placeArg(p))
 
   const status = place.kind === 'route'
@@ -153,19 +154,6 @@ export default function MapScreen({ arg }: { arg: string | null }) {
   return (
     <div className={`mapscreen${open ? ' is-open' : ''}`}>
       <h1 className="sr-only">Map: {placeTitle(place)}</h1>
-
-      {!wide && (
-        <div className="map-head">
-          <p className="map-head-place">
-            {place.kind === 'route' ? <RouteIcon size={18} aria-hidden="true" /> : <Building2 size={18} aria-hidden="true" />}
-            <span className="map-chip-name">{placeShort(place)}</span>
-            {status}
-          </p>
-          <button type="button" className="btn btn-secondary btn-sm map-toggle" aria-expanded={open} aria-controls="trip-panel" onClick={() => setOpen(!open)}>
-            {open ? 'Hide details' : 'Show details'}{open ? <ChevronUp size={18} aria-hidden="true" /> : <ChevronDown size={18} aria-hidden="true" />}
-          </button>
-        </div>
-      )}
 
       <div id="trip-panel" className="sheet" role="region" aria-labelledby="sheet-title" hidden={!open}>
         <div className="sheet-body">
@@ -216,18 +204,19 @@ export default function MapScreen({ arg }: { arg: string | null }) {
           onSpot={(id) => go('map', `spot/${id}`)} />
       </div>
 
-      {wide && !open && (
+      {!open && (
         <p className="map-chip" aria-hidden="true">
           {place.kind === 'route' ? <RouteIcon size={16} /> : <Building2 size={16} />}
           <span className="map-chip-name">{placeShort(place)}</span>
           {status}
         </p>
       )}
-      {wide && (
-        <button type="button" className="map-trigger" aria-expanded={open} aria-controls="trip-panel" aria-label={open ? 'Close the trip panel' : 'Open the trip panel'} onClick={() => setOpen(!open)}>
-          {open ? <ArrowRight size={22} className="flip" aria-hidden="true" /> : <Layers size={22} aria-hidden="true" />}
-        </button>
-      )}
+      <button type="button" className="map-trigger" aria-expanded={open} aria-controls="trip-panel"
+        aria-label={wide ? (open ? 'Close the trip panel' : 'Open the trip panel') : undefined} onClick={() => setOpen(!open)}>
+        {wide
+          ? (open ? <ArrowRight size={22} className="flip" aria-hidden="true" /> : <Layers size={22} aria-hidden="true" />)
+          : <>{open ? <ChevronUp size={20} aria-hidden="true" /> : <Layers size={20} aria-hidden="true" />}{open ? 'Hide details' : 'Show details'}</>}
+      </button>
     </div>
   )
 }

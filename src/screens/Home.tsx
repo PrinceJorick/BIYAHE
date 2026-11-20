@@ -107,7 +107,7 @@ function WhyCard({ reason, offline }: { reason: Reason; offline: boolean }) {
     fetchExplanation(reason).then((text) => setAi({ text }), (e: Error) => setAi({ error: e.message || 'AI explanation unavailable' }))
   }
   return (
-    <section className="card" aria-labelledby="why">
+    <section className="card card-why" aria-labelledby="why">
       <div className="card-head">
         <h2 className="h3" id="why">Why this suggestion</h2>
         <Badge kind="estimate" />
@@ -187,8 +187,9 @@ export default function Home() {
       )}
 
       <WeatherCard s={s} now={now} offline={v.offline} />
+      <TrafficCard mine={mine} others={routes.filter((r) => !r.mine)} saved={saved} />
       {top && (
-        <section className="card" aria-labelledby="today-news">
+        <section className="card card-news" aria-labelledby="today-news">
           <h2 className="h3" id="today-news">Today near your route</h2>
           <ul className="list">
             <li><NewsArticleRow item={top} now={now} offline={isOffline(s)} savedAt={s.news?.fetchedAt ?? now} /></li>
@@ -197,7 +198,6 @@ export default function Home() {
           <NewsCredit />
         </section>
       )}
-      <TrafficCard mine={mine} others={routes.filter((r) => !r.mine)} saved={saved} />
 
       <section className="card card-options" aria-labelledby="where">
         <div>

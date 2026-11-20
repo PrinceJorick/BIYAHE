@@ -326,7 +326,8 @@ a.item:focus-visible { outline-offset: 0; }
 
 @media (min-width: 1100px) {
   .home { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
-  .home > .home-head, .home > .alert-strip, .home > .card-options { grid-column: 1 / -1; }
+  /* Full-width rows keep the two columns paired: weather | traffic, then options, news, the reason, routes | spots. */
+  .home > .home-head, .home > .alert-strip, .home > .card-options, .home > .card-news, .home > .card-why { grid-column: 1 / -1; }
   .home > .card-weather, .home > .card-traffic { height: 100%; }
 }
 
@@ -549,43 +550,37 @@ button.map-marker { cursor: pointer; border-radius: 18px; }
 button.map-marker:hover .pin { transform: scale(1.06); }
 
 /* ── Map screen (wireframes 3 and 4) ──
-   Phones: place + toggle at the top, details below it when open, the map fills the rest down to the fixed bottom
-   navigation. Layers: map (its own stacking context) < details/header < bottom nav (40) < dialogs (top layer). */
+   The map fills the screen above the app's bottom navigation. Phones: place chip at the top, Details button just
+   above the navigation, details drop down over the top of the map. Layers: map (own stacking context) < chip and
+   button < details < bottom nav (40) < dialogs (top layer). */
 .app-map .main { max-width: none; padding: 0; }
-.mapscreen { position: relative; display: flex; flex-direction: column; height: calc(100dvh - var(--nav-h) - env(safe-area-inset-bottom)); overflow: hidden; }
-.mapscreen-map { position: relative; z-index: 0; flex: 1; min-height: 0; }
-.map-head {
-  position: relative; z-index: 2; flex: none; display: flex; align-items: center; gap: 12px;
-  padding: calc(8px + env(safe-area-inset-top)) var(--gutter) 8px; background: var(--surface); border-bottom: 1px solid var(--line);
-}
-.map-head-place { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; font-size: var(--fs-meta); color: var(--ink); }
-.map-head-place > svg { color: var(--deep); }
-.map-head-place .lvl { flex: none; font-weight: 600; }
-.map-toggle { flex: none; gap: 6px; }
+.mapscreen { position: relative; height: calc(100dvh - var(--nav-h) - env(safe-area-inset-bottom)); overflow: hidden; }
+.mapscreen-map { position: absolute; inset: 0; z-index: 0; }
 
 .map-chip {
-  position: absolute; top: 16px; left: 84px; max-width: 360px;
+  position: absolute; z-index: 3; top: calc(12px + env(safe-area-inset-top)); left: 12px; max-width: calc(100% - 84px);
   display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 20px;
   background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); color: var(--ink); font-size: var(--fs-meta);
 }
 .map-chip-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .map-chip .lvl { flex: none; }
-.map-fill .map-meta { top: 8px; left: 8px; right: 56px; }
+.map-fill .map-meta { top: calc(62px + env(safe-area-inset-top)); left: 12px; right: 56px; }
 
 .map-trigger {
-  position: absolute; left: 16px; top: 16px;
-  display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; padding: 0;
-  border: 0; border-radius: var(--r-lg); background: var(--deep); color: var(--cloud); box-shadow: var(--shadow);
+  position: absolute; z-index: 3; left: 50%; bottom: 16px; transform: translateX(-50%);
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 52px; padding: 0 20px;
+  border: 0; border-radius: 26px; background: var(--deep); color: var(--cloud); box-shadow: var(--shadow);
   font-weight: 600; font-size: .9375rem; -webkit-touch-callout: none; user-select: none; touch-action: manipulation;
 }
 .map-trigger:hover { background: var(--deep-2); }
-.map-trigger:active { transform: scale(.97); }
+.map-trigger:active { transform: translateX(-50%) scale(.97); }
 .flip { transform: scaleX(-1); }
 
 
 .sheet {
-  position: relative; z-index: 1; flex: none; max-height: 52dvh; overflow-y: auto; overscroll-behavior: contain;
-  background: var(--surface); border-bottom: 1px solid var(--line); animation: sheet .2s var(--ease);
+  position: absolute; z-index: 4; top: 0; left: 0; right: 0; max-height: 55dvh; overflow-y: auto; overscroll-behavior: contain;
+  padding-top: env(safe-area-inset-top); background: var(--surface); border-bottom: 1px solid var(--line);
+  border-radius: 0 0 var(--r-xl) var(--r-xl); box-shadow: var(--shadow); animation: sheet .2s var(--ease);
 }
 .sheet-body { display: flex; flex-direction: column; }
 .sheet-section { display: flex; flex-direction: column; gap: var(--inner); padding: var(--pad); }
@@ -607,16 +602,17 @@ button.map-marker:hover .pin { transform: scale(1.06); }
 .when .tag { margin-left: 6px; border-color: var(--deep); color: var(--deep); }
 
 @media (min-width: 900px) {
-  .mapscreen { display: block; height: 100dvh; }
-  .mapscreen-map { position: absolute; inset: 0; }
+  .mapscreen { height: 100dvh; }
+  .map-chip { top: 16px; left: 84px; max-width: 360px; }
+  .map-trigger { left: 16px; top: 16px; bottom: auto; transform: none; width: 56px; height: 56px; padding: 0; border-radius: var(--r-lg); }
+  .map-trigger:active { transform: scale(.97); }
   .map-fill .map-meta, .is-open .map-fill .map-meta { top: 16px; left: auto; right: 16px; justify-content: flex-end; max-width: 420px; }
   .is-open .map-chip { display: none; }
   .is-open .map-trigger { display: inline-flex; left: 428px; }
   .sheet {
-    position: absolute; z-index: 2; left: 16px; top: 16px; bottom: 16px; right: auto; width: 400px; max-height: none;
-    border-radius: var(--r-lg); border: 1px solid var(--line); box-shadow: var(--shadow); animation: none;
+    left: 16px; top: 16px; bottom: 16px; right: auto; width: 400px; max-height: none; padding-top: 0;
+    border-radius: var(--r-lg); border: 1px solid var(--line); animation: none;
   }
-  .map-chip, .map-trigger { z-index: 3; }
 }
 
 /* ── Coordinator ── */
@@ -665,7 +661,8 @@ button.map-marker:hover .pin { transform: scale(1.06); }
 @media (prefers-reduced-motion: reduce) {
   .page, .toast, .dialog[open], .sheet, .spin { animation: none; }
   .toggle-track::after, .switch-track::after, .meter i, .timebar i { transition: none; }
-  .btn:active, .map-trigger:active { transform: none; }
+  .btn:active { transform: none; }
+  .map-trigger:active { transform: translateX(-50%); }
 }
 :root[data-lowbatt] :is(.page, .toast, .dialog[open], .sheet, .spin) { animation: none; }
 :root[data-lowbatt] * { transition: none !important; }
@@ -686,3 +683,4 @@ h2 > svg, .item-title > svg { vertical-align: -3px; }
 /* OSM fallback tiles: muted so BIYAHE's route lines and levels stay the strongest marks (no tint, no hue). */
 .map-osm { background-image: none !important; }
 .map-osm .leaflet-tile-pane { filter: grayscale(.85) contrast(.9) brightness(1.04); }
+@media (prefers-reduced-motion: reduce) and (min-width: 900px) { .map-trigger:active { transform: none; } }
