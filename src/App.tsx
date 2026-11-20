@@ -139,7 +139,7 @@ export default function App() {
             )}
             {route === 'home' && <Home />}
             {route === 'go' && <Destination arg={loc.arg} />}
-            {route === 'map' && <MapScreen arg={loc.arg} alerts={count} />}
+            {route === 'map' && <MapScreen arg={loc.arg} />}
             {route === 'share' && <Share />}
             {route === 'alerts' && <Alerts filterParam={param(loc, 'filter')} />}
             {route === 'settings' && <Settings />}
@@ -147,7 +147,7 @@ export default function App() {
         </div>
       )}
 
-      <div className={`toast-region${isMap ? ' toast-region-map' : ''}`}>
+      <div className="toast-region">
         <div role="status" aria-live="polite">
           {s.toast && !s.toast.urgent && <p className="toast" key={s.toast.id}><Info size={20} aria-hidden="true" />{s.toast.text}</p>}
         </div>

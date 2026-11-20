@@ -1,10 +1,10 @@
-// Campus and route: the one question BIYAHE asks. Everything else (alerts, offline data, demo scenarios, privacy,
-// build information) is on the Settings tab.
+// Campus and route: the one question BIYAHE asks (onboarding step 2 of 2; also reached from Settings to change
+// it). Everything else (alerts, offline data, demo scenarios, privacy, build information) is on the Settings tab.
 import { ArrowLeft } from 'lucide-react'
 import { useState } from 'react'
 import { campuses, CAMPUS_IDS } from '../campuses'
 import { ACTIVE_CAMPUS, switchCampus } from '../campuses/active'
-import Logo from '../components/Logo'
+import { OnboardingHeader } from '../components/Onboarding'
 import { go } from '../lib/router'
 import { setCorridor, useApp } from '../lib/store'
 import type { CampusId } from '../types'
@@ -18,8 +18,10 @@ export default function Setup() {
   const returning = Boolean(s.corridorId)
 
   return (
-    <main id="main" tabIndex={-1} className="solo">
-      {returning ? <a className="back" href="#/settings"><ArrowLeft size={18} aria-hidden="true" />Settings</a> : <Logo size={36} />}
+    <main id="main" tabIndex={-1} className="onboard onboard-setup">
+      <div className="onboard-inner">
+      <OnboardingHeader step={returning ? null : 2} back={returning ? <a className="back" href="#/settings"><ArrowLeft size={18} aria-hidden="true" />Settings</a> : undefined} />
+      {!returning && <a className="back" href="#/welcome"><ArrowLeft size={18} aria-hidden="true" />Back</a>}
       <form
         className="stack-lg"
         onSubmit={(e) => {
@@ -30,8 +32,8 @@ export default function Setup() {
         }}
       >
         <div className="page-head">
-          <h1 className="h1">{returning ? 'Campus and route' : 'Which way is home?'}</h1>
-          <p className="body">The only thing BIYAHE asks. It stays on this phone and you can change it any time.</p>
+          <h1 className="onboard-title">{returning ? 'Campus and route' : 'Which way is home?'}</h1>
+          <p className="onboard-lead">The only thing BIYAHE asks. It stays on this phone and you can change it any time.</p>
         </div>
         <fieldset className="choices">
           <legend className="eyebrow">Your campus</legend>
@@ -54,9 +56,9 @@ export default function Setup() {
             </label>
           ))}
         </fieldset>
-        <button type="submit" className="btn btn-primary btn-block">{returning ? 'Save' : 'Use this route'}</button>
+        <button type="submit" className="btn btn-sun btn-block">{returning ? 'Save' : 'Use this route'}</button>
       </form>
-
+      </div>
     </main>
   )
 }

@@ -1,13 +1,11 @@
-// Map (wireframes 3 and 4): the map fills the screen. One button at the bottom (tap, or press and hold) opens the
-// navigation bar on top and a panel with the trip: where it goes, how long it takes now, when to leave, map
-// layers and every other place. On wide screens the panel sits on the left and starts open.
-import { ArrowRight, Building2, ChevronDown, CloudRain, Layers, Route as RouteIcon, X } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+// Map (wireframes 3 and 4). Phones: the place and a Show/Hide details toggle at the top, the details (where it
+// goes, how long it takes now, when to leave, map layers, every other place) open below them, and the map fills
+// the rest down to the app's bottom navigation. Wide screens: the details sit in a panel on the left, open.
+import { ArrowRight, Building2, ChevronDown, ChevronUp, CloudRain, Layers, Route as RouteIcon } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import Badge from '../components/Badge'
 import Lvl from '../components/Lvl'
 import MapView from '../components/map/MapView'
-import { tabs } from '../components/navTabs'
-import { LogoMark } from '../components/Logo'
 import { TimeCompare, TrafficSource, TrafficWord } from '../components/places'
 import WalkPanel from '../components/WalkPanel'
 import { fmtRange, spaceText } from '../lib/derive'
@@ -19,9 +17,6 @@ import { isLowBattery, isOffline, loadDepartures, loadWalkRoute, selectSpot } fr
 import { departureOptions, levelOfTraffic, rainLevel, trafficWord } from '../lib/traffic'
 import { useTrip } from './useTrip'
 
-const HOLD_MS = 400
-/** Share of the screen height the trip panel may take on phones (matches .sheet max-height in index.css). */
-const SHEET_SHARE = 0.56
 const LAYERS_KEY = 'biyahe-map-layers'
 
 function readLayers(): { traffic: boolean; all: boolean } {
@@ -98,21 +93,18 @@ function Summary({ place, saved }: { place: Place; saved: boolean }) {
   )
 }
 
-export default function MapScreen({ arg, alerts }: { arg: string | null; alerts: number }) {
+export default function MapScreen({ arg }: { arg: string | null }) {
   const { s, view, routes, spots } = useTrip()
   const wide = useMedia('(min-width: 900px)')
   const gm = useGoogleMapsStatus()
   const [open, setOpen] = useState(wide)
-  // Crossing the wide breakpoint resets the panel: open beside the map on wide screens, closed on phones.
+  // Crossing the wide breakpoint resets the panel: open beside the map on wide screens, collapsed on phones.
   const [wasWide, setWasWide] = useState(wide)
   if (wasWide !== wide) {
     setWasWide(wide)
     setOpen(wide)
   }
   const [layers, setLayers] = useState(readLayers)
-  const hold = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const held = useRef(false)
-  const sheet = useRef<HTMLDivElement>(null)
 
   // No destination in the URL: the student's own route (or the nearest safe spot when it is closed).
   const mine = routes.find((r) => r.mine) ?? routes[0]
@@ -140,79 +132,42 @@ export default function MapScreen({ arg, alerts }: { arg: string | null; alerts:
     }
   }
 
-  // Escape closes the panel on phones; focus moves into it when it opens.
+  // Escape collapses the details on phones (focus stays on the toggle, which reports the new state).
   useEffect(() => {
     if (!open || wide) return
-    sheet.current?.focus()
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
     addEventListener('keydown', onKey)
     return () => removeEventListener('keydown', onKey)
   }, [open, wide])
 
-  const pressStart = () => {
-    held.current = false
-    hold.current = setTimeout(() => {
-      held.current = true
-      setOpen(true)
-      navigator.vibrate?.(10)
-    }, HOLD_MS)
-  }
-  const pressEnd = () => {
-    if (hold.current) clearTimeout(hold.current)
-  }
-
+  // Phones: the details sit above the map, not over it, so only the map's own notes need room.
   const padding = wide
     ? { top: 80, right: 72, bottom: 48, left: open ? 440 : 96 }
-    : { top: open ? 150 : 140, right: 56, bottom: open ? Math.round(innerHeight * SHEET_SHARE) + 24 : 104, left: 32 }
+    : { top: 56, right: 56, bottom: 24, left: 24 }
   const show = (p: Place) => go('map', placeArg(p))
+
+  const status = place.kind === 'route'
+    ? <TrafficWord t={place.traffic} />
+    : <Lvl level={place.full ? 'high' : 'low'}>{place.full ? 'Full' : 'Open'}</Lvl>
 
   return (
     <div className={`mapscreen${open ? ' is-open' : ''}`}>
       <h1 className="sr-only">Map: {placeTitle(place)}</h1>
-      <MapView mode="student" fill focus={{ kind: place.kind, id: place.id }} showAll={layers.all} traffic={layers.traffic && googleOn} padding={padding}
-        label={`Map of ${placeTitle(place)}. The same information is in the trip panel.`}
-        onSpot={(id) => go('map', `spot/${id}`)} />
 
-      {!open && (
-        <p className="map-chip" aria-hidden="true">
-          {place.kind === 'route' ? <RouteIcon size={16} /> : <Building2 size={16} />}
-          <span className="map-chip-name">{placeShort(place)}</span>
-          {place.kind === 'route' ? <TrafficWord t={place.traffic} /> : <Lvl level={place.full ? 'high' : 'low'}>{place.full ? 'Full' : 'Open'}</Lvl>}
-        </p>
+      {!wide && (
+        <div className="map-head">
+          <p className="map-head-place">
+            {place.kind === 'route' ? <RouteIcon size={18} aria-hidden="true" /> : <Building2 size={18} aria-hidden="true" />}
+            <span className="map-chip-name">{placeShort(place)}</span>
+            {status}
+          </p>
+          <button type="button" className="btn btn-secondary btn-sm map-toggle" aria-expanded={open} aria-controls="trip-panel" onClick={() => setOpen(!open)}>
+            {open ? 'Hide details' : 'Show details'}{open ? <ChevronUp size={18} aria-hidden="true" /> : <ChevronDown size={18} aria-hidden="true" />}
+          </button>
+        </div>
       )}
 
-      {open && !wide && (
-        <nav className="map-topbar" aria-label="Primary">
-          <a className="map-topbar-logo" href="#/home" aria-label="BIYAHE home"><LogoMark size={26} onDark /></a>
-          <ul>
-            {tabs.map(({ id, label, Icon }) => (
-              <li key={id}>
-                <a href={`#/${id}`} aria-current={id === 'map' ? 'page' : undefined}>
-                  <Icon size={20} aria-hidden="true" /><span>{label}</span>
-                  {id === 'alerts' && alerts > 0 && <span className="tab-count">{alerts}<span className="sr-only"> active</span></span>}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      )}
-
-      <button type="button" className="map-trigger" aria-expanded={open} aria-controls="trip-panel"
-        aria-label={open ? 'Close the trip panel' : 'Open navigation and trip options (tap, or press and hold)'}
-        onPointerDown={pressStart} onPointerUp={pressEnd} onPointerLeave={pressEnd} onPointerCancel={pressEnd}
-        onContextMenu={(e) => e.preventDefault()}
-        onClick={() => { if (held.current) { held.current = false; return } setOpen(!open) }}>
-        {open ? (wide ? <ArrowRight size={22} className="flip" aria-hidden="true" /> : <ChevronDown size={24} aria-hidden="true" />) : <Layers size={22} aria-hidden="true" />}
-        {!wide && !open && <span className="map-trigger-label">Options</span>}
-      </button>
-
-      <div id="trip-panel" ref={sheet} tabIndex={-1} className="sheet" role="region" aria-labelledby="sheet-title" hidden={!open}>
-        {!wide && (
-          <div className="sheet-top">
-            <span className="sheet-grip" aria-hidden="true" />
-            <button type="button" className="sheet-close" onClick={() => setOpen(false)}><X size={18} aria-hidden="true" />Close</button>
-          </div>
-        )}
+      <div id="trip-panel" className="sheet" role="region" aria-labelledby="sheet-title" hidden={!open}>
         <div className="sheet-body">
           <section className="sheet-section">
             <Summary place={place} saved={saved} />
@@ -254,6 +209,25 @@ export default function MapScreen({ arg, alerts }: { arg: string | null; alerts:
           </section>
         </div>
       </div>
+
+      <div className="mapscreen-map">
+        <MapView mode="student" fill focus={{ kind: place.kind, id: place.id }} showAll={layers.all} traffic={layers.traffic && googleOn} padding={padding}
+          label={`Map of ${placeTitle(place)}. The same information is in the trip panel.`}
+          onSpot={(id) => go('map', `spot/${id}`)} />
+      </div>
+
+      {wide && !open && (
+        <p className="map-chip" aria-hidden="true">
+          {place.kind === 'route' ? <RouteIcon size={16} /> : <Building2 size={16} />}
+          <span className="map-chip-name">{placeShort(place)}</span>
+          {status}
+        </p>
+      )}
+      {wide && (
+        <button type="button" className="map-trigger" aria-expanded={open} aria-controls="trip-panel" aria-label={open ? 'Close the trip panel' : 'Open the trip panel'} onClick={() => setOpen(!open)}>
+          {open ? <ArrowRight size={22} className="flip" aria-hidden="true" /> : <Layers size={22} aria-hidden="true" />}
+        </button>
+      )}
     </div>
   )
 }
