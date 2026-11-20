@@ -512,6 +512,14 @@ textarea.input { resize: vertical; min-height: 96px; }
 .map-demo-badge { position: relative; cursor: pointer; font-weight: 600; }
 .map-demo-badge::before { content: ''; position: absolute; inset: -9px -2px; } /* 44px touch target */
 .map-demo-badge:hover { border-color: var(--deep); }
+/* Full-screen map: info icon and short credit stacked at the top-right, the place chip alone at the top-left. */
+.map-fill .map-meta { flex-direction: column; align-items: flex-end; gap: 4px; left: auto; right: 12px; top: calc(12px + env(safe-area-inset-top)); max-width: calc(100% - 96px); }
+.map-fill .map-demo-badge { width: 40px; height: 40px; padding: 0; justify-content: center; border-radius: 20px; }
+.map-fill .map-demo-badge::before { inset: -2px; }
+.map-fill .map-demo-badge svg { width: 18px; height: 18px; }
+.map-fill .map-demo-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.map-fill .map-attribution { min-height: 0; padding: 1px 6px; border: 0; border-radius: 6px; background: rgb(255 255 255 / .82); }
+.map-fill .map-note { order: 3; }
 .demo-route-notes { margin: 0; padding-left: 18px; list-style: disc; display: flex; flex-direction: column; gap: 8px; }
 .map-dev-warning { position: absolute; z-index: 1001; left: 8px; right: 8px; bottom: 32px; margin: 0; padding: 8px 10px; border-radius: var(--r-md); background: #fff; border: 2px dashed var(--lvl-mid); color: var(--ink); font-size: .8125rem; font-weight: 600; }
 
@@ -564,7 +572,6 @@ button.map-marker:hover .pin { transform: scale(1.06); }
 }
 .map-chip-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .map-chip .lvl { flex: none; }
-.map-fill .map-meta { top: calc(62px + env(safe-area-inset-top)); left: 12px; right: 56px; }
 
 .map-trigger {
   position: absolute; z-index: 3; left: 50%; bottom: 16px; transform: translateX(-50%);

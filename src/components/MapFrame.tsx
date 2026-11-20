@@ -5,7 +5,8 @@ import { OSM_ATTRIBUTION } from '../lib/mapView'
 // app's route lines and walking paths), whichever map is underneath: Google's (which credits its own data) or the
 // app's simple map. It is static text and a link in the app bundle; nothing is loaded from the network.
 // `warning` is a development-only notice (see devRoadDataWarning); production passes null.
-// `notice` is the small "About routes" button; `note` says why the simple map is shown.
+// `notice` is the small "About routes" button; `note` says why the simple map is shown. On the full-screen map these
+// sit quietly at the top-right (an info icon and the short credit) so the place chip stands alone.
 export default function MapFrame({ label, warning, notice, note, credit = true, fill = false, children }: {
   label: string; warning?: string | null; notice?: ReactNode; note?: ReactNode; credit?: boolean; fill?: boolean; children?: ReactNode
 }) {
@@ -19,7 +20,7 @@ export default function MapFrame({ label, warning, notice, note, credit = true, 
           {notice}
           {credit && (
             <p className="map-attribution">
-              <a href={OSM_ATTRIBUTION.href} target="_blank" rel="noreferrer">{OSM_ATTRIBUTION.text}</a>
+              <a href={OSM_ATTRIBUTION.href} target="_blank" rel="noreferrer">{fill ? '© OpenStreetMap' : OSM_ATTRIBUTION.text}</a>
             </p>
           )}
         </div>

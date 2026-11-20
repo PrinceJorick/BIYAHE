@@ -1,5 +1,5 @@
 import { BatteryLow, FlaskConical, Info, TriangleAlert, WifiOff } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { ACTIVE_CAMPUS } from './campuses/active'
 import Logo from './components/Logo'
 import { tabOf, tabs } from './components/navTabs'
@@ -53,15 +53,28 @@ export default function App() {
     if (location.hash !== href) history.replaceState(null, '', href)
   }, [href])
 
+  // Each page keeps its own scroll position: going Home → Settings → Home returns to where Home was left. A page
+  // seen for the first time starts at the top. Focus moves to the page without scrolling it.
+  const scrolls = useRef(new Map<string, number>())
+  const pageKey = `${route}/${loc.arg ?? ''}`
+  // The page being shown, switched synchronously with it, so a scroll event during a switch is never saved
+  // under the previous page.
+  const shown = useRef(pageKey)
   useEffect(() => {
+    const save = () => scrolls.current.set(shown.current, scrollY)
+    addEventListener('scroll', save, { passive: true })
+    return () => removeEventListener('scroll', save)
+  }, [])
+  useLayoutEffect(() => {
     document.title = `${titles[route]} · BIYAHE`
+    shown.current = pageKey
     if (first.current) {
       first.current = false
       return
     }
-    scrollTo(0, 0)
-    focusMain()
-  }, [route, loc.arg])
+    scrollTo(0, scrolls.current.get(pageKey) ?? 0)
+    document.getElementById('main')?.focus({ preventScroll: true })
+  }, [route, pageKey])
 
   useEffect(() => {
     document.documentElement.toggleAttribute('data-lowbatt', lowBatt)
