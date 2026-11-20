@@ -163,31 +163,11 @@ export default function GoogleMapView({ model, fill, padding, traffic, onSpot }:
     const b = new google.maps.LatLngBounds()
     for (const p of points) b.extend(toLL(p))
     const [top, right, bottom, left] = pad.split(',').map(Number)
-    // Cap maxZoom during the fit so Google never zooms past FIT_MAX_ZOOM and then back out (one camera move, not
-    // two). Not when the user has zoomed past the cap: lowering maxZoom then would snap the zoom before the fit.
-    const cap = (map.getZoom() ?? 0) <= FIT_MAX_ZOOM
-    let moved = false
-    let done = false
-    const release = () => {
-      if (done) return
-      done = true
-      idle.remove()
-      move.remove()
-      clearTimeout(still)
-      if (cap) map.setOptions({ maxZoom: MAX_ZOOM })
-    }
-    // Listeners first: a fit that jumps rather than animates can fire bounds_changed synchronously.
-    const move = google.maps.event.addListenerOnce(map, 'bounds_changed', () => { moved = true })
-    const idle = google.maps.event.addListenerOnce(map, 'idle', () => {
-      if ((map.getZoom() ?? 0) > FIT_MAX_ZOOM) map.setZoom(FIT_MAX_ZOOM)
-      release()
-    })
-    // A fit that leaves the camera where it is fires no idle. If nothing has moved by now, lift the cap here; once
-    // the camera moves, only idle (the end of that move) lifts it, so this never cuts a running fit short.
-    const still = setTimeout(() => { if (!moved) release() }, 500)
-    if (cap) map.setOptions({ maxZoom: FIT_MAX_ZOOM })
     map.fitBounds(b, { top, right, bottom, left })
-    return release
+    const once = google.maps.event.addListenerOnce(map, 'idle', () => {
+      if ((map.getZoom() ?? 0) > FIT_MAX_ZOOM) map.setZoom(FIT_MAX_ZOOM)
+    })
+    return () => once.remove()
   }, [map, fit, pad])
 
   // Hide labels that would cover a pin or a more important label, whenever the view settles or the labels change.
