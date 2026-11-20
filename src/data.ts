@@ -128,4 +128,4 @@ export function fixture(kind: 'clear' | 'disrupted', now = Date.now()): Snapshot
   return { corridors: states, spots: baseSpots([0.35, 1]), advisories, updatedAt: now - 1 * MIN }
 }
 
-export const fallbackWeather = (now = Date.now()): Weather => ({ tempC: 26, precipMm: 1.2, windKph: 14, label: 'Light rain', fetchedAt: now, live: false })
+export const fallbackWeather = (now = Date.now()): Weather => ({ tempC: 26, precipMm: 1.2, windKph: 14, label: 'Light rain', fetchedAt: now, live: false, source: 'demo' })

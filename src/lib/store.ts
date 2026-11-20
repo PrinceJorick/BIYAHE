@@ -1,19 +1,23 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { ACTIVE_CAMPUS } from '../campuses/active'
-import { advisoryId, CAMPUS, corridors, fallbackWeather, fixture, spotSeeds, type Amenity, type Snapshot, type Spot, type Weather } from '../data'
+import { advisoryId, CAMPUS, corridors, fixture, spotSeeds, type Amenity, type Snapshot, type Spot, type Weather } from '../data'
 import * as adv from './advisories'
-import { fetchGoogleRoute, GOOGLE_MAPS_KEY, type LiveRoute } from './googleRoutes'
-import { idbGet, idbSet, ROUTES } from './idb'
+import { fetchGoogleRoute, GOOGLE_ROUTES_KEY, type LiveRoute } from './googleRoutes'
+import { idbClearAll, idbDelete, idbGet, idbSet, ROUTES } from './idb'
 import { logBuildInfo } from './buildInfo'
-import { fetchNews, readNews, type NewsSnapshot } from './news'
+import { fetchNews, readNews, savedNewsUsable, type NewsSnapshot } from './news'
 import { reconcileSnapshot } from './spotData'
 import * as remote from './supabase'
 import { resolveWalkRoute, WALK_ROUTER_URL, type WalkRoute } from './walkRoute'
 import { fetchWeather } from './weather'
+import type { Advisory } from '../types'
 
 export type Role = 'student' | 'staff'
 export type StaffRole = 'DRRMO Coordinator' | 'Building Marshal' | 'Guard on Duty'
 export type Scenario = 'clear' | 'disrupted' | 'stale' | 'offline' | 'lowbattery'
+/** Which new alerts BIYAHE announces. `notify`: also as a system notification while BIYAHE is open (no push service). */
+export type AlertPrefs = { routes: boolean; pagasa: boolean; classes: boolean; notify: boolean }
+export const defaultAlertPrefs: AlertPrefs = { routes: true, pagasa: true, classes: true, notify: false }
 
 export type State = {
   ready: boolean
@@ -30,7 +34,9 @@ export type State = {
   snapshot: Snapshot
   // When this device last stored the snapshot in IndexedDB.
   savedAt: number
-  weather: Weather
+  // Google Weather at the campus point; null until the first reading (never stored on the device).
+  weather: Weather | null
+  weatherError: string | null
   spotId: string | null
   // Walking directions to the safe spot on screen (src/lib/walkRoute.ts) and the spot being looked up.
   walk: WalkRoute | null
@@ -42,20 +48,29 @@ export type State = {
   departures: Record<string, { forecast: Partial<Record<number, LiveRoute>>; fetchedAt: number }>
   // Local news from /api/news (api/news.ts).
   news: NewsSnapshot | null
+  // Articles opened on this device (ids), for the unread count.
+  newsRead: string[]
+  alertPrefs: AlertPrefs
+  // Last time every source was refreshed successfully by this device, and whether a refresh is running.
+  lastSync: number | null
+  syncing: boolean
   toast: { id: number; text: string; urgent: boolean } | null
 }
 
 export type TrafficSnapshot = { routes: Partial<Record<string, LiveRoute>>; fetchedAt: number }
 
-type Prefs = Pick<State, 'role' | 'staffRole' | 'corridorId' | 'scenario' | 'lowBattery'>
+type Prefs = Pick<State, 'role' | 'staffRole' | 'corridorId' | 'scenario' | 'lowBattery' | 'alertPrefs'>
 
 const PREFS = 'biyahe-prefs'
 const MIN = 60_000
 // Offline copies and tab sync are per campus, so switching campus never shows another campus's data.
 const SNAPSHOT_KEY = `snapshot:${ACTIVE_CAMPUS.id}`
-const WEATHER_KEY = `weather:${ACTIVE_CAMPUS.id}`
-const TRAFFIC_KEY = `traffic:${ACTIVE_CAMPUS.id}`
-const NEWS_KEY = `news:${ACTIVE_CAMPUS.id}`
+// Older versions saved weather (Open-Meteo) and Google traffic results here; both are removed on start, because
+// Google Maps Platform content is not stored on the device.
+const LEGACY_KEYS = [`weather:${ACTIVE_CAMPUS.id}`, `traffic:${ACTIVE_CAMPUS.id}`, `news:${ACTIVE_CAMPUS.id}`]
+// News is the same list for every campus (relevance is worked out on the device).
+const NEWS_KEY = 'news:v2'
+const NEWS_READ_KEY = 'news-read'
 
 // Each tab keeps its own copy first, so a staff tab and a student tab can sit side by side.
 function readPrefs(): Partial<Prefs> {
@@ -63,6 +78,7 @@ function readPrefs(): Partial<Prefs> {
     const prefs: Partial<Prefs> = JSON.parse(sessionStorage.getItem(PREFS) ?? localStorage.getItem(PREFS) ?? '{}')
     // A route saved for another campus does not apply here.
     if (prefs.corridorId && !corridors.some((c) => c.id === prefs.corridorId)) prefs.corridorId = null
+    prefs.alertPrefs = { ...defaultAlertPrefs, ...(typeof prefs.alertPrefs === 'object' ? prefs.alertPrefs : {}) }
     return prefs
   } catch {
     return {}
@@ -88,7 +104,8 @@ let state: State = {
   backend: 'device',
   snapshot: fixture('disrupted'),
   savedAt: Date.now(),
-  weather: fallbackWeather(),
+  weather: null,
+  weatherError: null,
   spotId: null,
   walk: null,
   walkLoading: null,
@@ -96,6 +113,10 @@ let state: State = {
   trafficError: null,
   departures: {},
   news: null,
+  newsRead: [],
+  alertPrefs: defaultAlertPrefs,
+  lastSync: null,
+  syncing: false,
   toast: null,
   ...readPrefs(),
 }
@@ -106,8 +127,8 @@ const subscribe = (l: () => void) => (listeners.add(l), () => void listeners.del
 function set(patch: Partial<State>) {
   state = { ...state, ...patch }
   try {
-    const { role, staffRole, corridorId, scenario, lowBattery } = state
-    const prefs = JSON.stringify({ role, staffRole, corridorId, scenario, lowBattery } satisfies Prefs)
+    const { role, staffRole, corridorId, scenario, lowBattery, alertPrefs } = state
+    const prefs = JSON.stringify({ role, staffRole, corridorId, scenario, lowBattery, alertPrefs } satisfies Prefs)
     sessionStorage.setItem(PREFS, prefs)
     localStorage.setItem(PREFS, prefs)
   } catch {
@@ -167,9 +188,31 @@ function receive(incoming: Snapshot) {
   const fresh = adv.studentAdvisories(next.advisories, state.corridorId, now).filter((a) => !known.has(a.id))
   persist(next)
   if (state.scenario === 'stale') set({ scenario: 'disrupted' })
-  if (fresh.length && state.role === 'student') {
-    const a = fresh[0]
-    toast(`New ${a.source === 'Campus' ? 'campus' : a.source} advisory: ${a.title}`, a.severity === 'critical')
+  const wanted = fresh.filter((a) => wantsAlert(state.alertPrefs, a))
+  if (wanted.length && state.role === 'student') {
+    const a = wanted[0]
+    const text = `New ${a.source === 'Campus' ? 'campus' : a.source} advisory: ${a.title}`
+    toast(text, a.severity === 'critical')
+    notify(text)
+  }
+}
+
+const CLASS_RE = /\bclass(es)?\b|walang pasok|suspen/i
+
+/** Whether the person asked to be told about this advisory (Settings → Alerts). */
+export function wantsAlert(p: AlertPrefs, a: Pick<Advisory, 'source' | 'title' | 'body'>) {
+  if (CLASS_RE.test(`${a.title} ${a.body}`)) return p.classes
+  return a.source === 'PAGASA' ? p.pagasa : p.routes
+}
+
+// A system notification while the app is open, only when switched on and allowed. Not a push service.
+function notify(text: string) {
+  try {
+    if (state.alertPrefs.notify && typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.visibilityState !== 'visible') {
+      new Notification('BIYAHE', { body: text, icon: '/pwa-192.png' })
+    }
+  } catch {
+    // not supported here
   }
 }
 
@@ -202,16 +245,17 @@ async function pull() {
 const WEATHER_RETRY_MS = 30_000
 let weatherRetry: ReturnType<typeof setTimeout> | undefined
 
-async function refreshWeather(retry = true) {
-  if (!navigator.onLine) return
+async function refreshWeather(retry = true): Promise<boolean> {
+  if (!navigator.onLine || state.scenario === 'offline') return false
   clearTimeout(weatherRetry)
   try {
-    const weather = await fetchWeather()
-    set({ weather })
-    void idbSet(WEATHER_KEY, weather)
-  } catch {
-    set({ weather: { ...state.weather, live: false } })
+    const weather = await fetchWeather(ACTIVE_CAMPUS.id)
+    set({ weather, weatherError: null })
+    return true
+  } catch (e) {
+    set({ weather: state.weather ? { ...state.weather, live: false } : null, weatherError: (e as Error).message || 'Weather unavailable' })
     if (retry) weatherRetry = setTimeout(() => void refreshWeather(false), WEATHER_RETRY_MS)
+    return false
   }
 }
 
@@ -223,9 +267,9 @@ export async function init() {
   logBuildInfo()
 
   const stored = await idbGet<{ snapshot: Snapshot; savedAt: number }>(SNAPSHOT_KEY)
-  const weather = await idbGet<Weather>(WEATHER_KEY)
-  const traffic = await idbGet<TrafficSnapshot>(TRAFFIC_KEY)
+  for (const k of LEGACY_KEYS) void idbDelete(k)
   const news = readNews(await idbGet(NEWS_KEY))
+  const newsRead = await idbGet<string[]>(NEWS_READ_KEY)
   // Saved copies keep their occupancy, amenities, advisories and route status; safe-spot names, positions and
   // capacities always come from the current registry (src/lib/spotData.ts).
   const saved = stored?.snapshot?.corridors ? { ...stored, snapshot: reconcileSnapshot(stored.snapshot, spotSeeds) } : null
@@ -233,9 +277,10 @@ export async function init() {
     set({ snapshot: saved.snapshot, savedAt: saved.savedAt })
     void idbSet(SNAPSHOT_KEY, saved)
   } else void idbSet(SNAPSHOT_KEY, { snapshot: state.snapshot, savedAt: state.savedAt })
-  if (weather) set({ weather: { ...weather, live: false } })
-  if (traffic?.routes && Number.isFinite(traffic.fetchedAt)) set({ traffic })
-  if (news) set({ news })
+  // A saved news list is shown offline only while it is younger than NEWS_CACHE_TTL_MS; older copies are removed.
+  if (news && savedNewsUsable(news, Date.now())) set({ news })
+  else void idbDelete(NEWS_KEY)
+  if (Array.isArray(newsRead)) set({ newsRead: newsRead.filter((x) => typeof x === 'string').slice(-200) })
   set({ ready: true })
 
   if (bc) bc.onmessage = (e: MessageEvent<Snapshot>) => receive(e.data)
@@ -296,7 +341,7 @@ let trafficBusy = false
 const destination = (id: string) => corridors.find((c) => c.id === id)?.path.at(-1)
 
 export async function refreshTraffic(force = false) {
-  if (!GOOGLE_MAPS_KEY || isOffline(state) || isLowBattery(state) || trafficBusy) return
+  if (!GOOGLE_ROUTES_KEY || isOffline(state) || isLowBattery(state) || trafficBusy) return
   if (!force && state.traffic && Date.now() - state.traffic.fetchedAt < TRAFFIC_EVERY_MS) return
   trafficBusy = true
   try {
@@ -308,9 +353,8 @@ export async function refreshTraffic(force = false) {
       else error ??= (r.reason as Error).message
     })
     if (Object.keys(routes).length) {
-      const traffic = { routes, fetchedAt: Date.now() }
-      set({ traffic, trafficError: error })
-      void idbSet(TRAFFIC_KEY, traffic)
+      // Kept in memory only (Google Maps Platform content is not stored on the device).
+      set({ traffic: { routes, fetchedAt: Date.now() }, trafficError: error })
     } else {
       set({ trafficError: error })
       if (error) console.warn(`[biyahe] Live traffic unavailable: ${error}`)
@@ -325,7 +369,7 @@ const FORECAST_OFFSETS = [30, 60, 120]
 /** Google's traffic forecast for leaving in 30 min, 1 h and 2 h on one route (kept 10 minutes). */
 export async function loadDepartures(corridorId: string) {
   const to = destination(corridorId)
-  if (!to || !GOOGLE_MAPS_KEY || isOffline(state) || isLowBattery(state)) return
+  if (!to || !GOOGLE_ROUTES_KEY || isOffline(state) || isLowBattery(state)) return
   const cur = state.departures[corridorId]
   if (cur && Date.now() - cur.fetchedAt < 10 * MIN) return
   const now = Date.now()
@@ -337,20 +381,39 @@ export async function loadDepartures(corridorId: string) {
   set({ departures: { ...state.departures, [corridorId]: { forecast, fetchedAt: now } } })
 }
 
-export async function refreshNews() {
-  if (isOffline(state) || isLowBattery(state)) return
-  try {
-    const news = await fetchNews(ACTIVE_CAMPUS.id)
-    // A provider error keeps the last good list on screen, marked with the error.
-    if (news.error && state.news?.items.length) set({ news: { ...state.news, error: news.error } })
-    else {
-      set({ news })
-      if (!news.error) void idbSet(NEWS_KEY, news)
+// After a provider rate limit, no news request is made before this time (no retry loop).
+let newsRetryAt = 0
+let newsBusy: Promise<boolean> | null = null
+
+export function refreshNews(): Promise<boolean> {
+  if (isOffline(state) || isLowBattery(state) || Date.now() < newsRetryAt) return Promise.resolve(false)
+  newsBusy ??= (async () => {
+    try {
+      const news = await fetchNews()
+      if (news.retryAfter) newsRetryAt = Date.now() + news.retryAfter * 1000
+      // A provider error keeps the last good list on screen, marked with the error.
+      if (news.error && state.news?.items.length) set({ news: { ...state.news, error: news.error } })
+      else {
+        set({ news })
+        if (!news.error) void idbSet(NEWS_KEY, news)
+      }
+      return !news.error
+    } catch (e) {
+      const error = (e as Error).message || 'news unavailable'
+      set({ news: state.news ? { ...state.news, error } : { items: [], provider: 'none', fetchedAt: 0, error } })
+      return false
+    } finally {
+      newsBusy = null
     }
-  } catch (e) {
-    const error = (e as Error).message || 'news unavailable'
-    set({ news: state.news ? { ...state.news, error } : { items: [], provider: 'none', fetchedAt: 0, error } })
-  }
+  })()
+  return newsBusy
+}
+
+export function markNewsRead(id: string) {
+  if (state.newsRead.includes(id)) return
+  const newsRead = [...state.newsRead, id].slice(-200)
+  set({ newsRead })
+  void idbSet(NEWS_READ_KEY, newsRead)
 }
 
 // ── Actions ────────────────────────────────────────────────────────────────
@@ -407,18 +470,23 @@ export async function loadWalkRoute(spot: Pick<Spot, 'id' | 'pos'> | undefined) 
   set({ walk: route, walkLoading: null })
 }
 
+// Demo scenarios change this device and its open tabs only. They are never written to Supabase, so a
+// presentation can never overwrite shared or official campus records.
+function simulate(next: Snapshot) {
+  persist(next)
+  bc?.postMessage(next)
+}
+
 export function setScenario(scenario: Scenario) {
   const wasOffline = state.scenario === 'offline'
   set({ scenario })
   const now = Date.now()
   if (scenario === 'clear' || scenario === 'disrupted') {
     held = null
-    const next = fixture(scenario, now)
-    commit(next, () => remote.pushAll(next))
+    simulate(fixture(scenario, now))
   } else if (scenario === 'stale') {
     held = null
-    const next = { ...fixture('disrupted', now), updatedAt: now - 38 * MIN }
-    commit(next, () => remote.pushAll(next))
+    simulate({ ...fixture('disrupted', now), updatedAt: now - 38 * MIN })
   } else if (wasOffline && held) {
     const next = held
     held = null
@@ -426,10 +494,42 @@ export function setScenario(scenario: Scenario) {
   }
 }
 
+/**
+ * Settings → Sync now: weather, traffic, news and (with Supabase) shared data, once. lastSync is set only when
+ * every source that could be asked answered. Returns what happened, for the toast.
+ */
+export async function syncNow(): Promise<'ok' | 'partial' | 'offline' | 'busy'> {
+  if (state.syncing) return 'busy'
+  if (isOffline(state)) return 'offline'
+  set({ syncing: true })
+  try {
+    const [w, n] = await Promise.all([refreshWeather(false), refreshNews(), refreshTraffic(true), remote.configured ? pull() : Promise.resolve()])
+    const ok = w && (n || isLowBattery(state))
+    if (ok) set({ lastSync: Date.now() })
+    return ok ? 'ok' : 'partial'
+  } finally {
+    set({ syncing: false })
+  }
+}
+
+/** Settings → Clear offline data: BIYAHE's own IndexedDB stores only. Preferences stay; the app reloads its data. */
+export async function clearOfflineData() {
+  await idbClearAll()
+  set({ news: null, newsRead: [], walk: null })
+  const now = Date.now()
+  persist(fixture(state.scenario === 'clear' ? 'clear' : 'disrupted', now))
+  void syncNow()
+}
+
+export function setAlertPrefs(patch: Partial<AlertPrefs>) {
+  set({ alertPrefs: { ...state.alertPrefs, ...patch } })
+}
+
 // Asks the backend for anything newer. Returns false when there is nothing to ask.
 export async function refresh(): Promise<boolean> {
   void refreshWeather()
   void refreshTraffic(true)
+  void refreshNews()
   if (!remote.configured || isOffline(state)) return false
   await pull()
   return true

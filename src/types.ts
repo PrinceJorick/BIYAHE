@@ -72,21 +72,46 @@ export type Snapshot = {
   updatedAt: number
 }
 
-/** One forecast hour (Open-Meteo hourly). rainPct: chance of rain, 0-100, null when the model gives none. */
+/** One forecast hour (Google Weather). rainPct: chance of rain, 0-100, null when the model gives none. code: WMO-style. */
 export type HourForecast = { t: number; rainPct: number | null; code: number; tempC: number }
+
+/** A public weather alert passed on from its issuing authority (PAGASA in the Philippines) by Google Weather. */
+export type WeatherAlert = {
+  id: string
+  title: string
+  description: string
+  authority: string
+  authorityUrl: string | null
+  severity: string
+  urgency: string
+  areaName: string
+  instructions: string[]
+  startAt: number | null
+  expiresAt: number | null
+}
 
 export type Weather = {
   tempC: number
   precipMm: number
   windKph: number
   label: string
-  /** WMO weather code (absent in copies saved by older versions). */
+  /** WMO-style weather code (absent in copies saved by older versions). */
   code?: number
   isDay?: boolean
+  /** When the app received this reading. */
   fetchedAt: number
+  /** When the provider computed the conditions (absent in older copies). */
+  observedAt?: number
   live: boolean
+  /** 'google' = Google Weather API; 'demo' = the built-in placeholder; absent in copies saved by older versions. */
+  source?: 'google' | 'demo'
+  rainPct?: number | null
+  thunderPct?: number | null
+  feelsLikeC?: number | null
   /** The next hours, from the current hour. Absent in copies saved by older versions. */
   hourly?: HourForecast[]
+  /** Public alerts at the campus point; undefined when they could not be checked (never read as "none"). */
+  alerts?: WeatherAlert[]
 }
 
 // ── Campus registry ────────────────────────────────────────────────────────

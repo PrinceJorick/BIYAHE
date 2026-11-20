@@ -1,12 +1,13 @@
-import { Database, Radio, ShieldCheck, TrendingUp } from 'lucide-react'
+import { Database, FlaskConical, Radio, ShieldCheck, TrendingUp } from 'lucide-react'
 
-export type BadgeKind = 'official' | 'estimate' | 'saved' | 'live'
+export type BadgeKind = 'official' | 'estimate' | 'saved' | 'live' | 'simulated'
 
 const kinds: Record<BadgeKind, { Icon: typeof Radio; label: string }> = {
   official: { Icon: ShieldCheck, label: 'Official' },
   estimate: { Icon: TrendingUp, label: 'Estimate' },
   saved: { Icon: Database, label: 'Saved copy' },
   live: { Icon: Radio, label: 'Live' },
+  simulated: { Icon: FlaskConical, label: 'Simulated' },
 }
 
 // Where the data on screen came from. Neutral colour; icon, label and outline pattern tell the kinds apart.

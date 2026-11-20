@@ -184,8 +184,8 @@ role can publish; marshals and guards see advisories read-only.
 |---|---|---|---|---|
 | **Google Maps JavaScript API** | The street map, live traffic layer | `VITE_GOOGLE_MAPS_API_KEY` (browser) | Browser | The app's simple map (route lines on a dot grid) |
 | **Google Routes API** (computeRoutes) | Traffic-aware and free-flow trip time per route, road geometry that matches the Google map, traffic forecasts for later departures | Same key | Browser (CORS supported) | Times and levels estimated from route reports |
-| **Open-Meteo** | Current weather and hourly chance of rain | none | Browser | Last saved reading (a failed request is retried after 30 s) |
-| **GNews** | Local news on floods, traffic, storms and suspensions | `GNEWS_API_KEY` (server only) | `/api/news` (Vercel Function; Vite middleware locally) | News section says it is off |
+| **Google Weather API** | Current conditions, hourly chance of rain, PAGASA public alerts | `GOOGLE_WEATHER_API_KEY` (server only) | `/api/weather` | "Weather unavailable" (not stored on the device; a failed request is retried after 30 s) |
+| **Currents News API** | Local news on floods, traffic, storms and suspensions | `CURRENTS_API_KEY` (server only) | `/api/news` (Vercel Function; Vite middleware locally) | News section says it is off |
 | **Supabase** (PostgreSQL + PostGIS + Realtime) | Shared route status, safe spots, advisories across devices | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Browser | Device data + cross-tab sync |
 | **OSRM foot router** (FOSSGIS) | Walking route from the campus point to a safe spot | none (`VITE_WALK_ROUTER_URL` optional) | Browser | Saved route, then straight-line estimate |
 | **PAGASA / LGU** | Advisory schemas | — | — | Simulated fixtures; no public feed exists |
@@ -216,7 +216,11 @@ npm run dev             # http://localhost:5173
 ```ini
 VITE_GOOGLE_MAPS_API_KEY=     # Maps JavaScript API + Routes API (browser key)
 VITE_GOOGLE_MAPS_MAP_ID=      # optional cloud-styled vector map
-GNEWS_API_KEY=                # server-side only (no VITE_ prefix)
+VITE_GOOGLE_ROUTES_API_KEY=   # optional separate Routes API browser key
+CURRENTS_API_KEY=             # server-side only (no VITE_ prefix)
+GOOGLE_WEATHER_API_KEY=       # server-side only
+GEMINI_API_KEY=               # server-side only, optional
+GEMINI_MODEL=                 # optional, default gemini-2.5-flash
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 # VITE_WALK_ROUTER_URL=
@@ -230,7 +234,7 @@ VITE_SUPABASE_ANON_KEY=
 3. Put it in `VITE_GOOGLE_MAPS_API_KEY` and restart the dev server. Setup → *About this build* shows "key present".
 
 `VITE_*` values are compiled into the browser bundle and are public by design; protect them with the restrictions
-above. `GNEWS_API_KEY` has no `VITE_` prefix, so it stays on the server. `.gitignore` excludes `.env` and every
+above. `CURRENTS_API_KEY`, `GOOGLE_WEATHER_API_KEY` and `GEMINI_API_KEY` have no `VITE_` prefix, so they stay on the server. `.gitignore` excludes `.env` and every
 `.env.*` file except `.env.example`.
 
 **Deploying (Vercel).** Add the same variables under Project → Settings → Environment Variables. `api/news.ts` is
@@ -341,7 +345,7 @@ lucide icons.
 
 - The street map, live traffic and Google routes need a Google Maps key; until one is set the app uses its simple
   map and estimates. These paths were tested with an invalid key (clean fallback) but not yet against a live key.
-- Local news needs a GNews key; without it the app shows advisories and its own notices only.
+- Local news needs a Currents key; without it the app shows advisories and its own notices only.
 - PAGASA and LGU advisories are simulated: neither offers a public feed.
 - Walking routes start from the campus point, not the student's position (the app does not track location).
 - Route lines and safe-spot positions are map-derived and not checked on site; the map's *About routes* button says so.
@@ -352,5 +356,5 @@ lucide icons.
 ## 13. Credits
 
 Map data © OpenStreetMap contributors (ODbL) for route lines and walking paths; Google Maps Platform for the street
-map, traffic and Google routes; weather by Open-Meteo (CC BY 4.0); icons by Lucide (ISC); Poppins and Caveat Brush
+map, traffic and Google routes; weather by the Google Weather API; news powered by Currents News API; icons by Lucide (ISC); Poppins and Caveat Brush
 (SIL Open Font License).

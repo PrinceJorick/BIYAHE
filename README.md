@@ -36,22 +36,25 @@ npm install
 npm run dev        # http://localhost:5173
 ```
 
-Everything works with no keys (demo data, the app's simple map, estimated traffic). To turn on the street map, live traffic and local news, fill in **`.env`** (git-ignored; template in [`.env.example`](.env.example)):
+Everything works with no keys (demo data, the app's simple map, estimated traffic). To turn on the street map, live traffic, weather, local news and AI explanations, fill in **`.env`** (git-ignored; template in [`.env.example`](.env.example)):
 
 | Variable | What for | Where to get it |
 |---|---|---|
 | `VITE_GOOGLE_MAPS_API_KEY` | Google street map, live traffic layer, traffic-aware trip times and road-following routes | Google Cloud Console: enable **Maps JavaScript API** and **Routes API**, create a key restricted to your sites and those two APIs |
 | `VITE_GOOGLE_MAPS_MAP_ID` | Optional cloud-styled vector map | Google Maps Platform → Map management |
-| `GNEWS_API_KEY` | Local news (server-side only, never in the browser) | [gnews.io](https://gnews.io) free tier |
+| `VITE_GOOGLE_ROUTES_API_KEY` | Optional separate browser key for the Routes API (falls back to the Maps key) | Same console, restricted to your sites and **Routes API** |
+| `CURRENTS_API_KEY` | Local news via `/api/news` (server only) | [currentsapi.services](https://currentsapi.services) (free: 250 requests/day) |
+| `GOOGLE_WEATHER_API_KEY` | Weather, hourly rain chance and PAGASA alerts via `/api/weather` (server only) | Google Cloud: enable **Weather API**, key restricted to it; set a quota and budget alert (billable) |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` | Optional plain-language explanation of the recommendation via `/api/explain` (server only) | [aistudio.google.com/apikey](https://aistudio.google.com/apikey); model defaults to `gemini-2.5-flash` |
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Shared live data across devices | Supabase project; run `supabase/schema.sql` then `supabase/migrations/*.sql` |
 | `VITE_WALK_ROUTER_URL` | Optional own OSRM foot router | Leave unset for the public FOSSGIS router |
 
-Restart `npm run dev` after editing `.env`. Setup → *About this build* shows which keys are present (never their values). `VITE_*` values end up in the browser bundle, so restrict them in the provider console; `GNEWS_API_KEY` stays on the server (`/api/news`, a Vercel Function in production and Vite middleware locally).
+Restart `npm run dev` after editing `.env`. Settings → *About this build* shows which keys are present (never their values). `VITE_*` values end up in the browser bundle, so restrict them in the provider console. Keys without the prefix stay on the server (`api/*.ts`: Vercel Functions in production, Vite middleware locally).
 
-**Demo:** open the app in two tabs. Tab A: *Continue as student*. Tab B: *Staff / DRRMO demo* → *Open Command Dashboard*. Changes in B (occupancy, amenities, an advisory that closes a route) appear in A at once. Setup → *Demo scenario* switches between `Clear`, `Disrupted`, `Stale >30m`, `Offline` and `Low battery`.
+**Demo:** open the app in two tabs. Tab A: *Continue as student*. Tab B: *Staff / DRRMO demo* → *Open Command Dashboard*. Changes in B (occupancy, amenities, an advisory that closes a route) appear in A at once. Settings → *Demo scenarios* switches between clear route, route disruption (flooding), stale data, offline mode and low battery. Scenarios change only the device and its open tabs, never Supabase.
 
 ```bash
-npm test           # Vitest (919 tests)
+npm test           # Vitest
 npm run lint       # oxlint
 npm run build      # type check + production build
 npm run preview    # http://localhost:4173, the installable offline build
@@ -63,13 +66,14 @@ npm run preview    # http://localhost:4173, the installable offline build
 |---|---|---|
 | Google Maps JavaScript API | Street map, live traffic layer | The app's simple map (route lines and pins on the brand dot grid) |
 | Google Routes API | Traffic-aware trip times, Google road geometry, traffic forecast for later departures | Times estimated from route reports |
-| Open-Meteo | Current weather, hourly chance of rain | Last saved reading (retried after 30 s) |
-| GNews (via `/api/news`) | Local news | Advisories and the app's own forecast/traffic notices |
+| Google Weather API (via `/api/weather`) | Current conditions, hourly chance of rain (Estimate), PAGASA public alerts (Official) | "Weather unavailable"; never stored on the device |
+| Currents News API (via `/api/news`) | Local Batangas news, matched to campus and route by place | Saved copy for up to 24 hours, then none |
+| Gemini (via `/api/explain`) | Optional rewording of BIYAHE's own recommendation reason | The rule and facts BIYAHE used, shown as is |
 | Supabase (PostgreSQL + PostGIS + Realtime) | Route status, safe spots, advisories | IndexedDB snapshot, fixtures in `src/data.ts` |
 | OSRM foot router (FOSSGIS) | Walking route to a safe spot | Saved route, then straight-line estimate |
 | PAGASA / Batangas City LGU | Advisory schemas | Simulated fixtures; no public feed exists |
 
-Official status always wins: a route the DRRMO or LGU closed shows *Closed* whatever traffic data says. Google route geometry is kept in memory only, and map tiles are never cached (Google Maps Platform terms). The Google News RSS feed is not used: its terms allow personal feed readers only.
+Official status always wins: a route the DRRMO or LGU closed shows *Closed* whatever traffic data says. Google route geometry, traffic and weather are kept in memory only, and map tiles are never cached (Google Maps Platform terms). News shows the publisher, time and original link with Currents attribution; article text is never fetched and never sent to an AI model.
 
 ## Campuses, routes and safe spots
 

@@ -31,3 +31,4 @@ docs/routes/diagnostics/*.geojson
 *.njsproj
 *.sln
 *.sw?
+.playwright-mcp/

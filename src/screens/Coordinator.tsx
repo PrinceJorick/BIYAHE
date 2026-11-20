@@ -1,4 +1,4 @@
-import { Building2, Check, CircleCheck, Clock, LayoutDashboard, LogOut, Megaphone, Pencil, Send, Smartphone, TriangleAlert, Users, X } from 'lucide-react'
+import { Building2, Check, CircleCheck, Clock, LayoutDashboard, LogOut, Megaphone, Newspaper, Pencil, Send, Smartphone, TriangleAlert, Users, X } from 'lucide-react'
 import { useId, useState } from 'react'
 import { ACTIVE_CAMPUS } from '../campuses/active'
 import Badge from '../components/Badge'
@@ -6,12 +6,14 @@ import Dialog from '../components/Dialog'
 import Logo, { LogoMark } from '../components/Logo'
 import Lvl from '../components/Lvl'
 import MapView from '../components/map/MapView'
+import NewsArticleRow, { NewsCredit } from '../components/NewsArticleRow'
 import { corridors, type Advisory, type Amenity, type CorridorStatus, type Severity } from '../data'
 import {
   BODY_MAX, coordinatorGroups, endedAt, EXPIRY_HOURS, isCorridorScope, isManaged, phaseOf, scopeLabel, TITLE_MAX,
   validateAdvisoryInput, type AdvisoryInput, type AdvisoryPhase, type InputErrors,
 } from '../lib/advisories'
 import { amenityLabel, clock, isFull, spacesLeft } from '../lib/derive'
+import { disruptionNews, savedNewsUsable } from '../lib/news'
 import { walkText } from '../lib/places'
 import { useMedia } from '../lib/router'
 import {
@@ -61,7 +63,8 @@ export default function Coordinator() {
               <a href="#/staff">Change<span className="sr-only"> campus</span></a>
             </p>
             <p className="cluster meta">
-              <Badge kind={offline ? 'saved' : 'official'} />
+              <Badge kind={offline ? 'saved' : s.backend === 'device' ? 'simulated' : 'official'} />
+              {s.backend === 'device' && !offline ? 'Demo data on this device (no campus database connected). ' : ''}
               {offline
                 ? `Offline. Changes are saved on this device (${clock(s.savedAt)}).`
                 : `Live · synced ${since(s.savedAt, now)} · student views update instantly`}
@@ -144,7 +147,10 @@ export default function Coordinator() {
           </section>
         </div>
 
-        <AdvisoryList now={now} manage={manage} onEdit={setEditing} onResolve={setResolving} />
+        <div className="coord-split coord-split-news">
+          <AdvisoryList now={now} manage={manage} onEdit={setEditing} onResolve={setResolving} />
+          <NewsMonitor now={now} offline={offline} />
+        </div>
       </main>
 
       <Dialog open={editing !== null} onClose={() => setEditing(null)}
@@ -155,6 +161,31 @@ export default function Coordinator() {
         {resolving && <ResolveForm advisory={resolving} onDone={() => setResolving(null)} />}
       </Dialog>
     </div>
+  )
+}
+
+// ── Batangas News & LGU Monitor ─────────────────────────────────────────────
+// Media reports for staff to review before issuing an advisory. Reading one never creates or changes an advisory.
+
+function NewsMonitor({ now, offline }: { now: number; offline: boolean }) {
+  const s = useApp()
+  const usable = !offline || savedNewsUsable(s.news, now)
+  const items = usable ? disruptionNews(s.news?.items ?? []).slice(0, 4) : []
+  return (
+    <section className="card coord-news" aria-labelledby="news-monitor">
+      <div className="card-head">
+        <h2 id="news-monitor" className="h2"><Newspaper size={18} aria-hidden="true" /> Batangas News &amp; LGU Monitor</h2>
+        {offline && items.length > 0 && <Badge kind="saved" />}
+      </div>
+      <p className="meta">Third-party reports on flooding, traffic, heavy rain and class suspensions. Not verified official advisories: check with the LGU or PAGASA before publishing.</p>
+      {s.news === null && !offline && <p className="meta" role="status">Loading local news…</p>}
+      {s.news?.error && <p className="meta">{s.news.retryAfter ? 'The news service is busy; BIYAHE will try again later.' : 'Could not refresh the news right now.'}</p>}
+      {s.news?.provider === 'none' && <p className="meta">Local news is not configured on this server.</p>}
+      {items.length > 0
+        ? <ul className="list">{items.map((n) => <li key={n.id}><NewsArticleRow item={n} now={now} offline={offline} savedAt={s.news?.fetchedAt ?? now} compact /></li>)}</ul>
+        : s.news && !s.news.error && s.news.provider !== 'none' && <p className="meta">{offline ? 'No saved reports on this device.' : 'No recent reports of flooding, traffic, rain or class suspensions in Batangas.'}</p>}
+      <NewsCredit />
+    </section>
   )
 }
 

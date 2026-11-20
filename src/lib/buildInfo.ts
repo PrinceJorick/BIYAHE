@@ -13,6 +13,7 @@ export type BuildInfo = {
   walkRouter: 'configured' | 'default' | 'off'
   googleMaps: string
   news: string
+  weather: string
   dataVersions: string
 }
 
@@ -25,7 +26,8 @@ export function buildInfo(): BuildInfo {
     supabase: supabaseConfigured ? 'present' : 'missing',
     walkRouter: WALK_ROUTER_URL ? (env === undefined ? 'default' : 'configured') : 'off',
     googleMaps: GOOGLE_MAPS_KEY ? `key present${GOOGLE_MAP_ID ? ', Map ID present' : ', default muted style'}` : 'key missing (simple map, estimated traffic)',
-    news: 'server-side /api/news (GNews key set on the server, or off)',
+    news: 'server-side /api/news (Currents News API; key on the server only)',
+    weather: 'server-side /api/weather (Google Weather API; key on the server only)',
     dataVersions: `IndexedDB v${DB_VERSION} · walking routes v${WALK_ROUTE_VERSION} · campus key "${CAMPUS_KEY}"`,
   }
 }

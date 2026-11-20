@@ -110,3 +110,39 @@ export async function idbSet(key: string, value: unknown, store: StoreName = STO
     }
   })
 }
+
+export async function idbDelete(key: string, store: StoreName = STORE): Promise<void> {
+  memory.delete(memKey(store, key))
+  const db = await open()
+  if (!db) return
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(store, 'readwrite')
+      tx.objectStore(store).delete(key)
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => resolve()
+      tx.onabort = () => resolve()
+    } catch {
+      resolve()
+    }
+  })
+}
+
+/** Empties BIYAHE's own stores (this database only; nothing else on the device is touched). */
+export async function idbClearAll(): Promise<void> {
+  memory.clear()
+  const db = await open()
+  if (!db) return
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction([STORE, ROUTES], 'readwrite')
+      tx.objectStore(STORE).clear()
+      tx.objectStore(ROUTES).clear()
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => resolve()
+      tx.onabort = () => resolve()
+    } catch {
+      resolve()
+    }
+  })
+}
