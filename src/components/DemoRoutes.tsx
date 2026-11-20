@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { CAMPUS_EXIT_NOTE, PREVIEW_NOTICE, previewRouteNotes, type PreviewRoute } from '../lib/previewGeometry'
 import type { Corridor } from '../types'
 import Dialog from './Dialog'
+import { OSM_ATTRIBUTION } from '../lib/mapView'
 
 // Route geometry disclosure. On the map it is only a small "About routes" button; the full notice and every
 // route's limitations open in a dialog on request. No Leaflet here, so it renders in tests.
@@ -44,6 +45,7 @@ export default function DemoRoutes({ routes, shown, exitNote = CAMPUS_EXIT_NOTE 
       </button>
       <Dialog open={open} onClose={() => setOpen(false)} title="About these routes">
         <DemoRoutesDetails routes={routes} shown={shown} exitNote={exitNote} />
+        <p className="caption">Route lines and walking paths: <a href={OSM_ATTRIBUTION.href} target="_blank" rel="noreferrer">{OSM_ATTRIBUTION.text}</a></p>
         <div className="dialog-actions">
           <button type="button" className="btn btn-secondary" onClick={() => setOpen(false)}>Close</button>
         </div>
