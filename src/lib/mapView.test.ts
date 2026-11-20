@@ -6,8 +6,8 @@ import { CAMPUS, corridorById, corridors, fixture } from '../data'
 import type { Corridor, LatLng } from '../types'
 import { haversineM, pathLengthM } from './geo'
 import {
-  devRoadDataWarning, FIT_MAX_ZOOM, FIT_PADDING_PX, fitKey, googleMapsDirectionsUrl, mapFitPoints, MAX_ZOOM, MIN_ZOOM,
-  NEARBY_ROUTE_M, OSM_ATTRIBUTION, pathPrefix, walkEstimate, type MapFitInput,
+  devRoadDataWarning, FIT_MAX_ZOOM, FIT_PADDING_PX, fitCamera, fitKey, googleMapsDirectionsUrl, mapFitPoints, MAX_ZOOM,
+  MIN_ZOOM, NEARBY_ROUTE_M, OSM_ATTRIBUTION, pathPrefix, walkEstimate, type FitCamera, type FitPadding, type MapFitInput,
 } from './mapView'
 
 const NOW = Date.UTC(2026, 10, 16, 7, 0)
@@ -151,6 +151,172 @@ describe('fitKey', () => {
     expect(fitKey(a)).toBe(fitKey(structuredClone(a)))
     expect(fitKey(a)).not.toBe(fitKey([[13.7842, 121.0744], [13.7875, 121.0706]]))
     expect(fitKey(a)).not.toBe(fitKey(a.slice(0, 1)))
+  })
+})
+
+describe('fitCamera (the Google map camera, set in one step)', () => {
+  // Independent Web Mercator projection: where a point lands on screen for a camera, in px from the map's top left.
+  const mx = (lng: number) => (lng + 180) / 360
+  const my = (lat: number) => { const s = Math.sin((lat * Math.PI) / 180); return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI) }
+  const screen = (cam: FitCamera, size: { width: number; height: number }, [lat, lng]: LatLng) => {
+    const world = 256 * 2 ** cam.zoom
+    let dx = mx(lng) - mx(cam.center[1])
+    if (dx > 0.5) dx -= 1
+    if (dx < -0.5) dx += 1
+    return [size.width / 2 + dx * world, size.height / 2 + (my(lat) - my(cam.center[0])) * world]
+  }
+  // Every point inside the clear area (0.5 px tolerance for float error).
+  const expectInside = (pts: readonly LatLng[], cam: FitCamera, size: { width: number; height: number }, pad: FitPadding) => {
+    for (const p of pts) {
+      const [x, y] = screen(cam, size, p)
+      expect(x, `x of ${p}`).toBeGreaterThanOrEqual(pad.left - 0.5)
+      expect(x, `x of ${p}`).toBeLessThanOrEqual(size.width - pad.right + 0.5)
+      expect(y, `y of ${p}`).toBeGreaterThanOrEqual(pad.top - 0.5)
+      expect(y, `y of ${p}`).toBeLessThanOrEqual(size.height - pad.bottom + 0.5)
+    }
+  }
+  // The points' box, on screen.
+  const screenBox = (pts: readonly LatLng[], cam: FitCamera, size: { width: number; height: number }) => {
+    const s = pts.map((p) => screen(cam, size, p))
+    const xs = s.map(([x]) => x), ys = s.map(([, y]) => y)
+    return { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) }
+  }
+  const centreOf = (b: { left: number; right: number; top: number; bottom: number }) => [(b.left + b.right) / 2, (b.top + b.bottom) / 2]
+
+  const EVEN: FitPadding = { top: 48, right: 48, bottom: 40, left: 40 }  // MapView's default (the Destination map)
+  const ZERO: FitPadding = { top: 0, right: 0, bottom: 0, left: 0 }
+  const WIDE = { width: 1440, height: 900 }
+  const WIDE_OPEN: FitPadding = { top: 80, right: 72, bottom: 48, left: 440 }  // Map screen, wide, panel open
+  const WIDE_SHUT: FitPadding = { top: 80, right: 72, bottom: 48, left: 96 }
+  const PHONE_MAP = { width: 390, height: 780 }
+  const PHONE_OPEN: FitPadding = { top: Math.round(844 * 0.55) + 16, right: 56, bottom: 88, left: 24 }  // panel open
+  const PHONE_SHUT: FitPadding = { top: 112, right: 56, bottom: 88, left: 24 }
+  const routePts = (id: string) => mapFitPoints('student', 'route', input(id))
+  // A safe spot about 300 m from campus, as the Map screen fits it: campus + spot.
+  const spotPts: LatLng[] = [CAMPUS, [CAMPUS[0] + 0.0027, CAMPUS[1] + 0.0002]]
+
+  it('symmetrical padding: the points are centred on the map', () => {
+    const pad = { top: 40, right: 40, bottom: 40, left: 40 }
+    const size = { width: 600, height: 400 }
+    const pts = routePts(corridors[0].id)
+    const cam = fitCamera(pts, size, pad)!
+    expectInside(pts, cam, size, pad)
+    const [cx, cy] = centreOf(screenBox(pts, cam, size))
+    expect(cx).toBeCloseTo(300, 6)
+    expect(cy).toBeCloseTo(200, 6)
+  })
+
+  it('uneven left/right padding moves the centre so the points sit in the clear area, not under the panel', () => {
+    for (const c of corridors) {
+      const pts = routePts(c.id)
+      for (const pad of [WIDE_OPEN, WIDE_SHUT]) {
+        const cam = fitCamera(pts, WIDE, pad)!
+        expectInside(pts, cam, WIDE, pad)
+        const [cx] = centreOf(screenBox(pts, cam, WIDE))
+        expect(cx, c.id).toBeCloseTo((pad.left + WIDE.width - pad.right) / 2, 6)
+      }
+      // Opening the panel shifts the map's centre west (the points move right, clear of the panel).
+      const open = fitCamera(pts, WIDE, WIDE_OPEN)!, shut = fitCamera(pts, WIDE, WIDE_SHUT)!
+      if (open.zoom === shut.zoom) expect(open.center[1]).toBeLessThan(shut.center[1])
+    }
+  })
+
+  it('uneven top/bottom padding (phone, panel open over the top 55%) keeps the points below the panel', () => {
+    for (const c of corridors) {
+      const pts = routePts(c.id)
+      for (const pad of [PHONE_OPEN, PHONE_SHUT]) {
+        const cam = fitCamera(pts, PHONE_MAP, pad)!
+        expectInside(pts, cam, PHONE_MAP, pad)
+        const [, cy] = centreOf(screenBox(pts, cam, PHONE_MAP))
+        expect(cy, c.id).toBeCloseTo((pad.top + PHONE_MAP.height - pad.bottom) / 2, 6)
+      }
+    }
+  })
+
+  it('small bounds (a nearby safe spot) stop at FIT_MAX_ZOOM, still inside the clear area', () => {
+    for (const [size, pad] of [[WIDE, WIDE_OPEN], [PHONE_MAP, PHONE_OPEN], [PHONE_MAP, PHONE_SHUT], [{ width: 360, height: 300 }, EVEN]] as const) {
+      const cam = fitCamera(spotPts, size, pad)!
+      expect(cam.zoom).toBe(FIT_MAX_ZOOM)
+      expectInside(spotPts, cam, size, pad)
+    }
+    // Without the cap the same fit would zoom in past it (the overshoot fitBounds animated through).
+    expect(fitCamera(spotPts, WIDE, WIDE_SHUT, MIN_ZOOM, 30)!.zoom).toBeGreaterThan(FIT_MAX_ZOOM)
+  })
+
+  it('large bounds (whole routes): the largest whole zoom that fits, within the zoom limits', () => {
+    for (const c of corridors) {
+      const pts = routePts(c.id)
+      for (const [size, pad] of [[WIDE, WIDE_OPEN], [PHONE_MAP, PHONE_SHUT], [{ width: 360, height: 300 }, EVEN]] as const) {
+        const cam = fitCamera(pts, size, pad)!
+        expect(cam.zoom).toBeGreaterThanOrEqual(MIN_ZOOM)
+        expect(cam.zoom).toBeLessThanOrEqual(FIT_MAX_ZOOM)
+        expect(Number.isInteger(cam.zoom)).toBe(true)
+        expectInside(pts, cam, size, pad)
+        // One zoom level more would not fit (unless the cap already stopped it).
+        if (cam.zoom < FIT_MAX_ZOOM) {
+          const b = screenBox(pts, cam, size)
+          const tooBig = 2 * (b.right - b.left) > size.width - pad.left - pad.right + 1e-6
+            || 2 * (b.bottom - b.top) > size.height - pad.top - pad.bottom + 1e-6
+          expect(tooBig, `${c.id} ${size.width}x${size.height}`).toBe(true)
+        }
+      }
+    }
+  })
+
+  it('picks the same zoom as the Leaflet-style fit the simple map uses', () => {
+    const pad = { top: FIT_PADDING_PX, right: FIT_PADDING_PX, bottom: FIT_PADDING_PX, left: FIT_PADDING_PX }
+    for (const c of corridors) {
+      for (const [w, h] of [PANE, COORD]) {
+        const pts = routePts(c.id)
+        expect(fitCamera(pts, { width: w, height: h }, pad)!.zoom, c.id).toBe(Math.max(MIN_ZOOM, fitZoom(pts, w, h)))
+      }
+    }
+  })
+
+  it('enforces the zoom limits it is given', () => {
+    expect(fitCamera(spotPts, WIDE, ZERO)!.zoom).toBe(FIT_MAX_ZOOM)
+    expect(fitCamera(spotPts, WIDE, ZERO, MIN_ZOOM, 12)!.zoom).toBe(12)
+    // A box too big for the minimum zoom stays at the minimum (as Google's minZoom would).
+    expect(fitCamera([[-40, -100], [60, 100]], { width: 300, height: 300 }, ZERO)!.zoom).toBe(MIN_ZOOM)
+  })
+
+  it('a single point (or points all in one place) is centred in the clear area at FIT_MAX_ZOOM', () => {
+    for (const pts of [[CAMPUS], [CAMPUS, CAMPUS]] as LatLng[][]) {
+      const cam = fitCamera(pts, PHONE_MAP, PHONE_OPEN)!
+      expect(cam.zoom).toBe(FIT_MAX_ZOOM)
+      const [x, y] = screen(cam, PHONE_MAP, CAMPUS)
+      expect(x).toBeCloseTo((PHONE_OPEN.left + PHONE_MAP.width - PHONE_OPEN.right) / 2, 6)
+      expect(y).toBeCloseTo((PHONE_OPEN.top + PHONE_MAP.height - PHONE_OPEN.bottom) / 2, 6)
+    }
+    const even = fitCamera([CAMPUS], WIDE, ZERO)!
+    expect(even.center[0]).toBeCloseTo(CAMPUS[0], 9)
+    expect(even.center[1]).toBeCloseTo(CAMPUS[1], 9)
+  })
+
+  it('takes the short way across the antimeridian', () => {
+    const pts: LatLng[] = [[10, 179.9], [10.1, -179.9]]
+    const cam = fitCamera(pts, { width: 600, height: 400 }, ZERO)!
+    expect(cam.zoom).toBeGreaterThan(MIN_ZOOM)
+    expect(Math.abs(cam.center[1])).toBeGreaterThan(179.9)
+    expectInside(pts, cam, { width: 600, height: 400 }, ZERO)
+  })
+
+  it('returns null (camera left as it is) for an empty or zero-sized map, nothing to fit, or padding that fills the map', () => {
+    expect(fitCamera(spotPts, { width: 0, height: 400 }, ZERO)).toBeNull()
+    expect(fitCamera(spotPts, { width: 400, height: 0 }, ZERO)).toBeNull()
+    expect(fitCamera(spotPts, { width: Number.NaN, height: 400 }, ZERO)).toBeNull()
+    expect(fitCamera([], WIDE, ZERO)).toBeNull()
+    expect(fitCamera([[Number.NaN, 121], [13, Number.POSITIVE_INFINITY], [95, 0], [0, 190]], WIDE, ZERO)).toBeNull()
+    expect(fitCamera(spotPts, { width: 400, height: 300 }, { top: 200, right: 0, bottom: 100, left: 0 })).toBeNull()
+    expect(fitCamera(spotPts, { width: 400, height: 300 }, { top: 0, right: 250, bottom: 0, left: 250 })).toBeNull()
+  })
+
+  it('ignores invalid points and treats negative or non-numeric padding as none', () => {
+    const withBad: LatLng[] = [...spotPts, [Number.NaN, 0], [0, 400]]
+    expect(fitCamera(withBad, WIDE, WIDE_OPEN)).toEqual(fitCamera(spotPts, WIDE, WIDE_OPEN))
+    const odd = { top: -20, right: Number.NaN, bottom: 0, left: Number.POSITIVE_INFINITY }
+    // Infinity is not a usable size either, so it counts as no padding too.
+    expect(fitCamera(spotPts, WIDE, odd)).toEqual(fitCamera(spotPts, WIDE, ZERO))
   })
 })
 

@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom'
 import { GOOGLE_MAP_ID } from '../../lib/googleRoutes'
 import { loadGoogleMaps } from '../../lib/googleMapsLoader'
 import type { MapLine, MapModel } from '../../lib/mapModel'
-import { FIT_MAX_ZOOM, fitKey, MAX_ZOOM, MIN_ZOOM } from '../../lib/mapView'
+import { fitCamera, fitKey, MAX_ZOOM, MIN_ZOOM } from '../../lib/mapView'
 import type { LatLng } from '../../types'
 import { declutter } from './declutter'
 import { CampusPin, EndPin, LineTag, SpotPin } from './pins'
@@ -155,19 +155,16 @@ export default function GoogleMapView({ model, fill, padding, traffic, onSpot }:
 
   // Fit the features on screen whenever they (or the space kept clear for panels) change. The key strings are
   // the source of truth, so a re-render with equal points never refits (and never fights the user's panning).
+  // The camera is computed here (zoom capped at FIT_MAX_ZOOM) and set in one step with moveCamera, which never
+  // animates: fitBounds animated through zooms above the cap and was then corrected, a visible zoom in and out.
   const fit = fitKey(model.fit)
   const pad = `${padding.top},${padding.right},${padding.bottom},${padding.left}`
   useEffect(() => {
     const points = fit ? fit.split(';').map((p) => p.split(',').map(Number) as LatLng) : []
-    if (!map || points.length === 0) return
-    const b = new google.maps.LatLngBounds()
-    for (const p of points) b.extend(toLL(p))
+    if (!map || !el.current || points.length === 0) return
     const [top, right, bottom, left] = pad.split(',').map(Number)
-    map.fitBounds(b, { top, right, bottom, left })
-    const once = google.maps.event.addListenerOnce(map, 'idle', () => {
-      if ((map.getZoom() ?? 0) > FIT_MAX_ZOOM) map.setZoom(FIT_MAX_ZOOM)
-    })
-    return () => once.remove()
+    const cam = fitCamera(points, { width: el.current.clientWidth, height: el.current.clientHeight }, { top, right, bottom, left })
+    if (cam) map.moveCamera({ center: toLL(cam.center), zoom: cam.zoom })
   }, [map, fit, pad])
 
   // Hide labels that would cover a pin or a more important label, whenever the view settles or the labels change.
