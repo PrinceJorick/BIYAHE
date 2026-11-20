@@ -2,9 +2,9 @@
 
 **Safer journeys. Brighter tomorrows.**
 
-*Mas ligtas na paglalakbay para sa mas maraming bukas.*
+BeansDev (Team 11) · CS Bootcamp: Build the Way Forward · Iteration 5 · 20 November 2026
 
-BeansDev (Team 11) · CS Bootcamp: Build the Way Forward · Iteration 4 · 19 November 2026
+Live app: <https://biyahe-beansdev.vercel.app> · Repository: `PrinceJorick/BIYAHE` (branch `main`)
 
 ---
 
@@ -19,187 +19,197 @@ Campus disaster officers (DRRMO) have no quick way to tell them.
 
 **What BIYAHE does.**
 
-| For students (zero input, about ten seconds) | For staff and the DRRMO (three clicks) |
+| For students (zero input, about ten seconds) | For staff and the DRRMO |
 |---|---|
-| One clear answer: *Head home now* or *Wait on campus for now*, with travel time against the usual time | Route risk map and estimated stranded students per route (aggregated only, RA 10173) |
-| Weather and rain chance for the next hours, traffic flow on their route | Occupancy steppers and amenity toggles for each safe spot |
-| Suggested places to go, and every route home and safe spot on campus | Campus advisories with a draft → publish → resolve lifecycle |
-| A full-screen map with "When should I leave?" options | Updates reach every open student view immediately |
-| Alerts from PAGASA, the LGU, the campus, forecasts, traffic and local news | |
-| A pre-written "I'm safe" message for family (share sheet, SMS, copy) | |
+| One clear answer: *Head home now* or *Wait on campus for now*, with the trip time against the usual time | Route risk map and estimated stranded students per route (aggregate counts only, RA 10173) |
+| Google Weather conditions, the chance of rain for the next hours and PAGASA public alerts | Occupancy steppers and amenity toggles for every safe spot |
+| Traffic on their route (Google Routes, traffic-aware) and a "When should I leave?" plan | Campus advisories with a draft → publish → resolve lifecycle |
+| Three suggested places to go, explained by the rule that chose them | A Batangas News & LGU Monitor of local weather reports to review before publishing |
+| Alerts from PAGASA, the LGU and the campus, forecast and traffic notices and local weather news | Updates reach every open student view at once |
+| A pre-written "I'm safe" message for family | |
 
-The app asks one question (campus and usual route home), keeps no account and tracks no location.
+**Principles.** Zero input after the one-time setup; offline first; every figure labelled with its source and time
+(*Official*, *Estimate*, *Saved copy*, *Simulated*); a deterministic rule makes every recommendation and AI only
+rewords it; no location tracking, no check-ins, no accounts for students.
 
 ---
 
-## 2. Brand
+## 2. Brand and design system
 
-The visual identity follows the **BIYAHE Brand Guidelines** artboard (team canvas *BIYAHE Logo Concepts*).
+**Logo — "Go Pin".** A map pin holding a forward arrow, with the rising sun, on Deep Blue. The wordmark is BIYAHE in
+Poppins ExtraBold. Geometry lives in `src/components/logoGeometry.ts`; the favicon and every PWA icon are generated
+from the same values (`npm run icons`).
 
-**Logo — "Go Pin".** A map pin (where you are, and where to wait safely) holding a forward arrow (know when it is safe
-to go), with the rising sun (hope and safer tomorrows) on a Deep Blue tile (trust and institutional strength). The
-wordmark is BIYAHE in Poppins ExtraBold; the horizontal lockup can carry the line *People • Places • Safer
-tomorrows*. Geometry is copied from the artboard into `src/components/logoGeometry.ts`; the favicon and every PWA icon
-are generated from the same values (`npm run icons`). Small sizes use the artboard's favicon tiers (heavier arrow, no
-sun below 64 px).
+**Colour tokens** (`src/index.css`).
 
-**Palette.**
-
-| Colour | Hex | Role in the app |
+| Token | Hex | Use |
 |---|---|---|
-| Deep Blue | `#0B2D5B` | Headings, primary buttons, navigation rail, routes in focus |
-| Sky Blue | `#2563EB` | Links, focus rings, walking routes |
-| Sun Yellow | `#FBBF24` | Logo sun, active-tab marker on the rail, the tagline's journey line |
-| Cloud White | `#F8FAFC` | Text on Deep Blue |
-| Slate Gray | `#64748B` | Secondary lines and routes not in focus |
-| Page / lines | `#F1F5F9` / `#E2E8F0` | Page background, card borders |
+| `--deep` | `#0B2D5B` | Onboarding background, wordmark, active navigation, primary buttons |
+| `--sky` | `#2563EB` | Links, focus rings, walking routes |
+| `--sun` | `#FBBF24` | Logo sun, the onboarding action and step indicator, active-tab marker on the rail |
+| `--cloud` | `#F8FAFC` | App background |
+| `--ink` | `#0F172A` | Main text |
+| `--ink-2` | `#334155` | Secondary text |
+| `--slate` | `#64748B` | Labels and supporting text |
+| `--line` | `#E2E8F0` | Borders and separators |
+| `--ok` / `--warn` / `--danger` | `#15803D` / `#B45309` / `#B91C1C` | Status text only: low, medium, high |
 
-**The colour rule.** Surfaces are neutral: white cards with a hairline border on a light slate page, with no tinted
-panels or coloured highlights. Red, amber and green appear **only as text that reports a level, from low to high**:
+Surfaces are flat white cards with a 1 px border. Red, amber and green appear only as text that reports a level, and
+every level also has a word (route lines add a pattern: solid open, dotted slow, dashed closed). No gradients, no
+decorative colour.
 
-| Level | Colour | Used for |
-|---|---|---|
-| Low | `#147A3A` | Light traffic, route open, rain chance under 30% |
-| Medium | `#B45309` | Moderate traffic, route slow, rain 30–59%, warnings |
-| High | `#B91C1C` | Heavy traffic, route closed, rain 60% or more, critical advisories, full safe spots |
+**Type.** Poppins only, tabular numerals everywhere. Display 28–38 px, H1 22–26 px, H2 18 px, body 16 px, meta
+14 px, captions and labels 13 px (the minimum). Labels are sentence case. Headings balance their lines and body copy
+avoids one-word last lines.
 
-Status never relies on colour alone: every level has a word, and route lines use a pattern (solid open, dotted
-slow, dashed closed). All level colours pass WCAG AA contrast on white.
-
-**Typography.** Poppins (self-hosted): Bold for titles, SemiBold for emphasis, Regular for body text, tabular numbers.
-Caveat Brush is used only for the Filipino tagline on the welcome screen. The type scale has clear steps:
-
-| Style | Size | Weight | Use |
-|---|---|---|---|
-| Display | 28–38 px (fluid) | 700 | The answer on the details page |
-| H1 | 22–26 px | 700 | Page titles, traffic level |
-| H2 | 18 px | 600 | Card titles |
-| H3 / body | 16 px | 600 / 400 | Item titles, paragraphs |
-| Meta | 14 px | 400 | Supporting facts |
-| Caption | 13 px | 400 | Sources and timestamps |
-| Eyebrow | 12 px, tracked caps | 700 | Card labels such as TRAFFIC FLOW |
-
-**Spacing.** One gap between every widget on a page (16 px on phones, 20 px from 900 px) and one padding inside
-every card (20 px / 24 px), on an 8-point scale. Tap targets are at least 44–48 px.
+**Layout and access.** 4/8 px spacing, a 16 px gutter on phones, touch targets of at least 44 px, 3 px Sky focus
+rings, reduced motion respected, no horizontal scrolling from 320 px up.
 
 ---
 
 ## 3. User flow
 
-![Welcome](screens/01-welcome.png)
-
 ```
-Welcome ─► Setup (campus + route home, once)
-            │
-            ▼
-          Home ──► Details (#/go/route/… or #/go/spot/…) ──► Map (#/map/…)
-            │            └──► Share "I'm safe"
-            ├──► Map (full screen, trip panel)
-            └──► Alerts
-Staff:  Welcome ─► Staff access ─► Coordinator Command
+Welcome (step 1 of 2) ─► Setup: campus + route home (step 2 of 2)
+                          │
+                          ▼
+   Home ──► Details (#/go/route/… or #/go/spot/…) ──► Map (#/map/…) ──► Share "I'm safe"
+   Map · Alerts · Settings (tabs)
+Staff:  Welcome ─► Campus staff ─► Coordinator Command
 ```
 
-Navigation has three tabs: **Home, Map, Alerts** (bottom bar on phones, Deep Blue side rail from 900 px). The old
-Profile page is gone; its campus, route and settings live on the Setup screen, opened from "Change" on Home or the
-rail.
+Navigation has four tabs: **Home, Map, Alerts, Settings**. On phones they are a bottom bar, fixed on every screen,
+with the number of new or active alerts on Alerts. From 900 px they become a Deep Blue side rail. Each tab keeps its
+own scroll position when you switch between tabs. Old links still work (`#/profile` opens Settings).
 
-### 3.1 Home
+### 3.1 Welcome and Setup
+
+| Welcome | Setup |
+|---|---|
+| ![Welcome](screens/01-welcome.png) | ![Setup](screens/08-setup.png) |
+
+A two-step onboarding on Deep Blue with a step indicator. Welcome states what BIYAHE does and four plain promises
+that match how the app works, with one action, **Get started**. *How BIYAHE uses your data* opens a privacy summary;
+*Campus staff* leads to the staff flow. Setup asks the only question BIYAHE asks: campus and usual route home. It
+stays on the device and can be changed from Settings.
+
+### 3.2 Home
 
 ![Home](screens/02-home.png)
 
-Following the wireframe, top to bottom:
+1. **Context line** with the campus and route home.
+2. **Urgent alert strip** when a critical advisory or one for the student's route is active.
+3. **Weather**: Google Weather conditions, the chance of rain for the next five hours, and a PAGASA warning when one
+   is in force.
+4. **Traffic flow**: the level on the student's route, the trip time against the usual time, and the other routes.
+5. **Today near your route**: one local weather headline, only when there is one, with *More local news*.
+6. **Where do you want to go?**: three rows with the same layout. *Head home to* your route (marked *Best now* when it
+   is open), *Wait at* the nearest safe spot with room, and a *Suggested alternative* route, always captioned *Not
+   verified safe*. A closed route is never recommended.
+7. **Why this suggestion**: the rule that chose the first option and the facts it used, each with its source.
+   *Explain in plain words* asks Gemini to reword them (optional; the facts stay on screen).
+8. **Routes home** and **Safe spots on campus**: every place with its trip time or walk and space left.
 
-1. **Context line** with the campus and route home, and a link to change them.
-2. **Urgent alert strip** (only when a critical advisory or one for the student's route is active).
-3. **Weather and date**: date, time, current conditions, and the chance of rain for the next five hours (each
-   percentage coloured by level).
-4. **Traffic flow**: the level on the student's route in large type, the expected trip time against the usual one,
-   the source (Live traffic, Estimate or Official), and a one-line summary of the other routes.
-5. **Where do you want to go?**: three suggestions. When the route home is open: *Head home* (marked *Best now*),
-   *Wait at* the nearest safe spot, and the least-delayed other route. When it is closed: the nearest safe spot with
-   room is the recommendation. A closed route is never recommended.
-6. **Available places**: every route home (trip time and level) and every safe spot (walk, space left).
+### 3.3 Details
 
-Choosing any option or place opens its details.
-
-### 3.2 Details
-
-![Details](screens/03-details-route.png)
-
-The answer comes first, as in the wireframe: *Head home now.* / *Expect delays.* / *Wait on campus for now.*, the route
-status, the reason, then the travel time right now against the usual time with a bar marking "usual", and when it
-was updated and by whom. Below: **Traffic now**, **Notifications** (official advisories, forecast and traffic notices,
-local news, each labelled with its source) and **Nearest places to go**. Every place links to its own details. For a
-safe spot the page shows the walk, space left, amenities and walking directions. On wide screens the map sits beside
-the details.
-
-![Wait on campus](screens/04-details-wait.png)
-
-### 3.3 Map
-
-| Collapsed | Expanded |
+| Head home | Wait on campus |
 |---|---|
-| ![Map](screens/05-map.png) | ![Map with trip panel](screens/06-map-open.png) |
+| ![Details](screens/03-details-route.png) | ![Wait on campus](screens/04-details-wait.png) |
 
-The map fills the screen. A single **Options** button at the bottom (tap, or press and hold) opens the navigation bar
-on top and the trip panel below, as in the wireframe. The panel holds:
+The answer first (*Head home now.* / *Expect delays.* / *Wait on campus for now.*), the route status and reason, the
+trip time against the usual time, when it was updated and by whom, then traffic, notifications and the nearest places.
+For a safe spot: the walk, space left, amenities and walking directions.
 
-- the destination with trip time now against the usual time, and a link to full details;
-- **When should I leave?**: now, in 30 minutes, 1 hour and 2 hours, each with expected trip time, traffic level and
-  chance of rain, and the best window marked;
+### 3.4 Map
+
+| Map | Details open |
+|---|---|
+| ![Map](screens/05-map.png) | ![Map with details](screens/06-map-open.png) |
+
+The map fills the screen above the bottom navigation. The place and its status sit in a chip at the top-left. An
+info icon at the top-right explains how the route lines were made. **Show details**, just above the navigation, drops
+the details down over the top of the map:
+
+- the destination with the trip time now against the usual time, and *Full details*;
+- **When should I leave?**: now, in 30 minutes, 1 hour and 2 hours, with trip time, traffic and chance of rain, and
+  the best window marked;
 - **Show on the map**: every route and safe spot;
 - **Map layers**: all routes, and Google live traffic.
 
-On desktop the panel docks on the left and starts open.
+On desktop the details are a panel on the left that starts open.
 
 ![Desktop map](screens/11-desktop-map.png)
 
-### 3.4 Alerts
+**Which map is shown.**
+
+| Situation | Map |
+|---|---|
+| Online, Google key accepted | Google Maps (muted style or the cloud style of `VITE_GOOGLE_MAPS_MAP_ID`), with the live traffic layer |
+| Online, no key or key rejected | The app's map over OpenStreetMap street tiles |
+| Offline | The app's map over OpenStreetMap tiles saved on the device ("Offline: saved streets") |
+| Low-Battery Mode | The app's plain map: route lines and pins on a dot grid, no tiles |
+
+The OpenStreetMap credit is shown on the app's own map. Over Google's map it is not drawn on the map (Google credits
+its own data); it appears in the route information dialog behind the info icon. Map labels try nearby spots before
+they hide, and stay clear of pins, zoom buttons and other labels.
+
+### 3.5 Alerts
 
 ![Alerts](screens/07-alerts.png)
 
-One card per advisory with its source and severity as labels (wireframe 5), filters (All, PAGASA, LGU, Campus,
-Forecast, News), a section for other routes, forecast and traffic notices worked out by the app (clearly marked as
-not official), local news, and advisories that ended in the last few hours.
+Filters: All, PAGASA, LGU, Campus, Classes, Local news (with a count) and Forecast. Sections: advisories for the
+student and their route, PAGASA weather warnings (from Google Weather public alerts, *Official*), forecast and traffic
+notices worked out by BIYAHE (*Estimate*, never official), other routes, local weather news, and advisories that ended
+in the last few hours. `#/alerts?filter=news` opens the Local news filter directly.
 
-### 3.5 Setup and settings
+**Local news** comes from the Currents News API and is limited to **weather**: rain, storms and floods that name a
+Batangas place. Each article shows the publisher and time (*Local news · Inquirer · 15m ago*) and opens the original
+article. Offline, it opens the saved copy in a sheet instead. A news report is never labelled official.
 
-![Setup](screens/08-setup.png)
+### 3.6 Settings
 
-Campus and route home, Low-Battery Mode, the demo scenario switcher (Clear, Disrupted, Stale, Offline, Low battery),
-data and privacy notes, build information and switching role.
+![Settings](screens/13-settings.png)
 
-### 3.6 Coordinator Command
+Your usual route; which alerts BIYAHE announces (route and LGU disruptions, PAGASA warnings, class suspensions,
+browser notifications while BIYAHE is open); offline data with the time of each source, **Sync now** and **Clear
+offline data** (asks first); Low-Battery Mode; demo scenarios (marked *Simulated*, never written to the shared
+database); privacy; build information; switching role.
+
+### 3.7 Coordinator Command
 
 ![Coordinator](screens/12-desktop-coordinator.png)
 
-Route risk map and list, safe-spot occupancy and amenities, and the advisory lifecycle. Only the DRRMO Coordinator
-role can publish; marshals and guards see advisories read-only.
+Route risk map and list with estimated affected students per route, safe-spot occupancy and amenities, the advisory
+lifecycle, and the **Batangas News & LGU Monitor** (the four latest local weather reports, marked as third-party
+reports to check before publishing). Only the DRRMO Coordinator role can publish; marshals and guards read only.
 
 ---
 
 ## 4. Data sources and APIs
 
-| Source | What it gives | Key | Where it runs | Without it |
+| Source | What it gives | Key (where it lives) | Runs | Without it |
 |---|---|---|---|---|
-| **Google Maps JavaScript API** | The street map, live traffic layer | `VITE_GOOGLE_MAPS_API_KEY` (browser) | Browser | The app's simple map (route lines on a dot grid) |
-| **Google Routes API** (computeRoutes) | Traffic-aware and free-flow trip time per route, road geometry that matches the Google map, traffic forecasts for later departures | Same key | Browser (CORS supported) | Times and levels estimated from route reports |
-| **Google Weather API** | Current conditions, hourly chance of rain, PAGASA public alerts | `GOOGLE_WEATHER_API_KEY` (server only) | `/api/weather` | Last reading as a saved copy (device cache, up to 24 h), else "Weather unavailable"; no retry on 429/403 |
-| **Currents News API** | Local news on floods, traffic, storms and suspensions | `CURRENTS_API_KEY` (server only) | `/api/news` (Vercel Function; Vite middleware locally) | News section says it is off |
-| **Supabase** (PostgreSQL + PostGIS + Realtime) | Shared route status, safe spots, advisories across devices | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Browser | Device data + cross-tab sync |
-| **OSRM foot router** (FOSSGIS) | Walking route from the campus point to a safe spot | none (`VITE_WALK_ROUTER_URL` optional) | Browser | Saved route, then straight-line estimate |
-| **PAGASA / LGU** | Advisory schemas | — | — | Simulated fixtures; no public feed exists |
+| **Google Maps JavaScript API** | Street map, live traffic layer | `VITE_GOOGLE_MAPS_API_KEY` (browser, restricted to the site) | Browser | OpenStreetMap or the plain map |
+| **Google Routes API** (`computeRoutes`, traffic-aware) | Trip time now and free-flow, road geometry, forecasts for later departures | `VITE_GOOGLE_ROUTES_API_KEY` (browser; falls back to the Maps key) | Browser | Times estimated from route reports |
+| **Google Weather API** | Current conditions, hourly forecast, PAGASA public alerts | `GOOGLE_WEATHER_API_KEY` (server only) | `/api/weather` | Last reading as a saved copy, else "Weather unavailable" |
+| **Currents News API** | Local weather news | `CURRENTS_API_KEY` (server only, Bearer token) | `/api/news` | No news section |
+| **Gemini** | Plain-language rewording of BIYAHE's own reason | `GEMINI_API_KEY`, `GEMINI_MODEL` (server only) | `/api/explain` | The rule and facts as they are |
+| **Supabase** (PostgreSQL + Realtime) | Shared route status, safe spots, advisories | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Browser | Device data and cross-tab sync, marked *Simulated* |
+| **OpenStreetMap tiles** | Street tiles for the app's map | none | Browser | Plain map |
+| **OSRM foot router** (FOSSGIS) | Walking route to a safe spot | none (`VITE_WALK_ROUTER_URL` optional) | Browser | Saved route, then a straight-line estimate |
 
-Notes:
+**Request limits and caching** (`src/lib/apiCache.ts`). Weather and Routes answers go through one cache: one request
+per key in flight (simultaneous callers share it), a fresh-for window, a cooldown on manual refreshes, and the last
+good answer as a fallback when a request fails.
 
-- Official status always wins. A route the DRRMO or LGU marks closed shows *Closed* whatever Google's traffic says,
-  and a route reported slow is never shown better than the report. Live traffic can only make a route look worse, or
-  give the current figure for an open one.
-- Trip times are the route's usual commute time scaled by the live delay (traffic-aware ÷ free-flow duration), so
-  they stay comparable with the usual jeepney/bus time instead of showing a private-car time.
-- Weather and traffic-aware routes are reused from a device cache (src/lib/apiCache.ts) for 20 and 10 minutes and kept at most 24 hours as a saved-copy fallback. Map
-  tiles are never cached by the service worker.
-- Google News RSS is **not** used: its terms limit it to personal feed readers.
+| | Reused for | Manual refresh at most every | On 429 / 403 |
+|---|---|---|---|
+| Weather (per campus; the server also caches each Google endpoint) | 20 minutes | 60 seconds | Last good reading as a saved copy, no retry |
+| Traffic-aware routes (per campus, destination, mode and departure) | 10 minutes | 30 seconds | Last good route, never shown as live after 20 minutes |
+| Local news (server) | 30 minutes at the edge, 15 in memory | — | `Retry-After` honoured, no retry loop |
+
+The app does not poll while the tab is hidden. Google Maps is created once per map screen and its routes, pins and
+traffic update in place.
 
 ---
 
@@ -207,72 +217,58 @@ Notes:
 
 ```bash
 npm install
-cp .env.example .env    # already done in this repository; .env is git-ignored
+cp .env.example .env    # fill in the keys you have; .env is git-ignored
 npm run dev             # http://localhost:5173
 ```
 
-`.env` holds every key, all optional:
-
 ```ini
-VITE_GOOGLE_MAPS_API_KEY=     # Maps JavaScript API + Routes API (browser key)
+VITE_GOOGLE_MAPS_API_KEY=     # Maps JavaScript API (browser key, website-restricted)
 VITE_GOOGLE_MAPS_MAP_ID=      # optional cloud-styled vector map
 VITE_GOOGLE_ROUTES_API_KEY=   # optional separate Routes API browser key
-CURRENTS_API_KEY=             # server-side only (no VITE_ prefix)
-GOOGLE_WEATHER_API_KEY=       # server-side only
-GEMINI_API_KEY=               # server-side only, optional
+CURRENTS_API_KEY=             # server only
+GOOGLE_WEATHER_API_KEY=       # server only; API restriction: Weather API; application restriction: none
+GEMINI_API_KEY=               # server only, optional
 GEMINI_MODEL=                 # optional, default gemini-2.5-flash
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
-# VITE_WALK_ROUTER_URL=
 ```
 
-**Google Maps key.**
+`VITE_*` values are compiled into the browser bundle and are public by design: restrict them to the site's domains
+and to the APIs they need. The other keys never reach the browser. The Weather key is called from the server, so it
+must not carry a website restriction (that returns 403).
 
-1. In Google Cloud Console → APIs & Services, enable **Maps JavaScript API** and **Routes API**.
-2. Create an API key. Application restrictions: *Websites* — `http://localhost:5173/*`, `http://localhost:4173/*`
-   and your deployed domain. API restrictions: the two APIs above.
-3. Put it in `VITE_GOOGLE_MAPS_API_KEY` and restart the dev server. Setup → *About this build* shows "key present".
-
-`VITE_*` values are compiled into the browser bundle and are public by design; protect them with the restrictions
-above. `CURRENTS_API_KEY`, `GOOGLE_WEATHER_API_KEY` and `GEMINI_API_KEY` have no `VITE_` prefix, so they stay on the server. `.gitignore` excludes `.env` and every
-`.env.*` file except `.env.example`.
-
-**Deploying (Vercel).** Add the same variables under Project → Settings → Environment Variables. `api/news.ts` is
-deployed as a Vercel Function; `vercel.json` sends every other path to `index.html`.
+**Deploying (Vercel).** `vercel.json` sets the Vite framework, `npm run build` and the `dist` output, and sends every
+non-API path to `index.html`. `api/news.ts`, `api/weather.ts` and `api/explain.ts` deploy as Vercel Functions. Set the
+same variables under Project → Settings → Environment Variables (server keys as *Sensitive*).
 
 ---
 
 ## 6. Safe spots (waiting areas): verified coordinates
 
-Coordinates are the project owner's values at full precision. Each was checked against OpenStreetMap on
-19 November 2026 (Overpass `is_in` and a point-in-polygon test against the building footprint).
+Coordinates are the project owner's values at full precision, each checked against OpenStreetMap on
+19 November 2026.
 
 | Campus | Safe spot | Latitude | Longitude | OpenStreetMap check |
 |---|---|---:|---:|---|
-| Alangilan | Student Lounge (formerly CICS Lobby) | 13.78393267903075 | 121.07417575704717 | Inside the campus; between the College of Information and Computing Sciences building and Sparta Gymnasium (both within 35 m). Not inside a mapped building footprint. |
+| Alangilan | Student Lounge | 13.78393267903075 | 121.07417575704717 | Inside the campus, between the CICS building and Sparta Gymnasium |
 | Alangilan | Sparta Gymnasium | 13.784276340529747 | 121.07413074951742 | Inside "Sparta Gymnasium" (way 489736297) |
 | Alangilan | Einstein Bldg Library, 2nd Floor | 13.784168707874697 | 121.0749349027738 | Inside "Albert Einstein Building" (way 454854614) |
-| Pablo Borbon | Felistiano "Sanoy" Leviste Multi-Purpose Gymnasium | 13.753079262668649 | 121.05277271784234 | Inside the gymnasium footprint (way 334825726), 14 m from its centre |
+| Pablo Borbon | Felistiano "Sanoy" Leviste Multi-Purpose Gymnasium | 13.753079262668649 | 121.05277271784234 | Inside the gymnasium footprint (way 334825726) |
 | Pablo Borbon | Main Library | 13.754549329790514 | 121.0525887000107 | Inside "Main Library" (way 489731778) |
-| JPLPC-Malvar | Gymnasium | 14.044572113490197 | 121.15574880496467 | Inside the campus and inside a building footprint (way 350781586) |
+| JPLPC-Malvar | Gymnasium | 14.044572113490197 | 121.15574880496467 | Inside a campus building footprint (way 350781586) |
 
-OpenStreetMap names the Pablo Borbon gymnasium *Governor **Feliciano** "Sanoy" Leviste Memorial Multi-Purpose
-Gymnasium*; the app keeps the spelling supplied by the project owner until it is confirmed.
-
-Capacity is usable floor area ÷ 2 m² per person; "not assessed" means no source supports a number yet.
+Capacity is usable floor area ÷ 2 m² per person; "not assessed" means no source supports a number yet, and the app
+then says the space is *not confirmed*.
 
 ---
 
 ## 7. Routes home
 
-Each route is a road-following line from the campus to the town it is named after, generated from OpenStreetMap
-with OSRM (`npm run routes:campuses`) and validated at runtime.
+Each route is a road-following line from the campus to the town it is named after, generated from OpenStreetMap with
+OSRM (`npm run routes:campuses`) and validated at runtime. With a Google key the map draws Google's route for the same
+trip.
 
-**Fixed in this iteration.** The Alangilan routes were built from the old hand-drawn corridor ends, so they stopped
-3–26 km short of their towns: "Lipa City" ended 3.8 km from campus and "Tanauan / Sto. Tomas" ended near San Jose.
-They now reach their destinations:
-
-| Route | Destination | Length | Main roads |
+| Route (Alangilan) | Destination | Length | Main roads |
 |---|---|---:|---|
 | Lipa City | Lipa City Grand Terminal | 25.5 km | President Jose P. Laurel Highway |
 | Batangas City proper | Poblacion, P. Burgos Street | 4.5 km | National Highway 4, P. Burgos Street |
@@ -280,9 +276,7 @@ They now reach their destinations:
 | San Jose / Ibaan | San Jose poblacion | 12.5 km | President Jose P. Laurel Highway |
 | Tanauan / Sto. Tomas | Tanauan City Hall | 39.8 km | JP Laurel Highway, STAR Tollway |
 
-The earlier preview is kept only as the record of the reviewed diagnostic run. With a Google key the map draws
-Google's own route instead, so the line matches Google's roads exactly. Map labels are placed so they never cover a
-pin or another label; a label that has no room is hidden until you zoom in.
+Pablo Borbon and Malvar have their own routes in `src/campuses/`.
 
 ---
 
@@ -290,71 +284,86 @@ pin or another label; a label that has no room is hidden until you zoom in.
 
 | Rule | Value |
 |---|---|
+| Recommendation | Your route first when open or slow; the nearest safe spot with room first when it is closed; then the least-delayed other open route as a *Suggested alternative* |
+| Source precedence | Official advisories decide route status; live traffic can only make an open route look worse; rain and weather warnings are shown as context and never close a route on their own |
 | Traffic level from delay (traffic-aware ÷ free-flow) | Light < 1.25 ≤ Moderate < 1.6 ≤ Heavy |
-| Live traffic counts as current for | 20 minutes (refreshed every 5 minutes while open) |
+| Live traffic counts as current for | 20 minutes |
 | Data marked stale after | 30 minutes |
 | Rain level | Low < 30% ≤ Medium < 60% ≤ High |
-| Best departure | Least time on the road, with rain counted as risk (+15 min for 30–59%, +40 min for 60%+) and campus waiting counted at a quarter (it is safe) |
+| Best departure | Least time on the road, rain counted as risk (+15 min for 30–59%, +40 min for 60%+), waiting on campus counted at a quarter |
 | Walking time | Straight-line distance at 75 m per minute, always worded "about" |
+| AI explanation | Gemini receives only the rule and facts; answers that call a route safe, add links or break the JSON shape are rejected |
 
 ---
 
-## 9. Offline and Low-Battery Mode
+## 9. Offline, storage and privacy
 
-- The app shell and fonts are precached by the service worker; the last snapshot, weather, news and walking routes
-  are kept in IndexedDB. Offline, every screen still works from the saved copy and says so.
-- The map switches to the app's simple map (no street tiles), which works with no network.
-- Low-Battery Mode (suggested under 20%) uses the simple map, turns off animation and live traffic, and polls half
-  as often.
+- The service worker precaches the app and fonts. IndexedDB keeps route status, safe spots and advisories, local news
+  (24 hours), walking routes and which articles were opened. The weather and route cache (`localStorage`) keeps the
+  last answers for up to 24 hours as saved copies.
+- OpenStreetMap tiles the app shows are kept for a week (cache `osm-tiles`). Once a week, online, a small area around
+  the campus and its routes is saved for the offline map: zoom 11–13, at most 200 tiles, within the OpenStreetMap tile
+  usage policy.
+- Offline, every screen still works from the saved copy and says so with its original time.
+- Low-Battery Mode (suggested under 20%) uses the plain map, turns off animation and live traffic, and polls half as
+  often.
+- No location request, no background GPS, no account, no check-in. Staff see aggregate counts per route only
+  (RA 10173). Settings → *Clear offline data* removes everything BIYAHE saved.
 
 ---
 
 ## 10. Architecture
 
-React 19 + TypeScript (Vite 8), `vite-plugin-pwa`, Google Maps JavaScript API, Leaflet (simple map only), Supabase,
-lucide icons.
+React 19 + TypeScript (Vite 8), `vite-plugin-pwa`, Google Maps JavaScript API, Leaflet (the app's own map),
+Supabase, Lucide icons, Vercel Functions.
 
 | Path | Purpose |
 |---|---|
-| `src/App.tsx` | Shell, role rules, navigation |
-| `src/screens/` | Welcome, Setup, Home, Destination (details), MapScreen, Alerts, Share, StaffAccess, Coordinator |
-| `src/components/map/` | `MapView` (chooses the renderer), `GoogleMapView`, `SchematicMap`, pins, label declutter |
-| `src/lib/googleRoutes.ts` | Routes API client and polyline decoder |
-| `src/lib/traffic.ts` | Traffic levels and departure options |
-| `src/lib/places.ts` | Places and recommendations |
-| `src/lib/mapModel.ts` | What a map shows, independent of how it is drawn |
-| `src/lib/weather.ts`, `src/lib/news.ts`, `src/lib/notices.ts` | Weather, news, derived notices |
+| `src/App.tsx` | Shell, role rules, navigation, per-tab scroll memory |
+| `src/screens/` | Welcome, Setup, Home, Destination (details), MapScreen, Alerts, Settings, Share, StaffAccess, Coordinator |
+| `src/components/map/` | `MapView` (chooses the map), `GoogleMapView`, `SchematicMap` (OSM tiles or plain), pins, label placement |
+| `src/components/NewsArticleRow.tsx` | One news article, online link or offline sheet |
+| `src/lib/apiCache.ts` | Shared request cache: dedupe, TTL, cooldowns, fallbacks |
+| `src/lib/googleRoutes.ts`, `src/lib/traffic.ts` | Routes API client, traffic levels, departure options |
+| `src/lib/weather.ts`, `src/lib/news.ts`, `src/lib/explain.ts` | Clients for `/api/weather`, `/api/news`, `/api/explain` |
+| `src/lib/places.ts` | Places, recommendations and their reasons |
+| `src/lib/offlineTiles.ts` | Weekly save of OpenStreetMap tiles for the offline map |
 | `src/lib/store.ts` | App state, sync, polling |
-| `api/news.ts` | `/api/news` (Vercel Function and dev middleware) |
+| `api/` | `news.ts` (Currents), `weather.ts` (Google Weather), `explain.ts` (Gemini) |
 | `src/campuses/` | Campus registry: locations, routes, safe spots |
 
 ---
 
 ## 11. Quality
 
-- **919 automated tests** (Vitest): domain rules, routing data, recommendations, traffic and departure scoring,
-  Routes API parsing, weather and news parsing, map model and label placement, advisory lifecycle, storage migration.
-- **Responsive QA**: every screen at 360, 390, 768, 1280 and 1440 px, checked automatically for horizontal overflow,
-  overlapping widgets, overlapping map labels and pins, clipped text, tap targets under 40 px, and any red, amber or
-  green used as a fill or border. Final run: 0 findings across 75 screen/size combinations.
+- **983 automated tests** (Vitest): recommendation rules and reasons, routing data, traffic and departure scoring,
+  Routes API parsing and caching, Google Weather parsing, alerts and caching, Currents parsing and the weather-only
+  filter, Gemini input/output checks, map model and label placement, offline tiles, advisory lifecycle, storage.
+- **Accessibility**: axe-core clean on every screen; 13 px minimum text; 44 px touch targets; keyboard and dialog
+  focus checked; WCAG 2.5.3 label-in-name on links and map markers.
+- **Responsive**: Welcome, Setup, Home and Map checked at 360, 390, 768 and 1280 px with no horizontal overflow; the
+  bottom navigation stays fixed on every tab.
 - `npm run lint` (oxlint) and `npm run build` (type check + production build) pass.
 
 ---
 
 ## 12. Known limitations
 
-- The street map, live traffic and Google routes need a Google Maps key; until one is set the app uses its simple
-  map and estimates. These paths were tested with an invalid key (clean fallback) but not yet against a live key.
-- Local news needs a Currents key; without it the app shows advisories and its own notices only.
-- PAGASA and LGU advisories are simulated: neither offers a public feed.
+- Supabase is not configured: campus data is simulated on each device and staff access is enforced in the app only.
+  Staff authentication and row-level security are needed before real use.
+- The Google Weather key currently returns 403 in production because of its restriction; weather shows
+  "unavailable" until it is changed (see section 5).
+- Gemini explanations depend on the project's AI Studio credit; without it the app keeps its own wording.
+- PAGASA alerts arrive only through Google Weather public alerts; LGU advisories are simulated (no public feed).
+- Offline street tiles exist only after the app has been opened online with the service worker active; zooming past
+  the saved levels shows the dot grid.
 - Walking routes start from the campus point, not the student's position (the app does not track location).
-- Route lines and safe-spot positions are map-derived and not checked on site; the map's *About routes* button says so.
-- The demo Supabase policies allow open writes; put them behind staff authentication before real use.
+- Route lines and safe-spot positions are map-derived and not checked on site; the map's info icon says so.
 
 ---
 
 ## 13. Credits
 
-Map data © OpenStreetMap contributors (ODbL) for route lines and walking paths; Google Maps Platform for the street
-map, traffic and Google routes; weather by the Google Weather API; news powered by Currents News API; icons by Lucide (ISC); Poppins and Caveat Brush
-(SIL Open Font License).
+Map data © OpenStreetMap contributors (ODbL) for route lines, walking paths and street tiles; Google Maps Platform for
+the street map, traffic, routes and weather (PAGASA alerts via Google Weather); news powered by Currents News API;
+explanations by Google Gemini; icons by Lucide (ISC); Poppins (SIL Open Font License).

@@ -59,7 +59,7 @@ export default function MapView({ mode, label, focus = null, showAll = false, tr
   )
 
   return (
-    <MapFrame label={label} warning={warning} notice={notice} note={note} credit={model.osmCredit || osm} fill={fill}>
+    <MapFrame label={label} warning={warning} notice={notice} note={note} credit={!useGoogle && (model.osmCredit || osm)} fill={fill}>
       {useGoogle
         ? <GoogleMapView model={model} fill={fill} padding={padding} traffic={traffic} onSpot={onSpot} />
         : <SchematicMap model={model} fill={fill} padding={padding} onSpot={onSpot} still={battery} tiles={osm} />}
