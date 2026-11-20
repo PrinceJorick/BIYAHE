@@ -109,7 +109,7 @@ function WhyCard({ reason, offline }: { reason: Reason; offline: boolean }) {
   return (
     <section className="card" aria-labelledby="why">
       <div className="card-head">
-        <h2 className="h3" id="why"><Lightbulb size={18} aria-hidden="true" /> Why this suggestion</h2>
+        <h2 className="h3 cluster" id="why"><Lightbulb size={18} aria-hidden="true" />Why this suggestion</h2>
         <Badge kind="estimate" />
       </div>
       <p className="body">{reason.rule}</p>
@@ -189,7 +189,7 @@ export default function Home() {
       <WeatherCard s={s} now={now} offline={v.offline} />
       {top && (
         <section className="card" aria-labelledby="today-news">
-          <p className="eyebrow" id="today-news">Today near your route</p>
+          <h2 className="h3" id="today-news">Today near your route</h2>
           <ul className="list">
             <li><NewsArticleRow item={top} now={now} offline={isOffline(s)} savedAt={s.news?.fetchedAt ?? now} /></li>
           </ul>
@@ -229,18 +229,12 @@ export default function Home() {
       {reason && <WhyCard reason={reason} offline={v.offline} />}
 
       <section className="card" aria-labelledby="places-routes">
-        <div>
-          <p className="eyebrow">Available places</p>
-          <h2 className="h2" id="places-routes">Routes home</h2>
-        </div>
+        <h2 className="h2" id="places-routes">Routes home</h2>
         <ul className="list">{routes.map((r) => <li key={r.id}><PlaceRow place={r} /></li>)}</ul>
       </section>
 
       <section className="card" aria-labelledby="places-spots">
-        <div>
-          <p className="eyebrow">Available places</p>
-          <h2 className="h2" id="places-spots">Safe spots on campus</h2>
-        </div>
+        <h2 className="h2" id="places-spots">Safe spots on campus</h2>
         <ul className="list">{spots.map((p) => <li key={p.id}><PlaceRow place={p} /></li>)}</ul>
       </section>
     </div>
