@@ -1,8 +1,19 @@
 # Alangilan route approvals
 
 This folder will hold the **human approval records** for the five Alangilan road-based routes, and the
-**shared campus-exit evidence** they rely on. It currently contains only this README: there are no records yet, every route is still not approved,
-and no road geometry is used by the app.
+**shared campus-exit evidence** they rely on. It currently contains only this README: there are no records yet and every route is still not approved;
+no reviewed road geometry is used by the app (see the status update below).
+
+> **Status update (26 November 2026).** Since Iteration 4 the app no longer shows the hand-drawn routes. It shows
+> unreviewed road-following trip routes generated with OSRM over OpenStreetMap (`npm run routes:campuses`,
+> `src/campuses/alangilan.trip.roads.ts`, enabled by `PREVIEW_ON` in `src/campuses/alangilan.ts`), validated at runtime
+> and labelled as not checked on site. Formal approval is still pending: no approval record exists, and formally
+> reviewed geometry (`src/campuses/alangilan.roads.ts`, currently `null`) would take precedence once approved.
+> Statements below about hand-drawn routes describe the state when this document was written.
+>
+> A sixth Alangilan route, **Rosario**, was added on 26 November 2026. It is not part of this approval workflow
+> (`ROUTE_IDS` in `src/lib/routeChecks.js` lists the original five). Add it to the workflow before supplying a reviewed
+> road set; otherwise that set will not match the app's six routes and the app falls back to the hand-drawn paths.
 
 Approval is checked by a developer-only, **validate-only** tool:
 

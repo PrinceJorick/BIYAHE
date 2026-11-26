@@ -15,7 +15,10 @@ import { VERSIONS } from './routeVersions'
 
 const ANCHOR: LatLng = [13.7842, 121.0744]
 const CTX = { campusId: 'alangilan', anchor: ANCHOR }
-const hand = (): Corridor[] => structuredClone(ALANGILAN_HAND_DRAWN_CORRIDORS)
+// The historical preview record covers the original five routes (Rosario was added later), so the mechanism is
+// exercised against those five.
+const FIVE = ALANGILAN_HAND_DRAWN_CORRIDORS.filter((c) => ALANGILAN_PREVIEW_ROADS.routes.some((r) => r.routeId === c.id))
+const hand = (): Corridor[] => structuredClone(FIVE)
 const preview = (): PreviewRoadSet => structuredClone(ALANGILAN_PREVIEW_ROADS)
 
 // A synthetic, internally valid formal set (different paths from the preview, so the source is visible).
@@ -25,7 +28,7 @@ function formalSet(): ReviewedRoadSet {
     format: REVIEWED_ROADS_FORMAT, campus: 'alangilan', campusAnchor: [...ANCHOR] as LatLng, versions: { ...VERSIONS },
     runId: 'R-1', geojsonSha256: 'e'.repeat(64),
     evidence: { path: evidenceRecordPath('alangilan'), recordSha256: 'f'.repeat(64), commitSha: 'c'.repeat(40) },
-    routes: ALANGILAN_HAND_DRAWN_CORRIDORS.map((c, i) => {
+    routes: FIVE.map((c, i) => {
       const path: LatLng[] = [ANCHOR, [r5(13.79 + i / 1000), r5(121.06 + i / 1000)]]
       return { routeId: c.id, path, routeGeometrySha256: routeGeometryHash(path, ANCHOR), pathEnds: c.id === 'lipa' || c.id === 'tanauan' ? 'partial' : null,
         approval: { path: approvalRecordPath('alangilan', c.id), recordSha256: 'a'.repeat(64), commitSha: 'c'.repeat(40) } }
@@ -48,12 +51,12 @@ describe('preview activation: all five or none', () => {
     expect(res).toMatchObject({ active: true, problems: [] })
     res.corridors.forEach((c, i) => {
       const { path, ...rest } = c
-      const { path: _p, ...orig } = ALANGILAN_HAND_DRAWN_CORRIDORS[i]
+      const { path: _p, ...orig } = FIVE[i]
       expect(rest).toEqual(orig)                                        // labels, via, travel times, counts unchanged
       expect(path).toEqual(ALANGILAN_PREVIEW_ROADS.routes[i].path)
-      expect(path.length).toBeGreaterThan(ALANGILAN_HAND_DRAWN_CORRIDORS[i].path.length)
+      expect(path.length).toBeGreaterThan(FIVE[i].path.length)
     })
-    expect(hd).toEqual(ALANGILAN_HAND_DRAWN_CORRIDORS)
+    expect(hd).toEqual(FIVE)
   })
 
   it('null leaves the hand-drawn corridors', () => {
@@ -109,7 +112,7 @@ describe('precedence', () => {
   it('3. no formal geometry and preview disabled (ordinary production): hand-drawn', () => {
     const r = select(null, false)
     expect(r.source).toBe('hand-drawn')
-    expect(r.corridors).toEqual(ALANGILAN_HAND_DRAWN_CORRIDORS)
+    expect(r.corridors).toEqual(FIVE)
     expect(r.preview).toBeNull()
   })
 
@@ -118,7 +121,7 @@ describe('precedence', () => {
     bad.routes = bad.routes.slice(0, 4)
     const r = select(bad, true)
     expect(r.source).toBe('hand-drawn')
-    expect(r.corridors).toEqual(ALANGILAN_HAND_DRAWN_CORRIDORS)
+    expect(r.corridors).toEqual(FIVE)
     expect(r.formal.active).toBe(false)
     expect(r.formal.problems.join('\n')).toMatch(/route tanauan is missing/)
     expect(r.preview).toBeNull()
@@ -129,7 +132,7 @@ describe('precedence', () => {
     p.routes.pop()
     const r = select(null, true, p)
     expect(r.source).toBe('hand-drawn')
-    expect(r.corridors).toEqual(ALANGILAN_HAND_DRAWN_CORRIDORS)
+    expect(r.corridors).toEqual(FIVE)
     expect(r.preview?.active).toBe(false)
     expect(r.previewRoutes).toBeNull()
   })

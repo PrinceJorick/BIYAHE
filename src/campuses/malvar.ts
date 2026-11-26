@@ -27,6 +27,9 @@ export const MALVAR_HAND_DRAWN_CORRIDORS: Corridor[] = [
     path: [LOCATION, [14.0786, 121.1497], [14.108, 121.1462]] },
   { id: 'mv-batangas', name: 'Batangas City', via: 'JP Laurel Hwy', usualMin: 55, commuters: 60,
     path: [LOCATION, [13.9554, 121.1606], [13.8786, 121.1047], [13.7904, 121.061]] },
+  // Added 2026-11-26: Balete borders Malvar (direct Balete-Malvar jeepney); OSRM driving 11 min.
+  { id: 'mv-balete', name: 'Balete', via: 'Balete–Malvar Rd', usualMin: 25, commuters: 40,
+    path: [LOCATION, [14.0389, 121.1311], [14.036, 121.1125], [14.0275, 121.0966], [14.019, 121.0942]] },
 ]
 
 export const malvarRouteGeometry = selectCorridorGeometry({

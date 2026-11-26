@@ -52,6 +52,8 @@ describe('AI explanation (Gemini)', () => {
     expect((await handleExplain(new Request('http://app.test/api/explain'), {}, gemini(''))).status).toBe(405)
     expect((await handleExplain(post(reason, { 'content-type': 'text/plain' }), {}, gemini(''))).status).toBe(415)
     expect((await handleExplain(post(reason, { 'content-type': 'application/json', origin: 'https://evil.example' }), {}, gemini(''))).status).toBe(403)
+    // Sandboxed frames send `Origin: null`: refused, not a crash.
+    expect((await handleExplain(post(reason, { 'content-type': 'application/json', origin: 'null' }), {}, gemini(''))).status).toBe(403)
     expect((await handleExplain(post({ rule: 1 }), { GEMINI_API_KEY: 'k' }, gemini(''))).status).toBe(400)
     const ok = await handleExplain(post(reason), { GEMINI_API_KEY: 'k' }, gemini('{"explanation":"Light traffic, so head home."}'))
     expect(await ok.json()).toMatchObject({ explanation: 'Light traffic, so head home.' })

@@ -1,5 +1,5 @@
 // Map (wireframes 3 and 4): the map fills the screen above the app's bottom navigation. Phones: the place sits in
-// a chip at the top and one Details button just above the navigation opens the details (where it goes, how long
+// a chip at the top and one Show details button just above the navigation opens the details (where it goes, how long
 // it takes now, when to leave, map layers, every other place) at the top of the map. Wide screens: the details
 // sit in a panel on the left, open.
 import { ArrowRight, Building2, ChevronUp, CloudRain, Layers, Route as RouteIcon } from 'lucide-react'

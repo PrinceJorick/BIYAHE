@@ -299,7 +299,8 @@ describe('corridor config (src/lib/routeChecks.js, re-exported by scripts/routes
       expect(c.end).toEqual(app!.path[app!.path.length - 1])
       expect(c.appViaLabel).toBe(app!.via)
     }
-    expect(CORRIDORS.map((c) => c.id)).toEqual(alangilan.corridors.map((c) => c.id))
+    // Formal scope: the original five lead the app's list (Rosario, added later, is outside formal review).
+    expect(alangilan.corridors.map((c) => c.id).slice(0, CORRIDORS.length)).toEqual(CORRIDORS.map((c) => c.id))
   })
 
   it('applies a bearing only to the San Jose destination coordinate', () => {

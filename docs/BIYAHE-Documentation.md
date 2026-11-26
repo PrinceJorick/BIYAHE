@@ -2,7 +2,8 @@
 
 **Safer journeys. Brighter tomorrows.**
 
-BeansDev (Team 11) · CS Bootcamp: Build the Way Forward · Iteration 5 · 20 November 2026
+BeansDev (Team 11) · CS Bootcamp: Build the Way Forward · Iteration 5 · 20 November 2026 (audit update
+26 November 2026)
 
 Live app: <https://biyahe-beansdev.vercel.app> · Repository: `PrinceJorick/BIYAHE` (branch `main`)
 
@@ -95,7 +96,9 @@ stays on the device and can be changed from Settings.
 
 ### 3.2 Home
 
-![Home](screens/02-home.png)
+| Top of Home | Where do you want to go? |
+|---|---|
+| ![Home](screens/02-home.png) | ![Home options](screens/02-home-options.png) |
 
 1. **Context line** with the campus and route home.
 2. **Urgent alert strip** when a critical advisory or one for the student's route is active.
@@ -181,7 +184,8 @@ database); privacy; build information; switching role.
 
 Route risk map and list with estimated affected students per route, safe-spot occupancy and amenities, the advisory
 lifecycle, and the **Batangas News & LGU Monitor** (the four latest local weather reports, marked as third-party
-reports to check before publishing). Only the DRRMO Coordinator role can publish; marshals and guards read only.
+reports to check before publishing). Only the DRRMO Coordinator role can create, publish or resolve advisories;
+Building Marshal and Guard on Duty see advisories read-only but can update safe-spot occupancy and amenities.
 
 ---
 
@@ -231,6 +235,7 @@ GEMINI_API_KEY=               # server only, optional
 GEMINI_MODEL=                 # optional, default gemini-2.5-flash
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
+# VITE_WALK_ROUTER_URL=       # optional own OSRM foot router; unset = FOSSGIS, empty = walking routes off
 ```
 
 `VITE_*` values are compiled into the browser bundle and are public by design: restrict them to the site's domains
@@ -275,8 +280,46 @@ trip.
 | Bauan / San Pascual | Bauan Municipal Hall | 10.6 km | Batangas City–San Pascual–Bauan Bypass Road |
 | San Jose / Ibaan | San Jose poblacion | 12.5 km | President Jose P. Laurel Highway |
 | Tanauan / Sto. Tomas | Tanauan City Hall | 39.8 km | JP Laurel Highway, STAR Tollway |
+| Rosario | Rosario Municipal Hall | 19.2 km | Batangas–Ibaan Road, Ibaan–Rosario Road |
 
-Pablo Borbon and Malvar have their own routes in `src/campuses/`.
+| Route (Pablo Borbon) | Destination | Length | Main roads |
+|---|---|---:|---|
+| Lipa City | Lipa City Grand Terminal | 29.1 km | President Jose P. Laurel Highway |
+| San Jose | San Jose poblacion | 16.2 km | President Jose P. Laurel Highway |
+| Bauan / San Pascual | Bauan Municipal Hall | 7.9 km | National Highway 436 |
+| Ibaan / Rosario | Rosario Municipal Hall | 22.9 km | Batangas–Ibaan Road, Ibaan–Rosario Road |
+| Lemery / Taal | Lemery Municipal Hall | 30.3 km | National Highway 436, Batangas City–San Pascual–Bauan Bypass Road |
+
+| Route (JPLPC-Malvar) | Destination | Length | Main roads |
+|---|---|---:|---|
+| Lipa City | Lipa City Grand Terminal | 11.0 km | President Jose P. Laurel Highway |
+| Tanauan City | Tanauan City Hall | 7.8 km | STAR Tollway |
+| Sto. Tomas | Santo Tomas Public Market | 7.7 km | President Jose P. Laurel Highway |
+| Batangas City | Batangas City Grand Terminal | 35.0 km | President Jose P. Laurel Highway |
+| Balete | Balete Municipal Hall | 9.0 km | Balete–Malvar Road |
+
+Usual times for Pablo Borbon, Malvar and the added Alangilan route are the OSRM driving time × 1.8 + 5 minutes for
+stops and waiting, rounded to 5. Commuter counts per route are simulated demo values.
+
+### Route coverage review (26 November 2026)
+
+No public data gives where BatStateU students live, so the review compared each campus's routes with the public
+transport that serves it and with the 2020 census populations of the towns on each corridor.
+
+| Campus | Gap found | Evidence | Decision |
+|---|---|---|---|
+| Alangilan | Rosario (128,352), the largest town with a direct jeepney but no route | Batangas City Grand Terminal (beside campus) – Rosario jeepney (BTG-J12 / BN-05); Supreme buses to Ibaan, Rosario and San Juan | Added **Rosario** |
+| Pablo Borbon | The western corridor past Bauan: Lemery (93,186), Taal (61,460), San Luis (36,172) | Bauan – Lemery jeepney (BTG-J13); Batangas City – Lemery jeepney; BSC buses to Balayan and Nasugbu via Lemery | Added **Lemery / Taal** |
+| JPLPC-Malvar | Balete (24,055), the only neighbouring town without a route | Balete – Malvar jeepney (BTG-J04) | Added **Balete** |
+| Batangas City campuses | The eastern corridor: Taysan (40,146), Lobo (40,736) | Batangas City (SM) – Lobo jeepney (BTG-J10); Batangas City network BE | Not added: smaller than the corridors above; a candidate for the next review |
+
+Sources: OpenStreetMap wiki, *Batangas/Public transportation* (revision of 28 May 2026); commutetour.com, *Batangas
+City Grand Terminal* (updated 15 January 2026); Wikivoyage, *Batangas City*; PSA 2020 Census of Population and Housing
+(as tabulated by batangashistory.date). Route lists are community-maintained and should be confirmed with the LGU or
+LTFRB. Destinations were geocoded with OpenStreetMap Nominatim on 26 November 2026.
+
+The added Alangilan route is outside the formal approval workflow (`docs/routes/approvals`), which covers the
+original five; it must be added there before any reviewed route set is supplied.
 
 ---
 
@@ -336,7 +379,7 @@ Supabase, Lucide icons, Vercel Functions.
 
 ## 11. Quality
 
-- **983 automated tests** (Vitest): recommendation rules and reasons, routing data, traffic and departure scoring,
+- **998 automated tests in 36 files** (Vitest, 26 November 2026): recommendation rules and reasons, routing data, traffic and departure scoring,
   Routes API parsing and caching, Google Weather parsing, alerts and caching, Currents parsing and the weather-only
   filter, Gemini input/output checks, map model and label placement, offline tiles, advisory lifecycle, storage.
 - **Accessibility**: axe-core clean on every screen; 13 px minimum text; 44 px touch targets; keyboard and dialog
@@ -351,14 +394,16 @@ Supabase, Lucide icons, Vercel Functions.
 
 - Supabase is not configured: campus data is simulated on each device and staff access is enforced in the app only.
   Staff authentication and row-level security are needed before real use.
-- The Google Weather key currently returns 403 in production because of its restriction; weather shows
-  "unavailable" until it is changed (see section 5).
+- As of 20 November 2026 the production Google Weather key returned 403 because of its restriction; weather
+  shows "unavailable" until it is changed (see section 5). Recheck after any key change.
 - Gemini explanations depend on the project's AI Studio credit; without it the app keeps its own wording.
 - PAGASA alerts arrive only through Google Weather public alerts; LGU advisories are simulated (no public feed).
 - Offline street tiles exist only after the app has been opened online with the service worker active; zooming past
   the saved levels shows the dot grid.
 - Walking routes start from the campus point, not the student's position (the app does not track location).
-- Route lines and safe-spot positions are map-derived and not checked on site; the map's info icon says so.
+- Route lines and safe-spot positions are map-derived and not checked on site; the map's info icon says so. The
+  formal route-approval workflow (`docs/routes/`, `npm run routes:approve`) has no approval records yet.
+- Older design screenshots (Profile tab, BatStateU sign-in) are kept in `docs/screens/legacy/` as history only.
 
 ---
 

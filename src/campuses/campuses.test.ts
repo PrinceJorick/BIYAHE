@@ -30,6 +30,8 @@ describe('Alangilan reference data (pinned before the registry move)', () => {
         path: [[13.7842, 121.0744], [13.792, 121.085], [13.805, 121.1], [13.82, 121.115]] },
       { id: 'tanauan', name: 'Tanauan / Sto. Tomas', via: 'STAR Tollway', usualMin: 65, commuters: 45,
         path: [[13.7842, 121.0744], [13.795, 121.078], [13.82, 121.085], [13.85, 121.095]] },
+      { id: 'rosario', name: 'Rosario', via: 'Batangas–Ibaan Rd', usualMin: 45, commuters: 70,
+        path: [[13.7842, 121.0744], [13.7931, 121.0858], [13.7927, 121.1006], [13.8271, 121.1514], [13.8455, 121.2063]] },
     ])
   })
 
@@ -159,8 +161,8 @@ describe('Pablo Borbon', () => {
     expect(pabloBorbon.location).toEqual([13.75547, 121.05364])
   })
 
-  it('has four routes drawn along roads and two safe spots', () => {
-    expect(pabloBorbon.corridors.map((c) => c.id)).toEqual(['pb-lipa', 'pb-sanjose', 'pb-bauan', 'pb-rosario'])
+  it('has five routes drawn along roads and two safe spots', () => {
+    expect(pabloBorbon.corridors.map((c) => c.id)).toEqual(['pb-lipa', 'pb-sanjose', 'pb-bauan', 'pb-rosario', 'pb-lemery'])
     expect(pabloBorbonRouteGeometry.source).toBe('preview')
     for (const c of pabloBorbon.corridors) expect(c.path.length).toBeGreaterThan(20)
     expect(pabloBorbon.spots.map((x) => x.id)).toEqual(['pb-gym', 'pb-library'])
@@ -226,8 +228,8 @@ describe('Malvar', () => {
     expect(malvar.location).toEqual([14.0449, 121.1569])
   })
 
-  it('has four routes drawn along roads and a safe spot', () => {
-    expect(malvar.corridors.map((c) => c.id)).toEqual(['mv-lipa', 'mv-tanauan', 'mv-stotomas', 'mv-batangas'])
+  it('has five routes drawn along roads and a safe spot', () => {
+    expect(malvar.corridors.map((c) => c.id)).toEqual(['mv-lipa', 'mv-tanauan', 'mv-stotomas', 'mv-batangas', 'mv-balete'])
     expect(malvarRouteGeometry.source).toBe('preview')
     for (const c of malvar.corridors) expect(c.path.length).toBeGreaterThan(20)
     expect(malvar.spots.map((x) => x.id)).toEqual(['mv-gym'])
