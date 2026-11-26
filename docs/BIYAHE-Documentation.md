@@ -236,7 +236,7 @@ VITE_GOOGLE_MAPS_MAP_ID=      # optional cloud-styled vector map
 VITE_GOOGLE_ROUTES_API_KEY=   # optional separate Routes API browser key
 CURRENTS_API_KEY=             # server only
 VITE_GOOGLE_WEATHER_API_KEY=  # browser key; website restriction + API restriction: Weather API (else the Maps key)
-GOOGLE_WEATHER_API_KEY=       # server only, used without a browser key; API restriction: Weather API; application restriction: none
+GOOGLE_WEATHER_API_KEY=       # server only, used without a browser key; API restriction: Weather API; website restriction allowed
 GEMINI_API_KEY=               # server only, optional
 GEMINI_MODEL=                 # optional, default gemini-2.5-flash
 VITE_SUPABASE_URL=
@@ -248,8 +248,8 @@ VITE_SUPABASE_ANON_KEY=
 and to the APIs they need. The other keys never reach the browser. Weather is asked from the browser when the build
 has `VITE_GOOGLE_WEATHER_API_KEY` (or a Maps key that also allows the Weather API): that key carries the site's
 website restriction, and the request sends the page's `Referer`. Without one, `/api/weather` uses
-`GOOGLE_WEATHER_API_KEY`, which must not carry a website restriction (server requests have no `Referer`; Google
-answers 403). `VITE_*` values are fixed at build time: after changing one in Vercel, redeploy.
+`GOOGLE_WEATHER_API_KEY`; the function sends its own site address as the `Referer`, so the same website-restricted
+key works there too. `VITE_*` values are fixed at build time: after changing one in Vercel, redeploy.
 
 **Deploying (Vercel).** `vercel.json` sets the Vite framework, `npm run build` and the `dist` output, and sends every
 non-API path to `index.html`. `api/news.ts`, `api/weather.ts` and `api/explain.ts` deploy as Vercel Functions. Set the
@@ -404,9 +404,9 @@ Supabase, Lucide icons, Vercel Functions.
 
 - Supabase is not configured: campus data is simulated on each device and staff access is enforced in the app only.
   Staff authentication and row-level security are needed before real use.
-- Weather works through the browser key `VITE_GOOGLE_WEATHER_API_KEY` (verified 26 November 2026). The server key
-  behind `/api/weather` still answers 403 (`PERMISSION_DENIED`); it is only a fallback for builds without the browser
-  key.
+- Weather works through the browser key `VITE_GOOGLE_WEATHER_API_KEY` and through `/api/weather` (both verified
+  26 November 2026 for all three campuses). The server sends the site's address as the `Referer`, so its key may keep
+  the website restriction.
 - Gemini explanations depend on the project's AI Studio credit; without it the app keeps its own wording.
 - PAGASA alerts arrive only through Google Weather public alerts; LGU advisories are simulated (no public feed).
 - Offline street tiles exist only after the app has been opened online with the service worker active; zooming past

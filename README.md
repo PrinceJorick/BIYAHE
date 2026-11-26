@@ -45,7 +45,7 @@ Everything works with no keys (demo data, the app's own map over OpenStreetMap t
 | `VITE_GOOGLE_ROUTES_API_KEY` | Optional separate browser key for the Routes API (falls back to the Maps key) | Same console, restricted to your sites and **Routes API** |
 | `CURRENTS_API_KEY` | Local news via `/api/news` (server only) | [currentsapi.services](https://currentsapi.services) (free: 250 requests/day) |
 | `VITE_GOOGLE_WEATHER_API_KEY` | Weather, hourly rain chance and PAGASA alerts, asked from the browser (falls back to the Maps key, then to the server key) | Google Cloud: enable **Weather API**; key restricted to your sites and **Weather API**; set a quota and budget alert (billable) |
-| `GOOGLE_WEATHER_API_KEY` | The same via `/api/weather` (server only), used when the build has no browser weather key | Same API; application restriction **None** (server requests send no `Referer`, so a website restriction answers 403) |
+| `GOOGLE_WEATHER_API_KEY` | The same via `/api/weather` (server only), used when the build has no browser weather key | Same API; the same website restriction works, because the server sends its own site address as the `Referer` |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | Optional plain-language explanation of the recommendation via `/api/explain` (server only) | [aistudio.google.com/apikey](https://aistudio.google.com/apikey); model defaults to `gemini-2.5-flash` |
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Shared live data across devices | Supabase project; run `supabase/schema.sql` then `supabase/migrations/*.sql` |
 | `VITE_WALK_ROUTER_URL` | Optional own OSRM foot router | Leave unset for the public FOSSGIS router |
