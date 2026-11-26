@@ -1,8 +1,12 @@
 // Build-time constants and the environment variables the app reads (all optional; see .env.example).
 
 interface ImportMetaEnv {
-  /** Google Maps Platform browser key (Maps JavaScript API + Routes API). Unset: simple offline map, estimated traffic. */
+  /** Google Maps Platform browser key (Maps JavaScript API + Routes API). Unset: OpenStreetMap map, estimated traffic. */
   readonly VITE_GOOGLE_MAPS_API_KEY?: string
+  /** Optional separate browser key for the Routes API. Unset: the Maps key. */
+  readonly VITE_GOOGLE_ROUTES_API_KEY?: string
+  /** Browser key for the Google Weather API (website-restricted). Unset: the Maps key, else /api/weather on the server. */
+  readonly VITE_GOOGLE_WEATHER_API_KEY?: string
   /** Optional Google Map ID for a cloud-styled vector map. Unset: built-in muted raster style. */
   readonly VITE_GOOGLE_MAPS_MAP_ID?: string
   /** Supabase project URL. Unset: the app runs on device data (IndexedDB + cross-tab sync). */

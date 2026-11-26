@@ -195,7 +195,7 @@ Building Marshal and Guard on Duty see advisories read-only but can update safe-
 |---|---|---|---|---|
 | **Google Maps JavaScript API** | Street map, live traffic layer | `VITE_GOOGLE_MAPS_API_KEY` (browser, restricted to the site) | Browser | OpenStreetMap or the plain map |
 | **Google Routes API** (`computeRoutes`, traffic-aware) | Trip time now and free-flow, road geometry, forecasts for later departures | `VITE_GOOGLE_ROUTES_API_KEY` (browser; falls back to the Maps key) | Browser | Times estimated from route reports |
-| **Google Weather API** | Current conditions, hourly forecast, PAGASA public alerts | `GOOGLE_WEATHER_API_KEY` (server only) | `/api/weather` | Last reading as a saved copy, else "Weather unavailable" |
+| **Google Weather API** | Current conditions, hourly forecast, PAGASA public alerts | `VITE_GOOGLE_WEATHER_API_KEY` (browser, website-restricted; falls back to the Maps key), else `GOOGLE_WEATHER_API_KEY` (server only) | Browser, else `/api/weather` | Last reading as a saved copy; with none, "Weather unavailable" and **Retry**; with no key at all, "Weather feed not configured for this build" |
 | **Currents News API** | Local weather news | `CURRENTS_API_KEY` (server only, Bearer token) | `/api/news` | No news section |
 | **Gemini** | Plain-language rewording of BIYAHE's own reason | `GEMINI_API_KEY`, `GEMINI_MODEL` (server only) | `/api/explain` | The rule and facts as they are |
 | **Supabase** (PostgreSQL + Realtime) | Shared route status, safe spots, advisories | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Browser | Device data and cross-tab sync, marked *Simulated* |
@@ -230,7 +230,8 @@ VITE_GOOGLE_MAPS_API_KEY=     # Maps JavaScript API (browser key, website-restri
 VITE_GOOGLE_MAPS_MAP_ID=      # optional cloud-styled vector map
 VITE_GOOGLE_ROUTES_API_KEY=   # optional separate Routes API browser key
 CURRENTS_API_KEY=             # server only
-GOOGLE_WEATHER_API_KEY=       # server only; API restriction: Weather API; application restriction: none
+VITE_GOOGLE_WEATHER_API_KEY=  # browser key; website restriction + API restriction: Weather API (else the Maps key)
+GOOGLE_WEATHER_API_KEY=       # server only, used without a browser key; API restriction: Weather API; application restriction: none
 GEMINI_API_KEY=               # server only, optional
 GEMINI_MODEL=                 # optional, default gemini-2.5-flash
 VITE_SUPABASE_URL=
@@ -239,8 +240,11 @@ VITE_SUPABASE_ANON_KEY=
 ```
 
 `VITE_*` values are compiled into the browser bundle and are public by design: restrict them to the site's domains
-and to the APIs they need. The other keys never reach the browser. The Weather key is called from the server, so it
-must not carry a website restriction (that returns 403).
+and to the APIs they need. The other keys never reach the browser. Weather is asked from the browser when the build
+has `VITE_GOOGLE_WEATHER_API_KEY` (or a Maps key that also allows the Weather API): that key carries the site's
+website restriction, and the request sends the page's `Referer`. Without one, `/api/weather` uses
+`GOOGLE_WEATHER_API_KEY`, which must not carry a website restriction (server requests have no `Referer`; Google
+answers 403). `VITE_*` values are fixed at build time: after changing one in Vercel, redeploy.
 
 **Deploying (Vercel).** `vercel.json` sets the Vite framework, `npm run build` and the `dist` output, and sends every
 non-API path to `index.html`. `api/news.ts`, `api/weather.ts` and `api/explain.ts` deploy as Vercel Functions. Set the
@@ -368,7 +372,8 @@ Supabase, Lucide icons, Vercel Functions.
 | `src/components/NewsArticleRow.tsx` | One news article, online link or offline sheet |
 | `src/lib/apiCache.ts` | Shared request cache: dedupe, TTL, cooldowns, fallbacks |
 | `src/lib/googleRoutes.ts`, `src/lib/traffic.ts` | Routes API client, traffic levels, departure options |
-| `src/lib/weather.ts`, `src/lib/news.ts`, `src/lib/explain.ts` | Clients for `/api/weather`, `/api/news`, `/api/explain` |
+| `src/lib/weather.ts`, `src/lib/googleWeather.ts` | Weather in the app (browser key, else `/api/weather`) and the shared Google Weather client used by both |
+| `src/lib/news.ts`, `src/lib/explain.ts` | Clients for `/api/news`, `/api/explain` |
 | `src/lib/places.ts` | Places, recommendations and their reasons |
 | `src/lib/offlineTiles.ts` | Weekly save of OpenStreetMap tiles for the offline map |
 | `src/lib/store.ts` | App state, sync, polling |
@@ -379,7 +384,7 @@ Supabase, Lucide icons, Vercel Functions.
 
 ## 11. Quality
 
-- **998 automated tests in 36 files** (Vitest, 26 November 2026): recommendation rules and reasons, routing data, traffic and departure scoring,
+- **1001 automated tests in 36 files** (Vitest, 26 November 2026): recommendation rules and reasons, routing data, traffic and departure scoring,
   Routes API parsing and caching, Google Weather parsing, alerts and caching, Currents parsing and the weather-only
   filter, Gemini input/output checks, map model and label placement, offline tiles, advisory lifecycle, storage.
 - **Accessibility**: axe-core clean on every screen; 13 px minimum text; 44 px touch targets; keyboard and dialog
@@ -394,8 +399,9 @@ Supabase, Lucide icons, Vercel Functions.
 
 - Supabase is not configured: campus data is simulated on each device and staff access is enforced in the app only.
   Staff authentication and row-level security are needed before real use.
-- As of 20 November 2026 the production Google Weather key returned 403 because of its restriction; weather
-  shows "unavailable" until it is changed (see section 5). Recheck after any key change.
+- On 26 November 2026 the production `/api/weather` still answered Google's 403 (its key has a website restriction).
+  Builds with `VITE_GOOGLE_WEATHER_API_KEY` ask Google from the browser instead; without it, remove the server key's
+  website restriction (see section 5).
 - Gemini explanations depend on the project's AI Studio credit; without it the app keeps its own wording.
 - PAGASA alerts arrive only through Google Weather public alerts; LGU advisories are simulated (no public feed).
 - Offline street tiles exist only after the app has been opened online with the service worker active; zooming past

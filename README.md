@@ -44,7 +44,8 @@ Everything works with no keys (demo data, the app's own map over OpenStreetMap t
 | `VITE_GOOGLE_MAPS_MAP_ID` | Optional cloud-styled vector map | Google Maps Platform → Map management |
 | `VITE_GOOGLE_ROUTES_API_KEY` | Optional separate browser key for the Routes API (falls back to the Maps key) | Same console, restricted to your sites and **Routes API** |
 | `CURRENTS_API_KEY` | Local news via `/api/news` (server only) | [currentsapi.services](https://currentsapi.services) (free: 250 requests/day) |
-| `GOOGLE_WEATHER_API_KEY` | Weather, hourly rain chance and PAGASA alerts via `/api/weather` (server only) | Google Cloud: enable **Weather API**, key restricted to it; set a quota and budget alert (billable) |
+| `VITE_GOOGLE_WEATHER_API_KEY` | Weather, hourly rain chance and PAGASA alerts, asked from the browser (falls back to the Maps key, then to the server key) | Google Cloud: enable **Weather API**; key restricted to your sites and **Weather API**; set a quota and budget alert (billable) |
+| `GOOGLE_WEATHER_API_KEY` | The same via `/api/weather` (server only), used when the build has no browser weather key | Same API; application restriction **None** (server requests send no `Referer`, so a website restriction answers 403) |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | Optional plain-language explanation of the recommendation via `/api/explain` (server only) | [aistudio.google.com/apikey](https://aistudio.google.com/apikey); model defaults to `gemini-2.5-flash` |
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Shared live data across devices | Supabase project; run `supabase/schema.sql` then `supabase/migrations/*.sql` |
 | `VITE_WALK_ROUTER_URL` | Optional own OSRM foot router | Leave unset for the public FOSSGIS router |
@@ -67,7 +68,7 @@ npm run preview    # http://localhost:4173, the installable offline build
 | Google Maps JavaScript API | Street map, live traffic layer | The app's own map over OpenStreetMap tiles (saved tiles offline; plain dot grid in Low-Battery Mode) |
 | OpenStreetMap tiles | Streets on the app's own map | Plain dot grid |
 | Google Routes API | Traffic-aware trip times, Google road geometry, traffic forecast for later departures | Times estimated from route reports |
-| Google Weather API (via `/api/weather`) | Current conditions, hourly chance of rain (Estimate), PAGASA public alerts (Official) | Last reading as a saved copy (cached up to 24 h); otherwise "Weather unavailable" |
+| Google Weather API (browser key, else `/api/weather`) | Current conditions, hourly chance of rain (Estimate), PAGASA public alerts (Official) | Last reading as a saved copy (cached up to 24 h); otherwise "Weather unavailable" with **Retry**, or "Weather feed not configured for this build" when no key exists |
 | Currents News API (via `/api/news`) | Local Batangas news, matched to campus and route by place | Saved copy for up to 24 hours, then none |
 | Gemini (via `/api/explain`) | Optional rewording of BIYAHE's own recommendation reason | The rule and facts BIYAHE used, shown as is |
 | Supabase (PostgreSQL + PostGIS + Realtime) | Route status, safe spots, advisories | IndexedDB snapshot, fixtures in `src/data.ts` |

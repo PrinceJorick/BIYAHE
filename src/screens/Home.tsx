@@ -1,6 +1,6 @@
 // Home (wireframe 1): weather and date, traffic flow, "Where do you want to go?" with three options, and every
 // place the student can go. Choosing an option or a place opens its details (#/go/<kind>/<id>).
-import { ChevronRight, Cloud, CloudFog, CloudLightning, CloudOff, CloudRain, Megaphone, Moon, ShieldAlert, Sparkles, Sun, type LucideIcon } from 'lucide-react'
+import { ChevronRight, Cloud, CloudFog, CloudLightning, CloudOff, CloudRain, Megaphone, MessageSquareText, Moon, RefreshCw, ShieldAlert, Sun, type LucideIcon } from 'lucide-react'
 import { createElement, useState } from 'react'
 import { ACTIVE_CAMPUS } from '../campuses/active'
 import Badge from '../components/Badge'
@@ -13,9 +13,9 @@ import { ago, clock, fmtMin, fmtRange, studentView } from '../lib/derive'
 import { fetchExplanation } from '../lib/explain'
 import { placeArg, placeShort, recommend, recommendationReason, routePlaces, spotPlaces, walkText, type Reason, type RoutePlace } from '../lib/places'
 import { hrefOf } from '../lib/router'
-import { isOffline, useApp, useNow, type State } from '../lib/store'
+import { isOffline, retryWeather, useApp, useNow, type State } from '../lib/store'
 import { levelOfTraffic, rainLevel } from '../lib/traffic'
-import { currentAlerts, skyOf, type Sky } from '../lib/weather'
+import { currentAlerts, skyOf, WEATHER_NOT_CONFIGURED, type Sky } from '../lib/weather'
 import { visibleNews } from './useTrip'
 
 const skyIcons: Record<Sky, LucideIcon> = { clear: Sun, cloud: Cloud, fog: CloudFog, rain: CloudRain, storm: CloudLightning }
@@ -46,9 +46,16 @@ function WeatherCard({ s, now, offline }: { s: State; now: number; offline: bool
           <CloudOff className="wx-icon" size={44} strokeWidth={1.6} aria-hidden="true" />
           <div className="wx-desc">
             <p className="h3">Weather unavailable</p>
-            <p className="meta">{offline ? 'No saved weather on this device yet. Weather needs a connection.' : s.weatherError ? 'Google Weather could not be reached. BIYAHE will try again.' : 'Loading the weather…'}</p>
+            <p className="meta">
+              {offline ? 'No saved weather on this device yet. Weather needs a connection.'
+                : s.weatherError === WEATHER_NOT_CONFIGURED ? `${WEATHER_NOT_CONFIGURED}.`
+                  : s.weatherError ? 'Google Weather could not be reached, and no reading is saved on this device yet.' : 'Loading the weather…'}
+            </p>
           </div>
         </div>
+        {!offline && s.weatherError && s.weatherError !== WEATHER_NOT_CONFIGURED && (
+          <button type="button" className="btn btn-secondary" onClick={() => void retryWeather()}><RefreshCw size={18} aria-hidden="true" />Retry</button>
+        )}
       </section>
     )
   }
@@ -116,11 +123,11 @@ function WhyCard({ reason, offline }: { reason: Reason; offline: boolean }) {
       <ul className="meta bullets">{reason.facts.map((f) => <li key={f}>{f}</li>)}</ul>
       <div aria-live="polite">
         {ai && ai !== 'loading' && 'text' in ai && (
-          <p className="body"><Sparkles size={16} aria-hidden="true" /> {ai.text} <span className="caption">(AI-written summary of the facts above · Gemini)</span></p>
+          <p className="body">{ai.text} <span className="caption">(AI-written summary of the facts above · Gemini)</span></p>
         )}
         {ai && ai !== 'loading' && 'error' in ai && <p className="caption">{ai.error}. The facts above are what BIYAHE used.</p>}
       </div>
-      {!offline && ai === null && <button type="button" className="btn btn-quiet btn-sm" onClick={ask}><Sparkles size={16} aria-hidden="true" />Explain in plain words</button>}
+      {!offline && ai === null && <button type="button" className="btn btn-quiet btn-sm" onClick={ask}><MessageSquareText size={16} aria-hidden="true" />Explain in plain words</button>}
       {ai === 'loading' && <p className="caption" role="status">Asking Gemini…</p>}
     </section>
   )

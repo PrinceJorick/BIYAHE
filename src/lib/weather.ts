@@ -1,9 +1,20 @@
-// Client side of /api/weather (api/weather.ts, Google Weather API): current conditions at the campus point, the
-// next hours' chance of rain (Home weather card, the map's "When should I leave?") and public weather alerts from
-// PAGASA. Conditions and forecasts are estimates; only alerts carry their issuing authority.
+// Google Weather API for the app: current conditions at the campus point, the next hours' chance of rain (Home
+// weather card, the map's "When should I leave?") and public weather alerts from PAGASA. Conditions and forecasts
+// are estimates; only alerts carry their issuing authority.
+//
+// With a browser key (VITE_GOOGLE_WEATHER_API_KEY, else the shared VITE_GOOGLE_MAPS_API_KEY) the browser asks
+// weather.googleapis.com directly, using the same lookups and parsers as the server (api/weather.ts), so a key with
+// a website restriction works: the request carries the page's Referer, like the Routes API key. Without one, the app
+// asks /api/weather, which uses the server-only GOOGLE_WEATHER_API_KEY.
 import { campuses } from '../campuses'
 import type { CampusId, HourForecast, Weather, WeatherAlert } from '../types'
+import { getWeather } from './googleWeather'
 import { cachedRequest, HttpError, type Cached } from './apiCache'
+
+/** Browser key for Google Weather: the dedicated key, else the shared Maps key (both trimmed; '' when neither). */
+export const WEATHER_BROWSER_KEY = import.meta.env.VITE_GOOGLE_WEATHER_API_KEY?.trim() || import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim() || ''
+/** Shown when neither this build nor the server has a Weather key. */
+export const WEATHER_NOT_CONFIGURED = 'Weather feed not configured for this build'
 
 // WMO-style codes (api/weather.ts maps Google's condition types onto them), grouped to the wording a commuter needs.
 export function weatherLabel(code: number): string {
@@ -53,7 +64,7 @@ export function parseWeatherPayload(json: unknown, now = Date.now()): Weather {
     current?: { observedAt?: unknown; tempC?: unknown; feelsLikeC?: unknown; label?: unknown; code?: unknown; isDay?: unknown; rainPct?: unknown; thunderPct?: unknown; precipMm?: unknown; windKph?: unknown }
     hourly?: unknown[]; alerts?: unknown[]
   } | null
-  if (d?.provider === 'none') throw new Error('Weather is not configured on the server')
+  if (d?.provider === 'none') throw new Error(WEATHER_NOT_CONFIGURED)
   const c = d?.current
   if (!c || !finite(c.tempC) || !finite(c.code) || typeof c.label !== 'string') {
     const msg = typeof d?.error === 'string' ? d.error : 'Google Weather: no current conditions'
@@ -95,7 +106,15 @@ export const weatherCacheKey = (campus: CampusId) => {
   return `weather:${campus}:${lat.toFixed(3)},${lng.toFixed(3)}:api-weather`
 }
 
-async function requestWeather(campus: CampusId, fetchImpl: typeof fetch): Promise<Weather> {
+let warned = false
+
+async function requestWeather(campus: CampusId, fetchImpl: typeof fetch, browserKey: string): Promise<Weather> {
+  // Same three lookups as the server, from the browser (no referrerPolicy override: the Referer must reach Google).
+  if (browserKey) return parseWeatherPayload(await getWeather(campus, { GOOGLE_WEATHER_API_KEY: browserKey }, fetchImpl))
+  if (!warned && import.meta.env.MODE !== 'test') {
+    warned = true
+    console.warn('Missing VITE_GOOGLE_WEATHER_API_KEY in build environment; asking /api/weather (server key) instead.')
+  }
   const ctl = new AbortController()
   const timer = setTimeout(() => ctl.abort(), 12_000)
   try {
@@ -112,10 +131,10 @@ async function requestWeather(campus: CampusId, fetchImpl: typeof fetch): Promis
  * answer within WEATHER_TTL_MS is reused, and a failure returns the last good answer marked `stale` with its
  * original time. Rejects only when there is nothing to fall back on.
  */
-export function fetchWeather(campus: CampusId, o: { manual?: boolean; fetchImpl?: typeof fetch; now?: () => number } = {}): Promise<Cached<Weather>> {
+export function fetchWeather(campus: CampusId, o: { manual?: boolean; fetchImpl?: typeof fetch; now?: () => number; browserKey?: string } = {}): Promise<Cached<Weather>> {
   return cachedRequest({
     key: weatherCacheKey(campus), ttlMs: WEATHER_TTL_MS, cooldownMs: WEATHER_COOLDOWN_MS, manual: o.manual, now: o.now,
-    fetcher: () => requestWeather(campus, o.fetchImpl ?? fetch),
+    fetcher: () => requestWeather(campus, o.fetchImpl ?? fetch, o.browserKey ?? WEATHER_BROWSER_KEY),
   })
 }
 

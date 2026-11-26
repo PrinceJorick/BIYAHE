@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CAMPUS_POINTS, codeOf, getWeather, handleWeather, parseAlerts, parseCurrent, parseHours, weatherKey } from '../../api/weather'
 import { campuses, CAMPUS_IDS } from '../campuses'
 import { clearApiCache, HttpError, isQuotaError, latestEntry } from './apiCache'
-import { currentAlerts, fetchWeather, hourAt, parseWeatherPayload, skyOf, weatherCacheKey, weatherLabel, WEATHER_COOLDOWN_MS, WEATHER_TTL_MS } from './weather'
+import { currentAlerts, fetchWeather, hourAt, parseWeatherPayload, skyOf, weatherCacheKey, weatherLabel, WEATHER_COOLDOWN_MS, WEATHER_NOT_CONFIGURED, WEATHER_TTL_MS } from './weather'
 
 const NOW = Date.parse('2026-11-20T08:40:00Z')
 
@@ -293,5 +293,39 @@ describe('server weather lookups (per Google endpoint)', () => {
     expect(r).toMatchObject({ stale: true, fetchedAt: T0 })
     expect(r.current?.tempC).toBe(28)
     expect(parseWeatherPayload(JSON.parse(JSON.stringify(r)), T0).live).toBe(false)
+  })
+})
+
+describe('browser weather (VITE_GOOGLE_WEATHER_API_KEY or the shared Maps key)', () => {
+  beforeEach(clearApiCache)
+  afterEach(clearApiCache)
+
+  it('with a browser key asks weather.googleapis.com directly at the campus point, never /api/weather, and keeps the Referer', async () => {
+    const calls: { url: string; init?: RequestInit }[] = []
+    const f = (async (url: string, init?: RequestInit) => {
+      calls.push({ url, init })
+      const body = url.includes('currentConditions') ? { currentTime: new Date(T0).toISOString(), isDaytime: true, weatherCondition: { type: 'CLEAR', description: { text: 'Clear' } }, temperature: { degrees: 30, unit: 'CELSIUS' } } : {}
+      return new Response(JSON.stringify(body))
+    }) as unknown as typeof fetch
+    const r = await fetchWeather('malvar', { fetchImpl: f, now: () => T0, browserKey: 'browser-key' })
+    expect(r.data.tempC).toBe(30)
+    expect(calls.map((c) => new URL(c.url).pathname).sort()).toEqual(['/v1/currentConditions:lookup', '/v1/forecast/hours:lookup', '/v1/publicAlerts:lookup'])
+    for (const c of calls) {
+      const u = new URL(c.url)
+      expect(u.origin).toBe('https://weather.googleapis.com')
+      expect(u.searchParams.get('key')).toBe('browser-key')
+      expect([Number(u.searchParams.get('location.latitude')), Number(u.searchParams.get('location.longitude'))]).toEqual([...campuses.malvar.location])
+      expect(c.init?.referrerPolicy).toBeUndefined()
+    }
+  })
+
+  it('a refused browser key (403) with nothing saved rejects with the status, so Home offers Retry', async () => {
+    const f = (async () => new Response('{}', { status: 403 })) as unknown as typeof fetch
+    await expect(fetchWeather('alangilan', { fetchImpl: f, now: () => T0, browserKey: 'k' })).rejects.toMatchObject({ status: 403 })
+  })
+
+  it('no browser key and no server key: "not configured", not "could not be reached"', async () => {
+    const f = (async () => new Response(JSON.stringify({ provider: 'none', fetchedAt: T0 }))) as unknown as typeof fetch
+    await expect(fetchWeather('alangilan', { fetchImpl: f, now: () => T0, browserKey: '' })).rejects.toThrow(WEATHER_NOT_CONFIGURED)
   })
 })

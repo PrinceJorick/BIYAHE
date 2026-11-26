@@ -52,11 +52,11 @@ export function TimeCompare({ route, label }: { route: RoutePlace; label: string
       <dl className="times-row">
         <div>
           <dt className="meta">{label}</dt>
-          <dd className="num">{fmtRange(t.minLo, t.minHi)}</dd>
+          <dd className="num">{fmtRange(t.minLo, t.minHi).replace(/ /g, '\u00a0')}</dd>
         </div>
         <div className="times-usual">
           <dt className="meta">Usual</dt>
-          <dd className="h2">{fmtMin(c.usualMin)}</dd>
+          <dd className="h2">{fmtMin(c.usualMin).replace(/ /g, '\u00a0')}</dd>
         </div>
       </dl>
       <div className="timebar" aria-hidden="true">

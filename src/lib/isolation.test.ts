@@ -61,7 +61,9 @@ const specifiers = (text: string) => [...text.matchAll(/(?:^|[\s;])(?:import|exp
   .map((m) => (m[1] ?? m[2]).replace(/\?.*$/, ''))
 function resolveLocal(from: string, spec: string): string | null {
   const base = normalize(`${from.slice(0, from.lastIndexOf('/'))}/${spec}`)
-  for (const c of [base, `${base}.ts`, `${base}.tsx`, `${base}.js`, `${base}/index.ts`, `${base}/index.tsx`]) if (sources.has(c)) return c
+  // './x.js' may name x.ts, as TypeScript's bundler resolution and Vite allow (files shared with api/ need the .js).
+  const ts = base.endsWith('.js') ? `${base.slice(0, -3)}.ts` : null
+  for (const c of [base, `${base}.ts`, `${base}.tsx`, `${base}.js`, ts, `${base}/index.ts`, `${base}/index.tsx`]) if (c && sources.has(c)) return c
   return base
 }
 function appGraph() {
