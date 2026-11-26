@@ -102,8 +102,12 @@ stays on the device and can be changed from Settings.
 
 1. **Context line** with the campus and route home.
 2. **Urgent alert strip** when a critical advisory or one for the student's route is active.
-3. **Weather**: Google Weather conditions, the chance of rain for the next five hours, and a PAGASA warning when one
-   is in force.
+3. **Weather**: live Google Weather conditions at the campus (temperature, sky, chance of rain and wind), the chance
+   of rain for the next five hours, and a PAGASA warning when one is in force, labelled *Estimate* with the time of the
+   reading. The browser asks Google directly with `VITE_GOOGLE_WEATHER_API_KEY` (checked working on 26 November 2026
+   from the production site and from `localhost`). When Google cannot be reached the card shows the last reading as a
+   *Saved copy* with its time; with no saved reading it says so and offers **Retry**; a build with no weather key
+   says *Weather feed not configured for this build*.
 4. **Traffic flow**: the level on the student's route, the trip time against the usual time, and the other routes.
 5. **Today near your route**: one local weather headline, only when there is one, with *More local news*.
 6. **Where do you want to go?**: three rows with the same layout. *Head home to* your route (marked *Best now* when it
@@ -129,8 +133,9 @@ For a safe spot: the walk, space left, amenities and walking directions.
 |---|---|
 | ![Map](screens/05-map.png) | ![Map with details](screens/06-map-open.png) |
 
-The map fills the screen above the bottom navigation. The place and its status sit in a chip at the top-left. An
-info icon at the top-right explains how the route lines were made. **Show details**, just above the navigation, drops
+The map fills the screen above the bottom navigation. The place and its status sit in a chip at the top-left. When
+a route line comes from OpenStreetMap (no live Google route for it yet), an info icon at the top-right explains how
+it was made; with the Routes API the line is Google's own route and the icon is not needed. **Show details**, just above the navigation, drops
 the details down over the top of the map:
 
 - the destination with the trip time now against the usual time, and *Full details*;
@@ -147,7 +152,7 @@ On desktop the details are a panel on the left that starts open.
 
 | Situation | Map |
 |---|---|
-| Online, Google key accepted | Google Maps (muted style or the cloud style of `VITE_GOOGLE_MAPS_MAP_ID`), with the live traffic layer |
+| Online, Google key accepted | Google Maps (muted style or the cloud style of `VITE_GOOGLE_MAPS_MAP_ID`), with the live traffic layer and Google's route for each line (Routes API) |
 | Online, no key or key rejected | The app's map over OpenStreetMap street tiles |
 | Offline | The app's map over OpenStreetMap tiles saved on the device ("Offline: saved streets") |
 | Low-Battery Mode | The app's plain map: route lines and pins on a dot grid, no tiles |
@@ -399,9 +404,9 @@ Supabase, Lucide icons, Vercel Functions.
 
 - Supabase is not configured: campus data is simulated on each device and staff access is enforced in the app only.
   Staff authentication and row-level security are needed before real use.
-- On 26 November 2026 the production `/api/weather` still answered Google's 403 (its key has a website restriction).
-  Builds with `VITE_GOOGLE_WEATHER_API_KEY` ask Google from the browser instead; without it, remove the server key's
-  website restriction (see section 5).
+- Weather works through the browser key `VITE_GOOGLE_WEATHER_API_KEY` (verified 26 November 2026). The server key
+  behind `/api/weather` still answers 403 (`PERMISSION_DENIED`); it is only a fallback for builds without the browser
+  key.
 - Gemini explanations depend on the project's AI Studio credit; without it the app keeps its own wording.
 - PAGASA alerts arrive only through Google Weather public alerts; LGU advisories are simulated (no public feed).
 - Offline street tiles exist only after the app has been opened online with the service worker active; zooming past
