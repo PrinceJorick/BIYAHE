@@ -541,6 +541,9 @@ export async function clearOfflineData() {
   void syncNow()
 }
 
+/** Home → Retry: one manual weather request (subject to the one-minute cooldown). */
+export const retryWeather = () => refreshWeather({ retry: false, manual: true })
+
 export function setAlertPrefs(patch: Partial<AlertPrefs>) {
   set({ alertPrefs: { ...state.alertPrefs, ...patch } })
 }

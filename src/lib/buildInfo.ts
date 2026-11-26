@@ -6,6 +6,7 @@ import { GOOGLE_MAP_ID, GOOGLE_MAPS_KEY } from './googleRoutes'
 import { DB_VERSION } from './idb'
 import { configured as supabaseConfigured } from './supabase'
 import { WALK_ROUTE_VERSION, WALK_ROUTER_URL } from './walkRoute'
+import { WEATHER_BROWSER_KEY } from './weather'
 
 export type BuildInfo = {
   build: string
@@ -27,7 +28,9 @@ export function buildInfo(): BuildInfo {
     walkRouter: WALK_ROUTER_URL ? (env === undefined ? 'default' : 'configured') : 'off',
     googleMaps: GOOGLE_MAPS_KEY ? `key present${GOOGLE_MAP_ID ? ', Map ID present' : ', default muted style'}` : 'key missing (OpenStreetMap map, estimated traffic)',
     news: 'server-side /api/news (Currents News API; key on the server only)',
-    weather: 'server-side /api/weather (Google Weather API; key on the server only)',
+    weather: WEATHER_BROWSER_KEY
+      ? `browser → Google Weather API (${import.meta.env.VITE_GOOGLE_WEATHER_API_KEY?.trim() ? 'weather key present' : 'shared Maps key'})`
+      : 'server-side /api/weather (no browser weather key in this build)',
     dataVersions: `IndexedDB v${DB_VERSION} · walking routes v${WALK_ROUTE_VERSION} · campus key "${CAMPUS_KEY}"`,
   }
 }

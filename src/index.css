@@ -78,7 +78,10 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; scroll-padding-top: 16px; }
+/* Containment guard: nothing may widen the page sideways (mobile Safari still pans when only body hides overflow).
+   The real fixes are the wrapping rules on the components; clip creates no scroll container, so sticky still works. */
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: 16px; max-width: 100%; overflow-x: clip; }
+#root { max-width: 100%; min-width: 0; }
 body {
   margin: 0;
   background: var(--bg);
@@ -88,7 +91,9 @@ body {
   -webkit-font-smoothing: antialiased;
   accent-color: var(--deep);
   caret-color: var(--sky);
-  overflow-x: hidden;
+  max-width: 100%;
+  overflow-x: clip;
+  overflow-wrap: break-word;
 }
 h1, h2, h3, h4, p, ul, ol, dl, dd, figure { margin: 0; padding: 0; }
 ul, ol { list-style: none; }
@@ -333,11 +338,10 @@ a.item:focus-visible { outline-offset: 0; }
 
 /* ── Travel time against usual (wireframe 2) ── */
 .times { display: flex; flex-direction: column; gap: 10px; }
-.times-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.times-row { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 16px; }
 .times-row > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.times-usual { text-align: right; flex: none; }
-.times-row dd { white-space: nowrap; }
-.timebar { position: relative; height: 8px; border-radius: 4px; background: var(--sunken); margin-bottom: 14px; }
+.times-usual { text-align: right; flex: none; margin-left: auto; }
+.timebar { position: relative; height: 8px; border-radius: 4px; background: var(--sunken); margin-bottom: 1.25rem; }
 .timebar i { display: block; height: 100%; border-radius: 4px; background: var(--deep); transition: width .3s var(--ease); }
 .timebar b { position: absolute; top: -4px; width: 2px; height: 16px; background: var(--ink); transform: translateX(-1px); }
 .timebar b span { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); font-size: .8125rem; font-weight: 500; color: var(--ink-2); }
@@ -363,6 +367,8 @@ a.item:focus-visible { outline-offset: 0; }
 
 /* ── Chips ── */
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+/* In a wrapping row a long label ("Route disruption (flooding)") wraps inside its chip; scroll strips keep one line. */
+.chips:not(.chips-scroll) .chip { white-space: normal; max-width: 100%; text-align: left; padding-block: 8px; }
 .chips-scroll { position: relative; flex-wrap: nowrap; overflow-x: auto; margin-inline: calc(var(--gutter) * -1); padding: 2px var(--gutter); scrollbar-width: none; scroll-padding-inline: var(--gutter); }
 .chips-scroll::-webkit-scrollbar { display: none; }
 .chip {
