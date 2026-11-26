@@ -28,6 +28,9 @@ export const PABLO_BORBON_HAND_DRAWN_CORRIDORS: Corridor[] = [
     path: [LOCATION, [13.7703, 121.0381], [13.7938, 121.0071]] },
   { id: 'pb-rosario', name: 'Ibaan / Rosario', via: 'Batangas–Ibaan Rd', usualMin: 50, commuters: 90,
     path: [LOCATION, [13.8184, 121.1321], [13.8457, 121.2063]] },
+  // Added 2026-11-26: the western corridor past Bauan (Lemery, Taal, San Luis); OSRM driving 34 min.
+  { id: 'pb-lemery', name: 'Lemery / Taal', via: 'Bauan–Batangas Rd', usualMin: 65, commuters: 80,
+    path: [LOCATION, [13.7978, 121.0712], [13.8058, 121.0162], [13.8744, 120.9726], [13.8839, 120.9147]] },
 ]
 
 export const pabloBorbonRouteGeometry = selectCorridorGeometry({

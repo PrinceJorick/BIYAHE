@@ -80,11 +80,13 @@ Official status always wins: a route the DRRMO or LGU closed shows *Closed* what
 
 | Campus | Routes |
 |---|---|
-| Alangilan | Lipa, Batangas City proper, Bauan / San Pascual, San Jose / Ibaan, Tanauan / Sto. Tomas |
-| Pablo Borbon | Lipa, San Jose, Bauan / San Pascual, Ibaan / Rosario |
-| JPLPC-Malvar | Lipa, Tanauan, Sto. Tomas, Batangas City |
+| Alangilan | Lipa, Batangas City proper, Bauan / San Pascual, San Jose / Ibaan, Tanauan / Sto. Tomas, Rosario |
+| Pablo Borbon | Lipa, San Jose, Bauan / San Pascual, Ibaan / Rosario, Lemery / Taal |
+| JPLPC-Malvar | Lipa, Tanauan, Sto. Tomas, Batangas City, Balete |
 
 Every route follows roads from campus to its town (`npm run routes:campuses`, OSRM over OpenStreetMap, validated at runtime). The Alangilan routes previously stopped at the old hand-drawn corridor ends, 3–26 km short of their towns; they are now full trips (`src/campuses/alangilan.trip.roads.ts`, e.g. Lipa 25.5 km, Tanauan 39.8 km via STAR Tollway). With a Google key the map draws Google's route for the same trip.
+
+Rosario, Lemery / Taal and Balete were added on 2026-11-26 after checking which commuter corridors lacked a route (see *Route coverage review* in the [documentation](docs/BIYAHE-Documentation.md#route-coverage-review-26-november-2026)). The formal Alangilan approval workflow (`docs/routes/approvals`) still covers only the original five routes.
 
 Safe spots (coordinates are the project owner's, at full precision, checked against OpenStreetMap on 2026-11-19):
 

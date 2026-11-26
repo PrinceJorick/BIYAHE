@@ -66,7 +66,7 @@ describe('studentView decisions', () => {
     const decisions = Object.fromEntries(
       corridors.map((c) => [c.id, studentView(makeState({ corridorId: c.id }), NOW).decision]),
     )
-    expect(decisions).toEqual({ lipa: 'wait', batangas: 'go', bauan: 'go', sanjose: 'go', tanauan: 'go' })
+    expect(decisions).toEqual({ lipa: 'wait', batangas: 'go', bauan: 'go', sanjose: 'go', tanauan: 'go', rosario: 'go' })
   })
 })
 

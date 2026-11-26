@@ -70,13 +70,16 @@ describe('the application today', () => {
 
   it('no formal reviewed set is active; the hand-drawn fallback paths are unchanged', () => {
     expect(alangilanRoadActivation).toEqual({ corridors: ALANGILAN_HAND_DRAWN_CORRIDORS, active: false, problems: [] })
-    expect(ALANGILAN_HAND_DRAWN_CORRIDORS).toEqual(ORIGINAL)
+    // The original five are unchanged; Rosario (added 2026-11-26) follows them and is outside formal review.
+    expect(ALANGILAN_HAND_DRAWN_CORRIDORS.slice(0, ORIGINAL.length)).toEqual(ORIGINAL)
+    expect(ALANGILAN_HAND_DRAWN_CORRIDORS.slice(ORIGINAL.length).map((c) => c.id)).toEqual(['rosario'])
   })
 
   it('the campus anchor is the same point the route tools hash against', () => {
     expect(alangilan.location).toEqual(CAMPUS)
     expect(ANCHOR).toEqual(alangilan.location)
-    expect(alangilan.corridors.map((c) => c.id)).toEqual(CORRIDORS.map((c) => c.id))
+    // The formal approval scope is the original five, which lead the app's route list.
+    expect(alangilan.corridors.map((c) => c.id).slice(0, CORRIDORS.length)).toEqual(CORRIDORS.map((c) => c.id))
   })
 
   it('approval file paths match the approval validator', () => {

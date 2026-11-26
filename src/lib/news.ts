@@ -90,16 +90,19 @@ export const CORRIDOR_PLACES: Record<string, string[]> = {
   bauan: ['bauan', 'san-pascual', 'diversion-road'],
   sanjose: ['san-jose', 'ibaan'],
   tanauan: ['tanauan', 'sto-tomas', 'star-tollway'],
+  rosario: ['ibaan', 'rosario'],
   // Pablo Borbon
   'pb-lipa': ['lipa', 'jp-laurel'],
   'pb-sanjose': ['san-jose', 'jp-laurel'],
   'pb-bauan': ['bauan', 'san-pascual'],
   'pb-rosario': ['ibaan', 'rosario'],
+  'pb-lemery': ['bauan', 'lemery', 'taal'],
   // Malvar
   'mv-lipa': ['lipa', 'jp-laurel'],
   'mv-tanauan': ['tanauan', 'star-tollway'],
   'mv-stotomas': ['sto-tomas', 'jp-laurel'],
   'mv-batangas': ['batangas-city', 'jp-laurel'],
+  'mv-balete': ['balete'],
 }
 export const CAMPUS_PLACES: Record<CampusId, string[]> = {
   alangilan: ['batangas-city'],

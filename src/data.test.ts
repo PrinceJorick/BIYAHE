@@ -28,6 +28,7 @@ describe("fixture('clear')", () => {
       bauan: open(30, 40),
       sanjose: open(25, 35),
       tanauan: open(60, 70),
+      rosario: open(40, 50),
     })
   })
 
@@ -70,7 +71,7 @@ describe("fixture('disrupted')", () => {
     expect(snap.corridors.batangas).toMatchObject({ status: 'open', minLo: 20, minHi: 20, provenance: 'official' })
     expect(snap.corridors.sanjose).toMatchObject({ status: 'open', minLo: 25, minHi: 35, provenance: 'official' })
     expect(snap.corridors.tanauan).toMatchObject({ status: 'open', minLo: 60, minHi: 70, provenance: 'official' })
-    expect(Object.keys(snap.corridors)).toEqual(['lipa', 'batangas', 'bauan', 'sanjose', 'tanauan'])
+    expect(Object.keys(snap.corridors)).toEqual(['lipa', 'batangas', 'bauan', 'sanjose', 'tanauan', 'rosario'])
   })
 
   it('fills the safe spots (gym 361/1030, library full at 250/250, lounge capacity not assessed)', () => {

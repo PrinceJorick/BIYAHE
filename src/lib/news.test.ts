@@ -185,3 +185,17 @@ describe('news on the device', () => {
     expect(isSafeArticleUrl('http://a.ph/x')).toBe(false)
   })
 })
+
+describe('route news places', () => {
+  it('every route of every campus has news places, and each place exists on the server', async () => {
+    const { campuses } = await import('../campuses')
+    const { CORRIDOR_PLACES } = await import('./news')
+    const { PLACES } = await import('../../api/news')
+    for (const campus of Object.values(campuses)) {
+      for (const c of campus.corridors) {
+        expect(CORRIDOR_PLACES[c.id], c.id).toBeDefined()
+        for (const p of CORRIDOR_PLACES[c.id]) expect(PLACES[p], `${c.id}: ${p}`).toBeDefined()
+      }
+    }
+  })
+})

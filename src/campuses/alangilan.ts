@@ -7,8 +7,10 @@ import { ALANGILAN_TRIP_ROADS } from './alangilan.trip.roads'
 // BatStateU Alangilan, Batangas City
 const LOCATION: LatLng = [13.7842, 121.0744]
 
-// Hand-drawn corridor paths. They stay in use unless a complete, valid reviewed road set exists for all
-// five corridors (./alangilan.roads.ts, currently null); see src/lib/reviewedGeometry.ts.
+// Hand-drawn corridor paths. They stay in use unless a complete, valid reviewed road set exists for every
+// corridor (./alangilan.roads.ts, currently null); see src/lib/reviewedGeometry.ts. The formal approval workflow
+// (src/lib/routeChecks.js ROUTE_IDS, docs/routes/approvals) covers the original five; Rosario must be added there
+// before a reviewed set is supplied, or that set will not match and the app falls back to these paths.
 export const ALANGILAN_HAND_DRAWN_CORRIDORS: Corridor[] = [
   { id: 'lipa', name: 'Lipa City', via: 'JP Laurel Hwy', usualMin: 50, commuters: 140,
     path: [LOCATION, [13.7875, 121.0705], [13.7935, 121.0655], [13.8, 121.064], [13.81, 121.07]] },
@@ -20,17 +22,21 @@ export const ALANGILAN_HAND_DRAWN_CORRIDORS: Corridor[] = [
     path: [LOCATION, [13.792, 121.085], [13.805, 121.1], [13.82, 121.115]] },
   { id: 'tanauan', name: 'Tanauan / Sto. Tomas', via: 'STAR Tollway', usualMin: 65, commuters: 45,
     path: [LOCATION, [13.795, 121.078], [13.82, 121.085], [13.85, 121.095]] },
+  // Added 2026-11-26 (direct Grand Terminal jeepney; see scripts/build-campus-roads.mjs). usualMin uses the Pablo
+  // Borbon rule (OSRM driving 22 min × 1.8 + 5, rounded to 5); commuters is a simulated demo count.
+  { id: 'rosario', name: 'Rosario', via: 'Batangas–Ibaan Rd', usualMin: 45, commuters: 70,
+    path: [LOCATION, [13.7931, 121.0858], [13.7927, 121.1006], [13.8271, 121.1514], [13.8455, 121.2063]] },
 ]
 
 // Road-following geometry is shown to users in every build: hand-drawn lines cut across fields and buildings.
 // The routes in use are full trips from campus to each town (./alangilan.trip.roads.ts, npm run routes:campuses).
 // The earlier preview (./alangilan.preview.roads.ts) stopped at the hand-drawn corridor ends, 3-26 km short of the
-// towns; it is kept only as the record of the reviewed diagnostic run. Still validated at runtime (all five or
+// towns; it is kept only as the record of the reviewed diagnostic run. Still validated at runtime (all or
 // none), and formal reviewed geometry, once approved, takes precedence.
 export const PREVIEW_ON = true
 
-// Formal reviewed paths (all five or none) take precedence; invalid formal data falls back to hand-drawn,
-// never to the preview. Without formal data, the preview is used when enabled and valid (all five or none).
+// Formal reviewed paths (all or none) take precedence; invalid formal data falls back to hand-drawn,
+// never to the preview. Without formal data, the preview is used when enabled and valid (all or none).
 export const alangilanRouteGeometry = selectCorridorGeometry({
   handDrawn: ALANGILAN_HAND_DRAWN_CORRIDORS,
   formal: alangilanRoads,

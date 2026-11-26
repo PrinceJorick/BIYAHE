@@ -38,6 +38,9 @@ export const CAMPUS_ROUTES = {
       { id: 'bauan', end: [13.7937808, 121.0071323], endLabel: 'Bauan Municipal Hall (OSM way 312556517)' },
       { id: 'sanjose', end: [13.8786002, 121.1047491], endLabel: 'San Jose poblacion (OSM relation 10719480)' },
       { id: 'tanauan', end: [14.0865988, 121.1258532], endLabel: 'Tanauan City Hall (OSM way 557511385)' },
+      // Added 2026-11-26: Rosario (2020 pop. 128,352) has a direct jeepney from the Grand Terminal beside campus
+      // (OSM wiki Batangas/Public_transportation BTG-J12 / BN-05). Geocoded 2026-11-26.
+      { id: 'rosario', end: [13.8456781, 121.2062705], endLabel: 'Rosario Municipal Hall (OSM way 465622580)' },
     ],
   },
   'pablo-borbon': {
@@ -49,6 +52,9 @@ export const CAMPUS_ROUTES = {
       { id: 'pb-sanjose', end: [13.8786002, 121.1047491], endLabel: 'San Jose poblacion (OSM relation 10719480)' },
       { id: 'pb-bauan', end: [13.7937808, 121.0071323], endLabel: 'Bauan Municipal Hall (OSM way 312556517)' },
       { id: 'pb-rosario', end: [13.8456781, 121.2062705], endLabel: 'Rosario Municipal Hall (OSM way 465622580)' },
+      // Added 2026-11-26: the western corridor past Bauan (Lemery 93,186, Taal 61,460, San Luis 36,172 in 2020);
+      // Bauan-Lemery jeepney BTG-J13 and BSC buses via Lemery. Geocoded 2026-11-26.
+      { id: 'pb-lemery', end: [13.8837451, 120.914408], endLabel: 'Lemery Municipal Hall (OSM way 317626512)' },
     ],
   },
   malvar: {
@@ -60,6 +66,8 @@ export const CAMPUS_ROUTES = {
       { id: 'mv-tanauan', end: [14.0865988, 121.1258532], endLabel: 'Tanauan City Hall (OSM way 557511385)' },
       { id: 'mv-stotomas', end: [14.1080161, 121.1462161], endLabel: 'Santo Tomas Public Market (OSM way 39887987)' },
       { id: 'mv-batangas', end: [13.7904192, 121.0610292], endLabel: 'Batangas City Grand Terminal (OSM way 1510395294)' },
+      // Added 2026-11-26: Balete (2020 pop. 24,055) borders Malvar; direct Balete-Malvar jeepney BTG-J04.
+      { id: 'mv-balete', end: [14.0188664, 121.0942599], endLabel: 'Balete Municipal Hall (OSM way 338501780)' },
     ],
   },
 }

@@ -10,6 +10,10 @@ no reviewed road geometry is used by the app (see the status update below).
 > and labelled as not checked on site. Formal approval is still pending: no approval record exists, and formally
 > reviewed geometry (`src/campuses/alangilan.roads.ts`, currently `null`) would take precedence once approved.
 > Statements below about hand-drawn routes describe the state when this document was written.
+>
+> A sixth Alangilan route, **Rosario**, was added on 26 November 2026. It is not part of this approval workflow
+> (`ROUTE_IDS` in `src/lib/routeChecks.js` lists the original five). Add it to the workflow before supplying a reviewed
+> road set; otherwise that set will not match the app's six routes and the app falls back to the hand-drawn paths.
 
 Approval is checked by a developer-only, **validate-only** tool:
 
