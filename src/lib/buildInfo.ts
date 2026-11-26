@@ -1,5 +1,5 @@
 // Safe configuration and build info: what is set and which build this is, never a secret value. Shown on the
-// Setup screen and logged once at start, so two environments (one where routes work, one where they do not)
+// Settings screen (About this build) and logged once at start, so two environments (one where routes work, one where they do not)
 // can be compared by reading one line each.
 import { CAMPUS_KEY } from '../campuses/active'
 import { GOOGLE_MAP_ID, GOOGLE_MAPS_KEY } from './googleRoutes'
@@ -25,7 +25,7 @@ export function buildInfo(): BuildInfo {
     build: `${build.commit}${build.dirty ? '+local changes' : ''}${build.builtAt ? ` · built ${build.builtAt.slice(0, 16).replace('T', ' ')} UTC` : ''}`,
     supabase: supabaseConfigured ? 'present' : 'missing',
     walkRouter: WALK_ROUTER_URL ? (env === undefined ? 'default' : 'configured') : 'off',
-    googleMaps: GOOGLE_MAPS_KEY ? `key present${GOOGLE_MAP_ID ? ', Map ID present' : ', default muted style'}` : 'key missing (simple map, estimated traffic)',
+    googleMaps: GOOGLE_MAPS_KEY ? `key present${GOOGLE_MAP_ID ? ', Map ID present' : ', default muted style'}` : 'key missing (OpenStreetMap map, estimated traffic)',
     news: 'server-side /api/news (Currents News API; key on the server only)',
     weather: 'server-side /api/weather (Google Weather API; key on the server only)',
     dataVersions: `IndexedDB v${DB_VERSION} · walking routes v${WALK_ROUTE_VERSION} · campus key "${CAMPUS_KEY}"`,

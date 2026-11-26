@@ -170,7 +170,7 @@ export default function Settings() {
           <li>No account, no check-in, no location request and no background GPS. BIYAHE never sends where you are.</li>
           <li>Staff see only how many students use each route, never who (aggregate counts, RA 10173).</li>
           <li>Saved on this device: route status, safe spots and advisories; local news, the last weather reading and route times for up to 24 hours; your settings and which articles you opened.</li>
-          <li>Asked over the internet: Google Weather and Google Routes (campus and town points only), Currents for news, Google Maps for the map{s.backend === 'supabase' ? ', Supabase for shared campus data' : ''}. AI explanations send only BIYAHE's own reasons to Google Gemini.</li>
+          <li>Asked over the internet: Google Weather and Google Routes (campus and town points only), Currents for news, Google Maps and OpenStreetMap for the map{s.backend === 'supabase' ? ', Supabase for shared campus data' : ''}, and the OpenStreetMap walking router (campus and safe-spot points only). AI explanations send only BIYAHE's own reasons to Google Gemini.</li>
         </ul>
       </section>
 

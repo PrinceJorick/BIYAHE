@@ -8,6 +8,13 @@ Human review record. Maintained by hand; not generated and not overwritten by an
 > records (`docs/routes/approvals/alangilan/<routeId>.json`) and the shared campus-exit evidence record, which do
 > not exist yet. The app continues to use its five hand-drawn routes.
 
+> **Status update (26 November 2026).** Since Iteration 4 the app no longer shows the hand-drawn routes. It shows
+> unreviewed road-following trip routes generated with OSRM over OpenStreetMap (`npm run routes:campuses`,
+> `src/campuses/alangilan.trip.roads.ts`, enabled by `PREVIEW_ON` in `src/campuses/alangilan.ts`), validated at runtime
+> and labelled as not checked on site. Formal approval is still pending: no approval record exists, and formally
+> reviewed geometry (`src/campuses/alangilan.roads.ts`, currently `null`) would take precedence once approved.
+> Statements below about hand-drawn routes describe the state when this document was written.
+
 ## 1. Run under review
 
 | Item | Value |

@@ -2,7 +2,8 @@
 
 **Safer journeys. Brighter tomorrows.**
 
-BeansDev (Team 11) · CS Bootcamp: Build the Way Forward · Iteration 5 · 20 November 2026
+BeansDev (Team 11) · CS Bootcamp: Build the Way Forward · Iteration 5 · 20 November 2026 (audit update
+26 November 2026)
 
 Live app: <https://biyahe-beansdev.vercel.app> · Repository: `PrinceJorick/BIYAHE` (branch `main`)
 
@@ -95,7 +96,9 @@ stays on the device and can be changed from Settings.
 
 ### 3.2 Home
 
-![Home](screens/02-home.png)
+| Top of Home | Where do you want to go? |
+|---|---|
+| ![Home](screens/02-home.png) | ![Home options](screens/02-home-options.png) |
 
 1. **Context line** with the campus and route home.
 2. **Urgent alert strip** when a critical advisory or one for the student's route is active.
@@ -181,7 +184,8 @@ database); privacy; build information; switching role.
 
 Route risk map and list with estimated affected students per route, safe-spot occupancy and amenities, the advisory
 lifecycle, and the **Batangas News & LGU Monitor** (the four latest local weather reports, marked as third-party
-reports to check before publishing). Only the DRRMO Coordinator role can publish; marshals and guards read only.
+reports to check before publishing). Only the DRRMO Coordinator role can create, publish or resolve advisories;
+Building Marshal and Guard on Duty see advisories read-only but can update safe-spot occupancy and amenities.
 
 ---
 
@@ -231,6 +235,7 @@ GEMINI_API_KEY=               # server only, optional
 GEMINI_MODEL=                 # optional, default gemini-2.5-flash
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
+# VITE_WALK_ROUTER_URL=       # optional own OSRM foot router; unset = FOSSGIS, empty = walking routes off
 ```
 
 `VITE_*` values are compiled into the browser bundle and are public by design: restrict them to the site's domains
@@ -336,7 +341,7 @@ Supabase, Lucide icons, Vercel Functions.
 
 ## 11. Quality
 
-- **983 automated tests** (Vitest): recommendation rules and reasons, routing data, traffic and departure scoring,
+- **994 automated tests in 36 files** (Vitest, 26 November 2026): recommendation rules and reasons, routing data, traffic and departure scoring,
   Routes API parsing and caching, Google Weather parsing, alerts and caching, Currents parsing and the weather-only
   filter, Gemini input/output checks, map model and label placement, offline tiles, advisory lifecycle, storage.
 - **Accessibility**: axe-core clean on every screen; 13 px minimum text; 44 px touch targets; keyboard and dialog
@@ -351,14 +356,16 @@ Supabase, Lucide icons, Vercel Functions.
 
 - Supabase is not configured: campus data is simulated on each device and staff access is enforced in the app only.
   Staff authentication and row-level security are needed before real use.
-- The Google Weather key currently returns 403 in production because of its restriction; weather shows
-  "unavailable" until it is changed (see section 5).
+- As of 20 November 2026 the production Google Weather key returned 403 because of its restriction; weather
+  shows "unavailable" until it is changed (see section 5). Recheck after any key change.
 - Gemini explanations depend on the project's AI Studio credit; without it the app keeps its own wording.
 - PAGASA alerts arrive only through Google Weather public alerts; LGU advisories are simulated (no public feed).
 - Offline street tiles exist only after the app has been opened online with the service worker active; zooming past
   the saved levels shows the dot grid.
 - Walking routes start from the campus point, not the student's position (the app does not track location).
-- Route lines and safe-spot positions are map-derived and not checked on site; the map's info icon says so.
+- Route lines and safe-spot positions are map-derived and not checked on site; the map's info icon says so. The
+  formal route-approval workflow (`docs/routes/`, `npm run routes:approve`) has no approval records yet.
+- Older design screenshots (Profile tab, BatStateU sign-in) are kept in `docs/screens/legacy/` as history only.
 
 ---
 

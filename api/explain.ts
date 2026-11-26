@@ -105,7 +105,7 @@ export async function handleExplain(request: Request, env: Env = serverEnv(), fe
   // JSON only: a cross-site form or text/plain post cannot reach Gemini (this endpoint sends no CORS headers).
   if (!(request.headers.get('content-type') ?? '').toLowerCase().startsWith('application/json')) return json({ error: 'JSON required' }, 415)
   const origin = request.headers.get('origin')
-  if (origin && new URL(origin).host !== new URL(request.url).host) return json({ error: 'forbidden' }, 403)
+  if (origin && URL.parse(origin)?.host !== new URL(request.url).host) return json({ error: 'forbidden' }, 403)
   const ip = (request.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'local'
   if (!allowRequest(ip)) return json({ error: 'too many requests' }, 429, { 'Retry-After': '60' })
   const raw = await request.text()

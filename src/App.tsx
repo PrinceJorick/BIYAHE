@@ -5,6 +5,7 @@ import Logo from './components/Logo'
 import { tabOf, tabs } from './components/navTabs'
 import { studentAdvisories } from './lib/advisories'
 import { clock } from './lib/derive'
+import { GOOGLE_MAPS_KEY } from './lib/googleRoutes'
 import { currentAlerts } from './lib/weather'
 import { hrefOf, param, useRoute, type Loc, type Route } from './lib/router'
 import { dismissBatteryHint, isLowBattery, isOffline, setLowBattery, useApp, useNow, type State } from './lib/store'
@@ -127,7 +128,7 @@ export default function App() {
                 {s.backend === 'device' && !isOffline(s) && (
                   <p className="banner">
                     <FlaskConical size={20} aria-hidden="true" />
-                    <span><span className="strong">Simulated campus data.</span> Route status, safe spots and campus advisories are demo data until a campus database is connected. Weather, traffic and news are live.</span>
+                    <span><span className="strong">Simulated campus data.</span> Route status, safe spots and campus advisories are demo data until a campus database is connected. Weather and news are never simulated; traffic is {GOOGLE_MAPS_KEY ? 'live from Google' : 'estimated from route status'}.</span>
                   </p>
                 )}
                 {isOffline(s) && (

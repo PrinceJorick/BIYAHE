@@ -6,6 +6,13 @@ Nothing in this file is an approval for app integration. Every candidate route r
 not confirmed and not production-ready until a Phase 2 approval is recorded. Human review here does not
 clear any automated warning: generator statuses and warnings stay exactly as the generator reports them.
 
+> **Status update (26 November 2026).** Since Iteration 4 the app no longer shows the hand-drawn routes. It shows
+> unreviewed road-following trip routes generated with OSRM over OpenStreetMap (`npm run routes:campuses`,
+> `src/campuses/alangilan.trip.roads.ts`, enabled by `PREVIEW_ON` in `src/campuses/alangilan.ts`), validated at runtime
+> and labelled as not checked on site. Formal approval is still pending: no approval record exists, and formally
+> reviewed geometry (`src/campuses/alangilan.roads.ts`, currently `null`) would take precedence once approved.
+> Statements below about hand-drawn routes describe the state when this document was written.
+
 ## Runs referred to
 
 | Run ID | Purpose | Artefacts |
