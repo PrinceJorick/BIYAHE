@@ -190,7 +190,9 @@ const lookup = (path: string, [lat, lng]: readonly [number, number], key: string
 export const WEATHER_TTL_MS = 1_200_000
 export const weatherKey = (campus: string, [lat, lng]: readonly [number, number], endpoint: string) => `gweather:${campus}:${lat.toFixed(3)},${lng.toFixed(3)}:${endpoint}`
 
-export async function getWeather(campus: string, env: Env, fetchImpl: typeof fetch = fetch, now = Date.now()): Promise<WeatherPayload> {
+// `referer` (server only): a website-restricted key needs the site's address, which server requests do not send.
+// Browsers set Referer themselves and ignore this header.
+export async function getWeather(campus: string, env: Env, fetchImpl: typeof fetch = fetch, now = Date.now(), referer?: string): Promise<WeatherPayload> {
   const key = (env.GOOGLE_WEATHER_API_KEY ?? env.WEATHER_API_KEY)?.trim()
   if (!key) return { provider: 'none', fetchedAt: now }
   const point = CAMPUS_POINTS[campus]
@@ -198,7 +200,7 @@ export async function getWeather(campus: string, env: Env, fetchImpl: typeof fet
     const ctl = new AbortController()
     const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS)
     try {
-      const res = await fetchImpl(url, { signal: ctl.signal })
+      const res = await fetchImpl(url, { signal: ctl.signal, ...(referer ? { headers: { Referer: referer } } : {}) })
       if (res.status === 429) throw new HttpError(429, 'Google Weather quota reached')
       if (!res.ok) throw new HttpError(res.status, `Google Weather HTTP ${res.status}`)
       return res.json()

@@ -329,3 +329,16 @@ describe('browser weather (VITE_GOOGLE_WEATHER_API_KEY or the shared Maps key)',
     await expect(fetchWeather('alangilan', { fetchImpl: f, now: () => T0, browserKey: '' })).rejects.toThrow(WEATHER_NOT_CONFIGURED)
   })
 })
+
+describe('server weather with a website-restricted key', () => {
+  afterEach(clearApiCache)
+  it('/api/weather sends its own site as the Referer on every Google lookup', async () => {
+    const referers: (string | null)[] = []
+    const f = (async (_url: string, init?: RequestInit) => {
+      referers.push(new Headers(init?.headers).get('referer'))
+      return new Response('{}')
+    }) as unknown as typeof fetch
+    await handleWeather(new Request('https://biyahe-beansdev.vercel.app/api/weather?campus=malvar'), { GOOGLE_WEATHER_API_KEY: 'k' }, f)
+    expect(referers).toEqual(Array(3).fill('https://biyahe-beansdev.vercel.app/'))
+  })
+})
