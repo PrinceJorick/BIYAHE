@@ -39,8 +39,8 @@ const corridorRow = (id: string, c: CorridorState) => ({
 
 // Advisory lifecycle (draft / published / resolved, edit and end times, corridor status) is stored in the
 // existing `payload` jsonb column under `lifecycle`, so supabase/schema.sql needs no new columns.
-type AdvisoryLifecycle = Pick<Advisory, 'status' | 'updatedAt' | 'expiresAt' | 'resolvedAt' | 'corridorStatus'>
-const LIFECYCLE_KEYS = ['status', 'updatedAt', 'expiresAt', 'resolvedAt', 'corridorStatus'] as const
+type AdvisoryLifecycle = Pick<Advisory, 'status' | 'updatedAt' | 'expiresAt' | 'resolvedAt' | 'corridorStatus' | 'simulated' | 'withdrawn'>
+const LIFECYCLE_KEYS = ['status', 'updatedAt', 'expiresAt', 'resolvedAt', 'corridorStatus', 'simulated', 'withdrawn'] as const
 
 export function advisoryRow(a: Advisory) {
   const lifecycle: AdvisoryLifecycle = {}
@@ -71,6 +71,8 @@ export function advisoryFromRow(r: AdvisoryDbRow): Advisory {
   if (num(l.expiresAt) !== undefined) a.expiresAt = num(l.expiresAt)
   if (num(l.resolvedAt) !== undefined) a.resolvedAt = num(l.resolvedAt)
   if (typeof l.corridorStatus === 'string' && CORRIDOR_STATUSES.includes(l.corridorStatus)) a.corridorStatus = l.corridorStatus as Advisory['corridorStatus']
+  if (l.simulated === true) a.simulated = true
+  if (l.withdrawn === true) a.withdrawn = true
   return a
 }
 

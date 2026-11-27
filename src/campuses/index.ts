@@ -2,9 +2,10 @@
 // The campus in use is chosen by the student or staff member (see ./active.ts); DEFAULT_CAMPUS is the
 // fallback when nothing has been chosen yet.
 import type { Campus, CampusId } from '../types'
-import { alangilan } from './alangilan'
+import { alangilan, ALANGILAN_FOOTPRINTS } from './alangilan'
+import type { Footprint } from './capacity'
 import { malvar } from './malvar'
-import { pabloBorbon } from './pabloBorbon'
+import { pabloBorbon, PABLO_BORBON_FOOTPRINTS } from './pabloBorbon'
 
 export const campuses: Record<CampusId, Campus> = { alangilan, 'pablo-borbon': pabloBorbon, malvar }
 
@@ -25,9 +26,6 @@ export const getCampus = (id: CampusId): Campus => campuses[id]
 
 export const isCampusId = (v: unknown): v is CampusId => typeof v === 'string' && Object.hasOwn(campuses, v)
 
-// How safe-spot capacity is estimated when no official figure for waiting (not event seating) exists:
-// usable floor area ÷ 2 m² per person, rounded down to 10. Usable share: 0.75 of a gym or hall floor, 0.6 of a
-// library (shelves and desks). 2 m² is room to sit with a bag for a few hours: more than assembly seating
-// (about 0.65 m²), less than the 3.5 m² Sphere standard for overnight shelter. Sources per spot are noted in
-// each campus file.
-export const SPOT_CAPACITY_RULE = { m2PerPerson: 2, usableShare: { hall: 0.75, library: 0.6 } } as const
+// Capacity rule and calculation: ./capacity.ts. Footprints (and whether each is verified) per spot, for review.
+export { SPOT_CAPACITY_RULE } from './capacity'
+export const SPOT_FOOTPRINTS: Readonly<Record<string, Footprint>> = { ...ALANGILAN_FOOTPRINTS, ...PABLO_BORBON_FOOTPRINTS }

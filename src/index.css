@@ -294,6 +294,7 @@ a.item:focus-visible { outline-offset: 0; }
 /* ── Home ── */
 .home-head { padding-top: 2px; }
 .alert-strip { gap: 12px; padding-block: 14px; }
+.route-msg { font-size: var(--fs-body); line-height: 1.45; }
 .alert-strip > svg:first-child { color: var(--deep); }
 .alert-strip-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 
@@ -535,6 +536,7 @@ textarea.input { resize: vertical; min-height: 96px; }
 .line-other { stroke: var(--slate); }
 .line-slow { stroke-dasharray: 1 10; stroke-linecap: round; }
 .line-closed { stroke-dasharray: 12 9; stroke-linecap: butt; }
+.line-unknown { stroke-dasharray: 3 7; stroke-linecap: butt; }
 .line-walk { stroke: var(--sky); }
 
 /* Labels and pins (both maps) */
@@ -633,7 +635,6 @@ button.map-marker:hover .pin { transform: scale(1.06); }
 .coord-main { width: 100%; max-width: 1280px; margin: 0 auto; padding: 0 var(--gutter) 48px; display: flex; flex-direction: column; gap: var(--gap); }
 .coord-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding-top: 20px; }
 .coord-split { display: grid; gap: var(--gap); align-items: start; }
-.coord-advisories { display: flex; flex-direction: column; gap: var(--gap); }
 .coord-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px var(--gutter); background: var(--deep); }
 .coord-nav ul { display: flex; gap: 2px; }
 .coord-nav .tab { flex-direction: column; gap: 2px; min-width: 64px; min-height: var(--touch); padding: 4px 8px; color: #C7D5EA; font-size: .8125rem; }
@@ -652,6 +653,38 @@ button.map-marker:hover .pin { transform: scale(1.06); }
   .coord-nav .logo { padding: 0 12px; }
 }
 @media (min-width: 1200px) { .coord-split { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); } }
+.coord-head .page-head { gap: 4px; }
+.coord-settings { max-width: 760px; padding-top: 20px; }
+.stepper-of { font-weight: 500; color: var(--ink-2); }
+.totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--inner); padding: 12px 0; border-block: 1px solid var(--line); }
+.totals > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.totals dd { font-variant-numeric: tabular-nums; }
+
+/* Advisory board: Drafts → Active → Resolved. Stacked on phones, three columns once each has room for a card. */
+.board-wrap { display: flex; flex-direction: column; gap: var(--inner); }
+.board { display: grid; gap: var(--gap); align-items: start; }
+.kcol { display: flex; flex-direction: column; gap: var(--inner); min-width: 0; padding: 16px; border-radius: var(--r-lg); background: var(--sunken); border: 1px solid var(--line); }
+.kcol-head { display: flex; flex-direction: column; gap: 2px; }
+.kcol-head .h3 { display: flex; align-items: center; gap: 8px; }
+.kcol-count { display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0 7px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line-strong); font-size: .8125rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); }
+.kcol-active .kcol-count { background: var(--deep); border-color: var(--deep); color: var(--cloud); }
+.kcol-list { display: flex; flex-direction: column; gap: 10px; }
+.kcol-empty { padding: 20px 12px; border: 1.5px dashed var(--line-strong); border-radius: var(--r-md); text-align: center; }
+.kcard { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 12px 14px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); }
+.kcol-resolved .kcard { background: transparent; }
+.kcard-top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: var(--fs-caption); min-height: 26px; }
+.kcard-top .lvl { gap: 4px; }
+.kcard-title { margin: 2px 0 0; font-size: var(--fs-body); line-height: 1.35; font-weight: 600; }
+.kcard-open { display: -webkit-box; width: 100%; padding: 0; background: none; border: 0; text-align: left; font: inherit; color: var(--ink); cursor: pointer; overflow-wrap: anywhere; }
+.kcard-open:hover { color: var(--sky-ink); text-decoration: underline; text-underline-offset: 3px; }
+.kcol-resolved .kcard-open { color: var(--ink-2); }
+.kcard-actions { display: flex; flex-wrap: wrap; gap: 2px; margin: 4px 0 -4px -10px; }
+.btn-xs { min-height: 40px; padding: 0 10px; gap: 6px; font-size: var(--fs-meta); }
+.clamp-1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+@media (min-width: 1100px) {
+  .board { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .kcol-list { max-height: 560px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; padding-right: 2px; }
+}
 
 /* ── Dialog: bottom sheet on phones, centred on wide screens. Native <dialog> traps focus. ── */
 .dialog { width: min(560px, 100%); max-width: 100%; max-height: 92dvh; margin: auto auto 0; padding: 0; border: 0; border-radius: var(--r-xl) var(--r-xl) 0 0; background: var(--surface); color: var(--ink-body); overflow: auto; }
@@ -692,7 +725,6 @@ button.item { cursor: pointer; }
 .dest-flag svg { color: var(--deep); fill: var(--sun); }
 .badge-simulated { border-style: dashed; border-color: var(--deep); }
 h2 > svg, .item-title > svg { vertical-align: -3px; }
-@media (min-width: 1000px) { .coord-split-news { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } }
 /* OSM fallback tiles: muted so BIYAHE's route lines and levels stay the strongest marks (no tint, no hue). */
 .map-osm { background-image: none !important; }
 .map-osm .leaflet-tile-pane { filter: grayscale(.85) contrast(.9) brightness(1.04); }

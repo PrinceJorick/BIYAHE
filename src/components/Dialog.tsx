@@ -10,8 +10,12 @@ export default function Dialog({ open, onClose, title, children }: {
 }) {
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
+  // The close event also fires after a programmatic close (open turned false, e.g. one dialog handing over to
+  // another); only a close the person made (Escape, backdrop) is reported.
+  const wanted = useRef(open)
 
   useEffect(() => {
+    wanted.current = open
     const d = ref.current
     if (!d) return
     if (open && !d.open) d.showModal()
@@ -23,9 +27,9 @@ export default function Dialog({ open, onClose, title, children }: {
       ref={ref}
       className="dialog"
       aria-labelledby={titleId}
-      onClose={onClose}
+      onClose={() => { if (wanted.current) onClose() }}
       onClick={(e) => {
-        if (e.target === ref.current) onClose()
+        if (e.target === ref.current) ref.current.close()
       }}
     >
       {open && (

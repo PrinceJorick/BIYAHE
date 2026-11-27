@@ -28,17 +28,17 @@ export default function WalkPanel({ spot, route, loading, headingLevel = 2 }: { 
       </p>
       {route && !loading && (
         <p className="meta">
-          {route.mode === 'live' && 'From the campus point along OpenStreetMap paths, shown on the map. Not checked on site: follow marshals and avoid flooded or closed paths.'}
-          {route.mode === 'cached' && `Saved on this phone at ${clock(route.fetchedAt!)} from OpenStreetMap paths. Not checked on site.`}
-          {route.mode === 'estimate' && `No mapped walking route${route.reason ? ` (${route.reason})` : ''}. Straight-line distance at ${WALK_M_PER_MIN} m per minute; the real walk is longer, and no line is drawn.`}
-          {route.mode === 'unavailable' && 'This safe spot has no usable position. Ask a guard or marshal for directions.'}
+          {route.mode === 'live' && 'Along OpenStreetMap paths from the campus point. Not checked on site: follow marshals, avoid flooded paths.'}
+          {route.mode === 'cached' && `Saved at ${clock(route.fetchedAt!)} from OpenStreetMap paths. Not checked on site.`}
+          {route.mode === 'estimate' && `No mapped path${route.reason ? ` (${route.reason})` : ''}. Straight-line estimate at ${WALK_M_PER_MIN} m/min; the real walk is longer.`}
+          {route.mode === 'unavailable' && 'No position for this spot. Ask a guard or marshal.'}
         </p>
       )}
       <a className="btn btn-secondary btn-block" target="_blank" rel="noreferrer" href={googleMapsDirectionsUrl(spot.pos)}
         aria-label={`Walking directions to ${spot.name} in Google Maps (opens outside BIYAHE, needs internet)`}>
         <ExternalLink size={18} aria-hidden="true" />Walking directions in Google Maps
       </a>
-      <p className="caption">Opens Google Maps (needs internet). Google chooses its own route; BIYAHE has not checked it.</p>
+      <p className="caption">Needs internet. Google's route; BIYAHE has not checked it.</p>
     </section>
   )
 }

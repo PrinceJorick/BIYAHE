@@ -22,7 +22,7 @@ export default function Welcome() {
         <OnboardingHeader step={1} />
         <div className="onboard-body">
           <h1 className="onboard-title">Know when to head home, and where to wait if you shouldn't.</h1>
-          <p className="onboard-lead">BIYAHE watches weather, LGU advisories and traffic along your usual route from BatStateU, so you don't have to keep checking.</p>
+          <p className="onboard-lead">BIYAHE watches weather, advisories and traffic on your route from BatStateU, so you don't have to.</p>
           <ul className="onboard-points">
             {points.map(({ Icon, text }) => (
               <li key={text}><Icon size={18} aria-hidden="true" /><span>{text}</span></li>
@@ -42,13 +42,13 @@ export default function Welcome() {
 
       <Dialog open={privacy} onClose={() => setPrivacy(false)} title="How BIYAHE uses your data">
         <ul className="body bullets">
-          <li>BIYAHE asks for one thing: your campus and usual route home. It is saved on this device only.</li>
-          <li>No account, no check-in and no location request. BIYAHE never sends where you are.</li>
-          <li>Campus staff see only how many students use each route, never who. These counts are aggregate.</li>
-          <li>Saved on this device: route status, safe spots and advisories; local news, the last weather reading and route times for up to 24 hours.</li>
-          <li>Asked over the internet: Google Weather and Google Routes (campus and town points only), Currents for news, Google Maps and OpenStreetMap for the map, and the OpenStreetMap walking router (campus and safe-spot points only).</li>
+          <li>BIYAHE asks only for your campus and usual route. Both stay on this device.</li>
+          <li>No account, no check-in, no location tracking.</li>
+          <li>Staff see how many students use each route, never who.</li>
+          <li>Saved on this device: routes, safe spots, advisories, and up to 24 hours of news, weather and travel times.</li>
+          <li>Online requests: Google Weather and Routes (campus and town points only), Currents news, Google Maps and OpenStreetMap.</li>
         </ul>
-        <p className="meta">Personal data is handled under the Data Privacy Act of 2012 (RA 10173). You can clear everything BIYAHE saved from Settings.</p>
+        <p className="meta">Handled under the Data Privacy Act of 2012 (RA 10173). Clear saved data any time in Settings.</p>
         <div className="dialog-actions">
           <button type="button" className="btn btn-primary" onClick={() => setPrivacy(false)}>Close</button>
         </div>

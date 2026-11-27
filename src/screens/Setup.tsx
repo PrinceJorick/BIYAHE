@@ -33,7 +33,7 @@ export default function Setup() {
       >
         <div className="page-head">
           <h1 className="onboard-title">{returning ? 'Campus and route' : 'Which way is home?'}</h1>
-          <p className="onboard-lead">The only thing BIYAHE asks. It stays on this phone and you can change it any time.</p>
+          <p className="onboard-lead">The only thing BIYAHE asks. It stays on this phone. Change it any time.</p>
         </div>
         <fieldset className="choices">
           <legend className="eyebrow">Your campus</legend>

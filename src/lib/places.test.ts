@@ -65,7 +65,7 @@ describe('recommendation reasons', () => {
     const snap = fixture('clear', NOW)
     const o = recommend(routePlaces(snap, corridors, null, 'batangas', NOW), spotPlaces(snap.spots))
     const r = recommendationReason(o, { rainPeakPct: null, warnings: 0 })!
-    expect(r.rule).toBe('Your usual route is open, so heading home comes first.')
+    expect(r.rule).toBe('Your route is clear, so heading home comes first.')
     expect(r.facts).toHaveLength(1)
     expect(r.facts[0]).toMatch(/usually \d+ min \(estimate from route reports\)/)
     expect(o.find((x) => x.verb === 'Suggested alternative')).toBeDefined()
@@ -76,7 +76,7 @@ describe('recommendation reasons', () => {
     const snap = fixture('disrupted', NOW)
     const o = recommend(routePlaces(snap, corridors, null, 'lipa', NOW), spotPlaces(snap.spots))
     const r = recommendationReason(o, { rainPeakPct: 70, warnings: 1 })!
-    expect(r.rule).toMatch(/closed by an advisory/)
+    expect(r.rule).toMatch(/route is closed/)
     expect(r.facts[0]).toMatch(/is closed/)
     expect(r.facts.some((f) => /spaces left|not confirmed/.test(f))).toBe(true)
     expect(r.facts).toContain('Up to 70% chance of rain in the next 6 hours (Google Weather forecast, estimate).')

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { corridors, fixture, type Advisory, type Snapshot } from '../data'
 import {
   concernsStudent, coordinatorGroups, createAdvisory, isActive, otherCorridorAdvisories, phaseOf, publishAdvisory,
-  recentlyEnded, resolveAdvisory, scopeLabel, studentAdvisories, updateAdvisory, validateAdvisoryInput, type AdvisoryInput,
+  recentlyEnded, resolveAdvisory, reuseInput, scopeLabel, studentAdvisories, updateAdvisory, validateAdvisoryInput, type AdvisoryInput,
 } from './advisories'
 
 const MIN = 60_000
@@ -148,8 +148,10 @@ describe('publishing and resolving', () => {
   it('withdraws a draft (resolved, never shown)', () => {
     const d = ok(createAdvisory(base(), input(), opts({ publish: false })))
     const w = ok(resolveAdvisory(d.snapshot, 'campus-1', { now: NOW + MIN }))
-    expect(w.advisory.status).toBe('resolved')
-    expect(recentlyEnded(w.snapshot.advisories, 'lipa', NOW + MIN).map((a) => a.id)).toEqual(['campus-1'])
+    expect(w.advisory).toMatchObject({ status: 'resolved', withdrawn: true })
+    // Students never saw it, so it is not listed as "recently ended" either.
+    expect(recentlyEnded(w.snapshot.advisories, 'lipa', NOW + MIN)).toEqual([])
+    expect(reuseInput(w.advisory)).toEqual({ scope: 'campus', severity: input().severity, title: input().title, body: input().body, corridorStatus: input().corridorStatus ?? null, expiresInHours: null })
   })
 })
 
@@ -202,7 +204,7 @@ describe('student visibility', () => {
 
   it('advisories without a status (PAGASA and LGU feeds, older records) count as published', () => {
     const d = fixture('disrupted', NOW)
-    expect(studentAdvisories(d.advisories, 'lipa', NOW).map((a) => a.id).sort()).toEqual(['campus-suspend', 'lgu-jpl-flood', 'pagasa-RA-07'])
+    expect(studentAdvisories(d.advisories, 'lipa', NOW).map((a) => a.id).sort()).toEqual(['campus-suspend', 'lgu-flood-lipa', 'pagasa-RA-07'])
   })
 })
 

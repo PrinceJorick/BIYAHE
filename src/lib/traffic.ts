@@ -3,22 +3,23 @@
 // Official route status always wins: a route the DRRMO or LGU marked closed is "Closed" whatever traffic data
 // says, and a route reported slow (ponding, heavy traffic) is never shown as better than that report. Live Google
 // traffic can only make a route look worse than its official status, or give the current figure for an open one.
-import type { Corridor, CorridorState, CorridorStatus, HourForecast } from '../types'
+import type { Corridor, HourForecast } from '../types'
 import type { LiveRoute } from './googleRoutes'
+import type { RouteState } from './routeStatus'
 import { hourAt } from './weather'
 
-export type TrafficLevel = 'light' | 'moderate' | 'heavy' | 'closed'
+export type TrafficLevel = 'light' | 'moderate' | 'heavy' | 'closed' | 'unknown'
 /** low → high, for colouring level text (the only colour the UI uses for meaning). */
 export type Level = 'low' | 'mid' | 'high' | 'none'
 
-export const levelOfTraffic: Record<TrafficLevel, Level> = { light: 'low', moderate: 'mid', heavy: 'high', closed: 'high' }
-export const trafficWord: Record<TrafficLevel, string> = { light: 'Light', moderate: 'Moderate', heavy: 'Heavy', closed: 'Closed' }
+export const levelOfTraffic: Record<TrafficLevel, Level> = { light: 'low', moderate: 'mid', heavy: 'high', closed: 'high', unknown: 'none' }
+export const trafficWord: Record<TrafficLevel, string> = { light: 'Light', moderate: 'Moderate', heavy: 'Heavy', closed: 'Closed', unknown: 'Unknown' }
 
 /** Traffic-aware ÷ free-flow travel time → level. */
-export const levelFromRatio = (ratio: number): Exclude<TrafficLevel, 'closed'> => (ratio < 1.25 ? 'light' : ratio < 1.6 ? 'moderate' : 'heavy')
+export const levelFromRatio = (ratio: number): Exclude<TrafficLevel, 'closed' | 'unknown'> => (ratio < 1.25 ? 'light' : ratio < 1.6 ? 'moderate' : 'heavy')
 
 // What an official status implies, as a delay ratio (slow: the middle of corridorStateFor's 1.4–1.85 band).
-const STATUS_RATIO: Record<Exclude<CorridorStatus, 'closed'>, number> = { open: 1, slow: 1.6 }
+const STATUS_RATIO = { open: 1, slow: 1.6 } as const
 
 /** A live reading is used for this long; older ones count as saved and the status-based estimate is shown. */
 export const LIVE_FRESH_MS = 20 * 60_000
@@ -37,8 +38,10 @@ export type TrafficReading = {
 const round5 = (n: number) => Math.max(5, Math.round(n / 5) * 5)
 
 /** The route's traffic now, from its official state and (when fresh) Google's traffic-aware duration. */
-export function trafficFor(c: Corridor, cs: CorridorState, live: LiveRoute | null | undefined, now: number): TrafficReading {
+export function trafficFor(c: Corridor, cs: RouteState, live: LiveRoute | null | undefined, now: number): TrafficReading {
   if (cs.status === 'closed') return { level: 'closed', ratio: Infinity, minLo: cs.minLo, minHi: cs.minHi, source: 'official', fetchedAt: null }
+  // Unconfirmed: no time is offered, so nothing suggests the route is usable.
+  if (cs.status === 'unknown') return { level: 'unknown', ratio: NaN, minLo: c.usualMin, minHi: c.usualMin, source: 'estimate', fetchedAt: null }
   const floor = STATUS_RATIO[cs.status]
   const fresh = live && now - live.fetchedAt <= LIVE_FRESH_MS && live.staticS > 0 ? live : null
   const liveRatio = fresh ? Math.max(1, fresh.durationS / fresh.staticS) : null
@@ -82,7 +85,7 @@ const WAIT_WEIGHT = 0.25
  * forecast for that departure time when available (`forecast[offsetMin]`), otherwise the current reading is
  * carried forward (and marked an estimate). Rain chance comes from the hourly forecast.
  */
-export function departureOptions(c: Corridor, cs: CorridorState, now: number, hourly: readonly HourForecast[] | undefined,
+export function departureOptions(c: Corridor, cs: RouteState, now: number, hourly: readonly HourForecast[] | undefined,
   liveNow: LiveRoute | null | undefined, forecast: Partial<Record<number, LiveRoute>> = {}): Departure[] {
   const current = trafficFor(c, cs, liveNow, now)
   const slots = DEPARTURE_OFFSETS_MIN.map((offsetMin): Departure => {
@@ -92,7 +95,7 @@ export function departureOptions(c: Corridor, cs: CorridorState, now: number, ho
     const traffic = offsetMin === 0 ? current : f ? trafficFor(c, cs, { ...f, fetchedAt: at }, at) : { ...current, source: current.source === 'live' ? 'estimate' as const : current.source }
     return { offsetMin, at, rainPct: hourAt(hourly, at)?.rainPct ?? null, traffic, best: false }
   })
-  if (cs.status === 'closed') return slots
+  if (cs.status === 'closed' || cs.status === 'unknown') return slots
   const score = (d: Departure) => d.offsetMin * WAIT_WEIGHT + (d.traffic.minLo + d.traffic.minHi) / 2 + rainPenalty(d.rainPct)
   let best = slots[0]
   for (const d of slots) if (score(d) < score(best)) best = d

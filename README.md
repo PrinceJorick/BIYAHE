@@ -23,9 +23,20 @@ Full documentation: [`docs/BIYAHE-Documentation.md`](docs/BIYAHE-Documentation.m
 - **Share I'm safe**: a pre-written family message (share sheet, SMS, or copy).
 - **Settings**: usual route, which alerts are announced, offline data (**Sync now**, **Clear offline data**), Low-Battery Mode, demo scenarios, privacy, build info and switching role. `#/profile` (the old Profile page) opens Settings.
 
+Every route shows one of four statuses from one shared rule (`src/lib/routeStatus.ts`), on every screen and map:
+
+| Condition | Status | Student message |
+|---|---|---|
+| Flooded or closed | **Closed** | Route is flooded. Do not proceed through this route. |
+| No hazard | **Clear** | Route is clear. You may proceed home. |
+| Ponding or heavy traffic | **Slow** | Route is open but slow. Allow extra time. |
+| No report, or data older than 30 min | **Unknown** | Unable to confirm route conditions. Verify the latest available advisory. |
+
+A closed route stays closed when its data ages; a clear one becomes Unknown. Only Clear or Slow routes are ever suggested.
+
 **Staff / DRRMO (3-click triage)**
 
-`Welcome` → **Campus staff** → `Staff / DRRMO quick access` (campus and role) → `Coordinator Command` (`#/coordinator`): route risk map, estimated stranded students per route (aggregated only, RA 10173), `−10 / +10` occupancy steppers and amenity toggles per safe spot, the Batangas News & LGU Monitor, and the advisory lifecycle (draft → publish → resolve) that reaches student views immediately. Only the DRRMO Coordinator role can manage advisories; Building Marshal and Guard on Duty can update occupancy and amenities.
+`Welcome` → **Campus staff** → `Staff access` (campus and role) → `Coordinator Command` (`#/coordinator`): route map and status per route with estimated stranded students (aggregated only, RA 10173), safe spots with campus totals (capacity, spaces left, not assessed), `−10 / +10` headcount steppers and amenity toggles, local news, and the **advisory board**: three columns, *Drafts* (hidden from students) → *Active* (students see them) → *Resolved* (resolved, discarded or expired). Cards open their full text; actions: Edit, Publish, Resolve, Discard, Reuse as draft. Enter in the form saves a draft, never publishes. Only the DRRMO Coordinator manages advisories; Building Marshal and Guard on Duty see the board read-only and update headcount and amenities. Staff **Settings** (`#/settings`): role, campus, offline and sync, Low-Battery Mode, demo scenarios, privacy and build info.
 
 In the code and database a route is called a corridor (`Corridor`, `corridor_status`); the UI says "route".
 
@@ -51,7 +62,7 @@ Everything works with no keys (demo data, the app's own map over OpenStreetMap t
 
 Restart `npm run dev` after editing `.env`. Settings → *About this build* shows whether the browser-side Google Maps and Supabase keys are present (never their values); server keys are not visible to the browser. `VITE_*` values end up in the browser bundle, so restrict them in the provider console. Keys without the prefix stay on the server (`api/*.ts`: Vercel Functions in production, Vite middleware locally).
 
-**Demo:** open the app in two tabs. Tab A: *Get started*. Tab B: *Campus staff* → *Open Command Dashboard*. Changes in B (occupancy, amenities, an advisory that closes a route) appear in A at once. Settings → *Demo scenarios* switches between clear route, route disruption (flooding), stale data, offline mode and low battery. Scenarios change only the device and its open tabs, never Supabase.
+**Demo:** open the app in two tabs. Tab A: *Get started*. Tab B: *Campus staff* → *Open Command Dashboard*. Changes in B (occupancy, amenities, an advisory that closes a route) appear in A at once. Settings → *Demo scenarios* switches between Clear, Flooding, Stale data, Offline and Low battery. *Flooding* places one simulated flood and one ponding site per campus (`DEMO_HAZARDS` in `src/data.ts`, each on the road it names); every route that passes the flood is closed and gets its own LGU advisory, every route through the ponding is slow, every other route is clear (`src/lib/hazards.ts`). Simulated advisories carry a *Simulated* badge. Scenarios change only the device and its open tabs, never Supabase.
 
 ```bash
 npm test           # Vitest
@@ -64,8 +75,8 @@ npm run preview    # http://localhost:4173, the installable offline build
 
 | Source | Used for | Fallback |
 |---|---|---|
-| Google Maps JavaScript API | Street map, live traffic layer | The app's own map over OpenStreetMap tiles (saved tiles offline; plain dot grid in Low-Battery Mode) |
-| OpenStreetMap tiles | Streets on the app's own map | Plain dot grid |
+| Google Maps JavaScript API | Street map, live traffic layer | The app's own map over OpenStreetMap tiles (saved tiles offline; plain dot grid in Low-Battery Mode only) |
+| OpenStreetMap tiles | Streets on the app's own map, online and offline | Saved tiles (zoom-13 streets stretched under closer zooms); plain background where nothing was saved |
 | Google Routes API | Traffic-aware trip times, Google road geometry, traffic forecast for later departures | Times estimated from route reports |
 | Google Weather API (browser key, else `/api/weather`) | Current conditions, hourly chance of rain (Estimate), PAGASA public alerts (Official) | Last reading as a saved copy (cached up to 24 h); otherwise "Weather unavailable" with **Retry**, or "Weather feed not configured for this build" when no key exists |
 | Currents News API (via `/api/news`) | Local Batangas news, matched to campus and route by place | Saved copy for up to 24 hours, then none |
@@ -73,7 +84,7 @@ npm run preview    # http://localhost:4173, the installable offline build
 | OSRM foot router (FOSSGIS) | Walking route to a safe spot | Saved route, then straight-line estimate |
 | PAGASA / Batangas City LGU | Advisory schemas | Simulated fixtures; no public feed exists |
 
-Official status always wins: a route the DRRMO or LGU closed shows *Closed* whatever traffic data says. Weather (20 min) and traffic-aware routes (10 min) are reused from a small device cache (`src/lib/apiCache.ts`, at most 24 h, one request per key in flight, manual refresh cooldowns of 60 s and 30 s, no retries on 429/403), and Google map tiles are never cached (Google Maps Platform terms). OpenStreetMap tiles are cached for a week (`osm-tiles`), and once a week a small area around the campus (zoom 11–13, at most 200 tiles, `src/lib/offlineTiles.ts`) is saved for the offline map. News shows the publisher, time and original link with Currents attribution; article text is never fetched and never sent to an AI model.
+Official status always wins: a route the DRRMO or LGU closed shows *Closed* whatever traffic data says. Weather (20 min) and traffic-aware routes (10 min) are reused from a small device cache (`src/lib/apiCache.ts`, at most 24 h, one request per key in flight, manual refresh cooldowns of 60 s and 30 s, no retries on 429/403), and Google map tiles are never cached (Google Maps Platform terms). OpenStreetMap tiles are cached for 30 days (`osm-tiles`), and once a week a fixed set is saved for the offline map of **every** campus (`src/lib/offlineTiles.ts`, about 320 tiles, 203 of them at zoom 13+): zoom 9–11 with a wide margin and 12–13 over each campus's routes, and zoom 14–16 within about a kilometre of each campus. The map draws a zoom-13 base layer stretched under closer zooms, so an unsaved close tile shows softer streets, never a blank grid. News shows the publisher, time and original link with Currents attribution; article text is never fetched and never sent to an AI model.
 
 ## Campuses, routes and safe spots
 
@@ -93,12 +104,12 @@ Safe spots (coordinates are the project owner's, at full precision, checked agai
 |---|---|---:|---:|---:|---|
 | Alangilan | Student Lounge (formerly CICS Lobby) | 13.78393267903075 | 121.07417575704717 | not assessed | On campus, beside the CICS building and Sparta Gym |
 | Alangilan | Sparta Gymnasium | 13.784276340529747 | 121.07413074951742 | 1,030 | Inside the gym footprint |
-| Alangilan | Einstein Bldg Library, 2nd Floor | 13.784168707874697 | 121.0749349027738 | 250 | Inside the Albert Einstein Building |
+| Alangilan | Einstein Bldg Library, 2nd Floor | 13.784168707874697 | 121.0749349027738 | 250 (needs review) | Inside the Albert Einstein Building |
 | Pablo Borbon | Felistiano "Sanoy" Leviste Multi-Purpose Gymnasium | 13.753079262668649 | 121.05277271784234 | 570 | Inside the gym footprint (OSM spells it *Feliciano*) |
 | Pablo Borbon | Main Library | 13.754549329790514 | 121.0525887000107 | 230 | Inside the Main Library |
 | JPLPC-Malvar | Gymnasium | 14.044572113490197 | 121.15574880496467 | not assessed | Inside a campus building |
 
-Capacity is usable floor area ÷ 2 m² per person (`SPOT_CAPACITY_RULE` in `src/campuses/index.ts`). Names, positions and capacities belong to the app (`src/campuses`); saved copies, other tabs and Supabase rows supply only occupancy and amenities (`src/lib/spotData.ts`).
+Capacity is usable floor area × usable share (0.75 hall, 0.6 library) ÷ 2 m² per person, rounded down to 10, computed in one place (`estimateCapacity` in `src/campuses/capacity.ts`) from each spot's recorded footprint (`*_FOOTPRINTS` in the campus files). Footprints re-measured from OpenStreetMap on 2026-11-28: Sparta Gymnasium 2,773 m² → 1,030; Leviste Gymnasium 1,537 m² → 570; Main Library 776 m² (one floor) → 230. The Einstein library's 860 m² is an estimate from imagery and is flagged *needs review* on the staff screen. Campus totals: Alangilan 1,280 (1 spot not assessed), Pablo Borbon 800, Malvar not assessed. `capacity.test.ts` checks each capacity against its footprint and each total against its spots. Names, positions and capacities belong to the app (`src/campuses`); saved copies, other tabs and Supabase rows supply only occupancy and amenities (`src/lib/spotData.ts`).
 
 ## Brand and design system
 

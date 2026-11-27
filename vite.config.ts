@@ -85,15 +85,16 @@ export default defineConfig(({ mode }) => ({
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api\//],
         // Google Maps tiles/scripts are never stored (Google Maps Platform terms); the news copy lives in IndexedDB
-        // with its own expiry (src/lib/news.ts). OpenStreetMap tiles the app shows are kept for a week so the
-        // offline map has streets (OSM tile policy: clients should cache; no bulk download, see offlineTiles.ts).
+        // with its own expiry (src/lib/news.ts). OpenStreetMap tiles are kept for 30 days so the offline map has
+        // streets even after a week without signal (OSM tile policy: clients should cache; the weekly saved set,
+        // src/lib/offlineTiles.ts, is about 250 tiles; room is left for the tiles people view).
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/tile\.openstreetmap\.org\//,
             handler: 'CacheFirst',
             options: {
               cacheName: 'osm-tiles',
-              expiration: { maxEntries: 400, maxAgeSeconds: 7 * 24 * 3600 },
+              expiration: { maxEntries: 1500, maxAgeSeconds: 30 * 24 * 3600, purgeOnQuotaError: true },
               cacheableResponse: { statuses: [200] },
               matchOptions: { ignoreVary: true },
             },

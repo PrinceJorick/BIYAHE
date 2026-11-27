@@ -16,6 +16,12 @@ import type { Advisory } from '../types'
 
 export type Role = 'student' | 'staff'
 export type StaffRole = 'DRRMO Coordinator' | 'Building Marshal' | 'Guard on Duty'
+/** Staff roles and what each one does (staff access and staff Settings). */
+export const STAFF_ROLES: { id: StaffRole; hint: string }[] = [
+  { id: 'DRRMO Coordinator', hint: 'Routes, safe spots and advisories' },
+  { id: 'Building Marshal', hint: 'Headcount and amenities for your building' },
+  { id: 'Guard on Duty', hint: 'Headcount at the gate and safe spots' },
+]
 export type Scenario = 'clear' | 'disrupted' | 'stale' | 'offline' | 'lowbattery'
 /** Which new alerts BIYAHE announces. `notify`: also as a system notification while BIYAHE is open (no push service). */
 export type AlertPrefs = { routes: boolean; pagasa: boolean; classes: boolean; notify: boolean }
@@ -223,7 +229,7 @@ function commit(next: Snapshot, push: () => Promise<boolean>) {
   bc?.postMessage(next)
   if (remote.configured) {
     void push().then((ok) => {
-      if (!ok && state.backend === 'supabase') toast('Could not reach the server. Saved on this device and shared with open tabs.')
+      if (!ok && state.backend === 'supabase') toast('Server unreachable. Saved on this device and open tabs.')
     })
   }
 }
@@ -262,6 +268,13 @@ async function refreshWeather({ retry = true, manual = false } = {}): Promise<bo
     if (retry && !isQuotaError(e)) weatherRetry = setTimeout(() => void refreshWeather({ retry: false }), WEATHER_RETRY_MS)
     return false
   }
+}
+
+// Demo feed (no campus database): the simulated sources re-confirm the routes at every check, as a live feed
+// would, so an open demo never drifts into "Unknown". The Stale scenario is how to show old data.
+function confirmDemoFeed() {
+  if (remote.configured || isOffline(state) || (state.scenario !== 'clear' && state.scenario !== 'disrupted')) return
+  persist({ ...state.snapshot, updatedAt: Date.now() })
 }
 
 let started = false
@@ -311,17 +324,19 @@ export async function init() {
     })
   }
 
+  confirmDemoFeed()
   void refreshWeather()
   void refreshTraffic()
   void refreshNews()
-  // Street tiles for the offline map: a small set around campus and its routes, at most once a week.
-  if (!isOffline(state) && !isLowBattery(state)) void saveOfflineTiles([CAMPUS, ...corridors.flatMap((c) => c.path), ...spotSeeds.map((x) => x.pos)])
+  // Street tiles for the offline map: a small set for every campus and its routes, at most once a week.
+  if (!isOffline(state) && !isLowBattery(state)) void saveOfflineTiles()
   // Low-Battery Mode polls the network half as often (and never asks for traffic).
   let tick = 0
   setInterval(() => {
     // A hidden tab never polls; when it is shown again the next tick asks, and the cache answers anything still fresh.
     if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
     if (isLowBattery(state) && tick++ % 2) return
+    confirmDemoFeed()
     void refreshWeather()
     void refreshTraffic()
     void refreshNews()
@@ -451,7 +466,7 @@ export function setCorridor(corridorId: string) {
 
 export function setLowBattery(lowBattery: boolean) {
   set({ lowBattery, batteryHint: false, scenario: !lowBattery && state.scenario === 'lowbattery' ? 'disrupted' : state.scenario })
-  toast(lowBattery ? 'Low-Battery Mode is on. Map simplified, text first.' : 'Low-Battery Mode is off.')
+  toast(lowBattery ? 'Low-Battery Mode on. Simple map.' : 'Low-Battery Mode off.')
 }
 
 export function dismissBatteryHint() {
@@ -583,7 +598,7 @@ export function toggleAmenity(spotId: string, amenity: Amenity) {
 /** Only the DRRMO Coordinator manages campus advisories. Building marshals and guards see them read-only. */
 export const canManageAdvisories = (s: Pick<State, 'role' | 'staffRole'>) => s.role === 'staff' && s.staffRole === 'DRRMO Coordinator'
 
-const NOT_ALLOWED = 'Only the DRRMO Coordinator can create or change campus advisories.'
+const NOT_ALLOWED = 'Only the DRRMO Coordinator can change advisories.'
 const newAdvisoryId = (now: number) => advisoryId(`campus-${now}-${Math.random().toString(36).slice(2, 8)}`)
 
 function applyAdvisory(change: () => adv.ChangeResult, success: string): adv.ChangeResult {
@@ -609,7 +624,7 @@ export function createAdvisory(input: adv.AdvisoryInput, { publish }: { publish:
   const now = Date.now()
   return applyAdvisory(
     () => adv.createAdvisory(state.snapshot, input, { id: newAdvisoryId(now), now, issuer: issuer(), publish, corridors }),
-    publish ? 'Advisory published. Student views are updated.' : 'Draft saved. Students cannot see it until you publish it.',
+    publish ? 'Published. Students see it now.' : 'Draft saved. Hidden from students.',
   )
 }
 
@@ -617,18 +632,18 @@ export function editAdvisory(id: string, input: adv.AdvisoryInput) {
   const wasDraft = state.snapshot.advisories.find((a) => a.id === id)?.status === 'draft'
   return applyAdvisory(
     () => adv.updateAdvisory(state.snapshot, id, input, { now: Date.now(), corridors }),
-    wasDraft ? 'Draft updated.' : 'Advisory updated. Student views show the new version.',
+    wasDraft ? 'Draft saved. Hidden from students.' : 'Updated. Students see the new version.',
   )
 }
 
 export function publishDraft(id: string) {
-  return applyAdvisory(() => adv.publishAdvisory(state.snapshot, id, { now: Date.now() }), 'Advisory published. Student views are updated.')
+  return applyAdvisory(() => adv.publishAdvisory(state.snapshot, id, { now: Date.now() }), 'Published. Students see it now.')
 }
 
 export function resolveAdvisory(id: string, opts: { reopenCorridor?: boolean } = {}) {
   const wasDraft = state.snapshot.advisories.find((a) => a.id === id)?.status === 'draft'
   return applyAdvisory(
     () => adv.resolveAdvisory(state.snapshot, id, { now: Date.now(), reopenCorridor: opts.reopenCorridor }),
-    wasDraft ? 'Draft withdrawn. It was never shown to students.' : 'Advisory resolved. Students no longer see it as current.',
+    wasDraft ? 'Draft discarded. Students never saw it.' : 'Resolved. Students no longer see it.',
   )
 }
