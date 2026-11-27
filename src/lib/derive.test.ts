@@ -174,8 +174,8 @@ describe('concernsStudent', () => {
     const { advisories } = fixture('disrupted', NOW)
     const seen = (id: string) => advisories.filter((a) => concernsStudent(a, id)).map((a) => a.id)
     expect(seen('lipa')).toEqual(['lgu-flood-lipa', 'pagasa-RA-07', 'campus-suspend'])
-    expect(seen('batangas')).toEqual(['pagasa-RA-07', 'campus-suspend'])
-    expect(seen('bauan')).toEqual(['pagasa-RA-07', 'campus-suspend'])
+    expect(seen('batangas')).toEqual(['lgu-ponding-batangas', 'pagasa-RA-07', 'campus-suspend'])
+    expect(seen('bauan')).toEqual(['lgu-ponding-bauan', 'pagasa-RA-07', 'campus-suspend'])
   })
 })
 

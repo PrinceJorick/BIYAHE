@@ -117,3 +117,42 @@ describe.each(Object.values(campuses))('$id: simulated conditions agree everywhe
     for (const id of routesThrough(flood, corridors)) expect(routeStates(oldFlood, corridors, NOW)[id].status).toBe('closed')
   })
 })
+
+describe.each(Object.values(campuses))('$id: every simulated advisory can be managed, and resolving route advisories clears the routes', (campus) => {
+  it('each disrupted route has its own active advisory, listed first in route order, and every simulated one is manageable', async () => {
+    const { coordinatorGroups, isManaged } = await import('./advisories')
+    const snap = fixture('disrupted', NOW, campus)
+    const ids = campus.corridors.map((c) => c.id)
+    const active = coordinatorGroups(snap.advisories, NOW, ids).active
+    const routeScoped = active.filter((a) => ids.includes(a.scope))
+    expect(routeScoped.map((a) => a.scope)).toEqual(ids)                  // one per route, in route order
+    expect(active.slice(0, ids.length)).toEqual(routeScoped)              // at the top
+    for (const a of snap.advisories) expect(isManaged(a), a.id).toBe(true)
+  })
+
+  it('resolving every route advisory (mark clear) leaves every route Clear for students', async () => {
+    const { resolveAdvisory } = await import('./advisories')
+    let snap = fixture('disrupted', NOW, campus)
+    for (const a of snap.advisories.filter((x) => campus.corridors.some((c) => c.id === x.scope))) {
+      const r = resolveAdvisory(snap, a.id, { now: NOW, reopenCorridor: true })
+      if (!r.ok) throw new Error(r.error)
+      snap = r.snapshot
+      expect(routeStates(snap, campus.corridors, NOW)[a.scope].status, a.scope).toBe('open')
+    }
+    for (const c of campus.corridors) {
+      expect(routeMessage(routeStates(snap, campus.corridors, NOW)[c.id])).toBe('Route is clear. You may proceed home.')
+    }
+  })
+
+  it('a route stays closed while another current advisory still closes it', async () => {
+    const { createAdvisory, resolveAdvisory } = await import('./advisories')
+    const snap = fixture('disrupted', NOW, campus)
+    const first = snap.advisories.find((a) => a.corridorStatus === 'closed')!
+    const extra = createAdvisory(snap, { scope: first.scope, severity: 'critical', title: 'Landslide', body: '', corridorStatus: 'closed' },
+      { id: 'campus-extra', now: NOW, issuer: 'Campus DRRMO', publish: true, corridors: campus.corridors })
+    if (!extra.ok) throw new Error(extra.error)
+    const r = resolveAdvisory(extra.snapshot, first.id, { now: NOW, reopenCorridor: true })
+    if (!r.ok) throw new Error(r.error)
+    expect(r.snapshot.corridors[first.scope].status).toBe('closed')
+  })
+})

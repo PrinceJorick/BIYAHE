@@ -106,7 +106,10 @@ describe('updating an advisory', () => {
     expect(updateAdvisory(resolved.snapshot, 'campus-1', input(), { now: NOW + 2 * MIN, corridors })).toMatchObject({ ok: false, error: expect.stringMatching(/has ended/) })
     expect(updateAdvisory(p.snapshot, 'campus-1', input(), { now: NOW + 7 * HOUR, corridors })).toMatchObject({ ok: false, error: expect.stringMatching(/has ended/) })
     const d = fixture('disrupted', NOW)
-    expect(updateAdvisory(d, 'pagasa-RA-07', input(), { now: NOW, corridors })).toMatchObject({ ok: false, error: expect.stringMatching(/managed by their issuer/) })
+    // A real PAGASA bulletin (not simulated) belongs to its issuer; the simulated demo copy can be edited.
+    const real = { ...d, advisories: d.advisories.map((a) => (a.id === 'pagasa-RA-07' ? { ...a, simulated: undefined } : a)) }
+    expect(updateAdvisory(real, 'pagasa-RA-07', input(), { now: NOW, corridors })).toMatchObject({ ok: false, error: expect.stringMatching(/managed by their issuer/) })
+    expect(updateAdvisory(d, 'pagasa-RA-07', input(), { now: NOW, corridors }).ok).toBe(true)
     expect(updateAdvisory(d, 'missing', input(), { now: NOW, corridors })).toMatchObject({ ok: false, error: 'That advisory no longer exists.' })
   })
 })
@@ -190,9 +193,10 @@ describe('student visibility', () => {
     expect(recentlyEnded(list, 'lipa', NOW).map((a) => a.id)).toEqual(['expired', 'resolved'])
   })
 
-  it('newest change first', () => {
+  it('the student\'s own route first, then newest change first', () => {
     const ids = studentAdvisories(list, 'lipa', NOW).map((a) => a.id)
-    expect(ids[0]).toBe('active-all')
+    expect(ids[0]).toBe('active-lipa')
+    expect(ids[1]).toBe('active-all')
   })
 
   it('campus and corridor filtering', () => {

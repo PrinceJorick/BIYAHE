@@ -39,9 +39,11 @@ export function endedAt(a: Advisory, now: number): number | null {
 export const isCorridorScope = (scope: string) => scope !== 'campus' && scope !== 'all'
 const newestFirst = (a: Advisory, b: Advisory) => lastChanged(b) - lastChanged(a)
 
-/** Current advisories for a student: active and about the whole campus, all corridors, or their corridor. */
+/** Current advisories for a student: active and about the whole campus, all corridors, or their corridor. Their own
+ * route's advisories come first. */
 export const studentAdvisories = (list: readonly Advisory[], corridorId: string | null, now: number) =>
-  list.filter((a) => isActive(a, now) && concernsStudent(a, corridorId)).sort(newestFirst)
+  list.filter((a) => isActive(a, now) && concernsStudent(a, corridorId))
+    .sort((a, b) => Number(b.scope === corridorId) - Number(a.scope === corridorId) || newestFirst(a, b))
 
 /** Current advisories for other corridors (shown separately, for students whose plans change). */
 export const otherCorridorAdvisories = (list: readonly Advisory[], corridorId: string | null, now: number) =>
@@ -57,9 +59,12 @@ export const recentlyEnded = (list: readonly Advisory[], corridorId: string | nu
   }).sort((a, b) => endedAt(b, now)! - endedAt(a, now)!)
 
 /** Coordinator list, grouped by phase, newest first. */
-export function coordinatorGroups(list: readonly Advisory[], now: number) {
+/** Coordinator list, grouped by phase, newest first. Active: one route's advisories first, in the campus's route
+ * order (pass `routeOrder`), then all-routes and campus-wide ones, so each disrupted route sits at the top. */
+export function coordinatorGroups(list: readonly Advisory[], now: number, routeOrder: readonly string[] = []) {
   const of = (p: AdvisoryPhase | AdvisoryPhase[]) => list.filter((a) => ([] as AdvisoryPhase[]).concat(p).includes(phaseOf(a, now))).sort(newestFirst)
-  return { drafts: of('draft'), active: of('active'), ended: of(['resolved', 'expired']) }
+  const rank = (a: Advisory) => { const i = routeOrder.indexOf(a.scope); return i < 0 ? routeOrder.length : i }
+  return { drafts: of('draft'), active: of('active').sort((a, b) => rank(a) - rank(b)), ended: of(['resolved', 'expired']) }
 }
 
 export function scopeLabel(scope: string, corridors: readonly Corridor[]) {
@@ -70,7 +75,9 @@ export function scopeLabel(scope: string, corridors: readonly Corridor[]) {
 }
 
 /** Campus advisories are managed here; PAGASA and LGU advisories belong to their issuers. */
-export const isManaged = (a: Advisory) => a.source === 'Campus'
+/** Campus advisories are managed here, and so is every simulated (demo) record whatever its issuer; real PAGASA and
+ * LGU advisories belong to their issuers. */
+export const isManaged = (a: Advisory) => a.source === 'Campus' || a.simulated === true
 
 /** The form values to start a new draft from an existing advisory (Resolved → Reuse). */
 export const reuseInput = (a: Advisory): AdvisoryInput => ({
@@ -192,7 +199,11 @@ export function resolveAdvisory(snapshot: Snapshot, id: string, opts: { now: num
   let next = replace(snapshot, a, opts.now)
   let corridorChanged: string | null = null
   if (opts.reopenCorridor && isCorridorScope(a.scope) && next.corridors[a.scope]) {
-    next = { ...next, corridors: { ...next.corridors, [a.scope]: corridorStateFor(corridorById(a.scope), 'open') } }
+    // Another advisory still current for the same route keeps its status (the worst one); otherwise the route is clear.
+    const still = next.advisories.filter((x) => x.id !== a.id && x.scope === a.scope && x.corridorStatus && isActive(x, opts.now))
+    const worst = still.some((x) => x.corridorStatus === 'closed') ? 'closed' : still.some((x) => x.corridorStatus === 'slow') ? 'slow' : 'open'
+    const c = corridorById(a.scope)
+    next = { ...next, corridors: { ...next.corridors, [a.scope]: worst === 'open' ? corridorStateFor(c, 'open') : { ...next.corridors[a.scope], status: worst } } }
     corridorChanged = a.scope
   }
   return { ok: true, snapshot: next, advisory: a, corridorChanged }
