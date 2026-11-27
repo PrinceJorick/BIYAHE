@@ -55,6 +55,8 @@ function overlayClass(): OverlayCtor {
       if (p) {
         this.el.style.left = `${p.x}px`
         this.el.style.top = `${p.y}px`
+        // Tell the map a label or pin moved, so overlapping labels are sorted out again (see GoogleMapView).
+        this.el.dispatchEvent(new Event('gm-drawn', { bubbles: true }))
       }
     }
     onRemove() {
@@ -167,18 +169,27 @@ export default function GoogleMapView({ model, fill, padding, traffic, onSpot }:
     if (cam) map.moveCamera({ center: toLL(cam.center), zoom: cam.zoom })
   }, [map, fit, pad])
 
-  // Hide labels that would cover a pin or a more important label, whenever the view settles or the labels change.
+  // Hide labels that would cover a pin or a more important label, whenever the view settles or any overlay is drawn
+  // at a new spot. Overlays are added and positioned after the map's own idle event (and move again when Google's road
+  // paths arrive), so waiting for idle alone left labels stacked on top of each other.
   const root = useRef<HTMLDivElement>(null)
-  const labels = model.lines.map((l) => `${l.id}${l.status}${l.focus}`).join() + model.spots.map((x) => `${x.id}${x.selected}`).join()
   useEffect(() => {
-    if (!map) return
-    const l = map.addListener('idle', () => declutter(root.current))
-    const t = setTimeout(() => declutter(root.current), 50)
+    const r = root.current
+    if (!map || !r) return
+    let frame = 0
+    const run = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => declutter(root.current))
+    }
+    const l = map.addListener('idle', run)
+    r.addEventListener('gm-drawn', run)
+    run()
     return () => {
       l.remove()
-      clearTimeout(t)
+      r.removeEventListener('gm-drawn', run)
+      cancelAnimationFrame(frame)
     }
-  }, [map, labels])
+  }, [map])
 
   useEffect(() => {
     if (!map || !traffic) return

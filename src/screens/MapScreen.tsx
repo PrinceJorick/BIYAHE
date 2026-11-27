@@ -192,7 +192,7 @@ export default function MapScreen({ arg }: { arg: string | null }) {
               <label className={`switch${googleOn ? '' : ' is-disabled'}`}>
                 <input type="checkbox" role="switch" checked={layers.traffic && googleOn} disabled={!googleOn} onChange={(e) => setLayer('traffic', e.target.checked)} />
                 <span className="switch-track" aria-hidden="true" />
-                <span><span className="strong">Live traffic</span><span className="caption">{googleOn ? 'Google traffic on the roads' : 'Needs the Google street map'}</span></span>
+                <span><span className="strong">Live traffic</span><span className="caption">{googleOn ? 'Google traffic on the roads' : isLowBattery(s) && !isOffline(s) ? 'Off in Low-Battery Mode' : 'Needs the Google street map'}</span></span>
               </label>
             </div>
           </section>

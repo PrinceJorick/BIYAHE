@@ -154,7 +154,7 @@ On desktop the details are a panel on the left that starts open.
 | Online, Google key accepted | Google Maps (muted style or the cloud style of `VITE_GOOGLE_MAPS_MAP_ID`), with the live traffic layer and Google's route for each line (Routes API) |
 | Online, no key or key rejected | The app's map over OpenStreetMap street tiles |
 | Offline | The app's map over OpenStreetMap tiles saved for every campus ("Offline map"); unsaved close zooms show the saved zoom-13 streets stretched, never a blank grid |
-| Low-Battery Mode | The app's map over OpenStreetMap tiles ("Low-Battery Mode map"): no Google map, no traffic layer, no animation or wheel zoom |
+| Low-Battery Mode | Online: Google's map without the traffic layer. Offline: the OpenStreetMap map, without animation or wheel zoom |
 
 The OpenStreetMap credit is shown on the app's own map. Over Google's map it is not drawn on the map (Google credits
 its own data); it appears in the route information dialog behind the info icon. Map labels try nearby spots before
@@ -387,8 +387,8 @@ original five; it must be added there before any reviewed route set is supplied.
   map. Verified 28 November 2026 with the network off in a fresh browser profile: every campus overview and route map
   showed streets.
 - Offline, every screen still works from the saved copy and says so with its original time.
-- Low-Battery Mode (suggested under 20%) uses the app's OpenStreetMap map instead of Google's, turns off animation and
-  live traffic, and polls half as often.
+- Low-Battery Mode (suggested under 20%) keeps Google's map online but drops its traffic layer, turns off animation
+  and live traffic, and polls half as often. Offline, every map uses the OpenStreetMap map.
 - No location request, no background GPS, no account, no check-in. Staff see aggregate counts per route only
   (RA 10173). Settings → *Clear offline data* removes everything BIYAHE saved.
 

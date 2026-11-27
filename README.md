@@ -87,7 +87,7 @@ npm run preview    # http://localhost:4173, the installable offline build
 
 | Source | Used for | Fallback |
 |---|---|---|
-| Google Maps JavaScript API | Street map, live traffic layer | The app's own map over OpenStreetMap tiles (also offline from saved tiles, and in Low-Battery Mode) |
+| Google Maps JavaScript API | Street map whenever online (also in Low-Battery Mode, without the traffic layer), live traffic layer | Offline: the app's own map over saved OpenStreetMap tiles. Online without a key, or when Google refuses it: the same map over live OpenStreetMap tiles |
 | OpenStreetMap tiles | Streets on the app's own map, online and offline | Saved tiles (zoom-13 streets stretched under closer zooms); plain background where nothing was saved |
 | Google Routes API | Traffic-aware trip times, Google road geometry, traffic forecast for later departures | Times estimated from route reports |
 | Google Weather API (browser key, else `/api/weather`) | Current conditions, hourly chance of rain (Estimate), PAGASA public alerts (Official) | Last reading as a saved copy (cached up to 24 h); otherwise "Weather unavailable" with **Retry**, or "Weather feed not configured for this build" when no key exists |

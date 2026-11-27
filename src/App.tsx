@@ -148,7 +148,7 @@ export default function App() {
                   <div className="banner">
                     <BatteryLow size={20} aria-hidden="true" />
                     <div className="banner-body">
-                      <span>Battery under 20%. Low-Battery Mode keeps guidance and uses a lighter map.</span>
+                      <span>Battery under 20%. Low-Battery Mode keeps guidance and uses less data.</span>
                       <div className="cluster">
                         <button className="btn btn-primary btn-sm" onClick={() => setLowBattery(true)}>Turn on</button>
                         <button className="btn btn-quiet btn-sm" onClick={dismissBatteryHint}>Not now</button>
