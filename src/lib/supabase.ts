@@ -34,7 +34,7 @@ const spotRow = (s: Spot) => ({
 
 const corridorRow = (id: string, c: CorridorState) => ({
   corridor_id: id, status: c.status, min_lo: c.minLo, min_hi: c.minHi, note: c.note,
-  source: c.source, provenance: c.provenance, updated_at: iso(Date.now()),
+  source: c.source, provenance: c.provenance, hazard: c.hazard ?? null, updated_at: iso(Date.now()),
 })
 
 // Advisory lifecycle (draft / published / resolved, edit and end times, corridor status) is stored in the
@@ -100,7 +100,8 @@ export async function fetchSnapshot(): Promise<Snapshot | 'empty' | null> {
     let updatedAt = 0
     const states: Record<string, CorridorState> = {}
     for (const r of csRows) {
-      states[r.corridor_id] = { status: r.status, minLo: r.min_lo, minHi: r.min_hi, note: r.note ?? '', source: r.source ?? '', provenance: r.provenance }
+      states[r.corridor_id] = { status: r.status, minLo: r.min_lo, minHi: r.min_hi, note: r.note ?? '', source: r.source ?? '', provenance: r.provenance,
+        ...(r.hazard === 'flood' || r.hazard === 'ponding' ? { hazard: r.hazard } : {}) }
       updatedAt = Math.max(updatedAt, ms(r.updated_at))
     }
     const rows: Spot[] = spRows.map((r) => {

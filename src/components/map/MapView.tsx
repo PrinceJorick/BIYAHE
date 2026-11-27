@@ -10,6 +10,7 @@ import { useGoogleMapsStatus } from '../../lib/googleMapsLoader'
 import { buildMapModel, type MapFocus } from '../../lib/mapModel'
 import { devRoadDataWarning } from '../../lib/mapView'
 import { isLowBattery, isOffline, useApp } from '../../lib/store'
+import DemoFloodToggle from '../DemoFloodToggle'
 import DemoRoutes from '../DemoRoutes'
 import MapFrame from '../MapFrame'
 import GoogleMapView, { type Padding } from './GoogleMapView'
@@ -40,8 +41,9 @@ export default function MapView({ mode, label, focus = null, showAll = false, tr
   const why = !GOOGLE_MAPS_KEY ? 'nokey' : offline ? 'offline' : battery ? 'battery' : gm === 'error' ? 'error' : null
   const useGoogle = why === null
   // Without Google: OpenStreetMap streets under the app's lines, also offline (tiles saved for every campus while
-  // online; closer zooms that were not saved show the stretched zoom-13 streets). Low-Battery Mode keeps the plain map.
-  const osm = why === 'nokey' || why === 'error' || why === 'offline'
+  // online; closer zooms that were not saved show the stretched zoom-13 streets) and in Low-Battery Mode (no Google
+  // map, no traffic layer, no animation; the tiles mostly come from the device's cache).
+  const osm = why !== null
   const model = buildMapModel({
     mode, campus: CAMPUS, corridors, snapshot: s.snapshot, mineId: s.corridorId, focus, showAll, extent,
     googlePaths: useGoogle ? s.traffic?.routes ?? null : null, walk: s.walk,
@@ -53,13 +55,14 @@ export default function MapView({ mode, label, focus = null, showAll = false, tr
   const note = why && (
     <p className="map-note">
       <MapPinned size={14} aria-hidden="true" />
-      {why === 'offline' ? 'Offline map' : why === 'battery' ? 'Simple map: saving battery' : why === 'error' ? 'OpenStreetMap: Google map unavailable'
+      {why === 'offline' ? 'Offline map' : why === 'battery' ? 'Low-Battery Mode map' : why === 'error' ? 'OpenStreetMap: Google map unavailable'
         : import.meta.env.DEV ? 'OpenStreetMap: add VITE_GOOGLE_MAPS_API_KEY for the Google map' : 'OpenStreetMap'}
     </p>
   )
 
   return (
-    <MapFrame label={label} warning={warning} notice={notice} note={note} credit={!useGoogle && (model.osmCredit || osm)} fill={fill}>
+    <MapFrame label={label} warning={warning} notice={notice} note={note} credit={!useGoogle && (model.osmCredit || osm)} fill={fill}
+      demo={<DemoFloodToggle />}>
       {useGoogle
         ? <GoogleMapView model={model} fill={fill} padding={padding} traffic={traffic} onSpot={onSpot} />
         : <SchematicMap model={model} fill={fill} padding={padding} onSpot={onSpot} still={battery} tiles={osm} />}

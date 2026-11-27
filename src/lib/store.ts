@@ -16,6 +16,9 @@ import { clearApiCache, isQuotaError, latestEntry } from './apiCache'
 import type { Advisory } from '../types'
 
 export type Role = 'student' | 'staff'
+/** No real campus feed is connected: every route status, safe-spot count and campus advisory is demo data, whether
+ * it lives on this device or is shared through Supabase. Screens label it Simulated, never Official. */
+export const DEMO_DATA = true
 export type StaffRole = 'DRRMO Coordinator' | 'Building Marshal' | 'Guard on Duty'
 /** Staff roles and what each one does (staff access and staff Settings). */
 export const STAFF_ROLES: { id: StaffRole; hint: string }[] = [
@@ -207,6 +210,8 @@ function receive(incoming: Snapshot) {
     : null
   persist(next)
   if (state.scenario === 'stale') set({ scenario: 'disrupted' })
+  // Another device switched the shared demo: keep this device's Clear/Flooding label in step with the data.
+  else if (state.scenario === 'clear' || state.scenario === 'disrupted') set({ scenario: demoFlooded(state) ? 'disrupted' : 'clear' })
   if (notice) {
     toast(notice.text, notice.urgent)
     notify(notice.text)
@@ -250,7 +255,9 @@ async function pull() {
     void remote.pushAll(state.snapshot)
   } else if (got) {
     set({ backend: 'supabase' })
-    receive(got)
+    // A successful read confirms the shared data as of now, so a quiet hour with no changes never ages it into
+    // "Unknown"; only failing to reach the server does (src/lib/routeStatus.ts). The Stale demo keeps its age.
+    receive(state.scenario === 'stale' ? got : { ...got, updatedAt: Math.max(got.updatedAt, Date.now()) })
   } else {
     set({ backend: 'device' })
   }
@@ -328,7 +335,8 @@ export async function init() {
     let debounce: ReturnType<typeof setTimeout> | undefined
     void remote.subscribe(() => {
       clearTimeout(debounce)
-      debounce = setTimeout(() => void pull(), 150)
+      // One read after a burst of row changes (a demo switch rewrites many rows at once).
+      debounce = setTimeout(() => void pull(), 600)
     })
   }
 
@@ -345,6 +353,7 @@ export async function init() {
     if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
     if (isLowBattery(state) && tick++ % 2) return
     confirmDemoFeed()
+    if (remote.configured && !isOffline(state)) void pull()
     void refreshWeather()
     void refreshTraffic()
     void refreshNews()
@@ -478,7 +487,7 @@ export function setCorridor(corridorId: string) {
 
 export function setLowBattery(lowBattery: boolean) {
   set({ lowBattery, batteryHint: false, scenario: !lowBattery && state.scenario === 'lowbattery' ? 'disrupted' : state.scenario })
-  toast(lowBattery ? 'Low-Battery Mode on. Simple map.' : 'Low-Battery Mode off.')
+  toast(lowBattery ? 'Low-Battery Mode on. OpenStreetMap, no live traffic.' : 'Low-Battery Mode off.')
 }
 
 export function dismissBatteryHint() {
@@ -516,12 +525,17 @@ export async function loadWalkRoute(spot: Pick<Spot, 'id' | 'pos'> | undefined) 
   set({ walk: route, walkLoading: null })
 }
 
-// Demo scenarios change this device and its open tabs only. They are never written to Supabase, so a
-// presentation can never overwrite shared or official campus records.
-function simulate(next: Snapshot) {
+// Demo scenarios Clear and Flooding change the shared demo data: this device, its open tabs and, with Supabase,
+// every device on the campus (so a presenter can flood the routes on every phone at once). The campus data is demo
+// data only (DEMO_DATA); with a real feed this must stop writing. Stale, Offline and Low battery stay on this device.
+function simulate(next: Snapshot, share = true) {
   persist(next)
   bc?.postMessage(next)
+  if (share && remote.configured) void remote.pushAll(next).then((ok) => { if (!ok) toast('Server unreachable. Demo changed on this device only.') })
 }
+
+/** Map toggle (demo only): Flooding when any route is closed or slow by a hazard, otherwise Clear. */
+export const demoFlooded = (s: Pick<State, 'snapshot'>) => Object.values(s.snapshot.corridors).some((c) => c.status !== 'open')
 
 export function setScenario(scenario: Scenario) {
   const wasOffline = state.scenario === 'offline'
@@ -532,7 +546,7 @@ export function setScenario(scenario: Scenario) {
     simulate(fixture(scenario, now))
   } else if (scenario === 'stale') {
     held = null
-    simulate({ ...fixture('disrupted', now), updatedAt: now - 38 * MIN })
+    simulate({ ...fixture('disrupted', now), updatedAt: now - 38 * MIN }, false)
   } else if (wasOffline && held) {
     const next = held
     held = null

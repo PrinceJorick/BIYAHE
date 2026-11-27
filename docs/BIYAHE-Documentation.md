@@ -154,7 +154,7 @@ On desktop the details are a panel on the left that starts open.
 | Online, Google key accepted | Google Maps (muted style or the cloud style of `VITE_GOOGLE_MAPS_MAP_ID`), with the live traffic layer and Google's route for each line (Routes API) |
 | Online, no key or key rejected | The app's map over OpenStreetMap street tiles |
 | Offline | The app's map over OpenStreetMap tiles saved for every campus ("Offline map"); unsaved close zooms show the saved zoom-13 streets stretched, never a blank grid |
-| Low-Battery Mode | The app's plain map: route lines and pins on a dot grid, no tiles |
+| Low-Battery Mode | The app's map over OpenStreetMap tiles ("Low-Battery Mode map"): no Google map, no traffic layer, no animation or wheel zoom |
 
 The OpenStreetMap credit is shown on the app's own map. Over Google's map it is not drawn on the map (Google credits
 its own data); it appears in the route information dialog behind the info icon. Map labels try nearby spots before
@@ -180,7 +180,9 @@ article. Offline, it opens the saved copy in a sheet instead. A news report is n
 Your usual route; which alerts BIYAHE announces (route closures, PAGASA warnings, class suspensions, browser
 notifications while BIYAHE is open); offline data with the time of each source, **Sync now** and **Clear offline
 data** (asks first); Low-Battery Mode; demo scenarios (Clear, Flooding, Stale data, Offline, Low battery; marked
-*Simulated*, never written to the shared database); privacy; build information; switching role.
+*Simulated*; Clear and Flooding are shared with every device through Supabase, the others stay on this device); privacy;
+build information; switching role. Every map also carries a **Demo · Clear / Flooding** switch that does the same as
+those two scenarios.
 
 Staff have their own Settings (`#/settings`, in the staff navigation) built from the same sections: role (changes what
 the board allows at once), campus, offline and sync, Low-Battery Mode, demo scenarios, staff privacy notes, build
@@ -189,6 +191,11 @@ information and switching role.
 ### 3.7 Coordinator Command
 
 ![Coordinator](screens/12-desktop-coordinator.png)
+
+On phones and small tablets (under 900 px) the staff screens use a slim top bar with the logo and a bottom tab bar
+(Command, Settings, Student view, Switch role), like the student app; from 900 px the tabs sit in the side rail. Route
+rows move their impact count under the name below 520 px. Checked with no horizontal scroll at 320, 375, 414, 600, 768,
+899, 900, 1024, 1366 and 1920 px.
 
 A *Your tasks* strip for the role in use, route map and list (status, hazard note and estimated stranded, delayed or
 unconfirmed students per route), safe spots with campus totals (capacity, spaces left, spots not assessed; a capacity
@@ -380,8 +387,8 @@ original five; it must be added there before any reviewed route set is supplied.
   map. Verified 28 November 2026 with the network off in a fresh browser profile: every campus overview and route map
   showed streets.
 - Offline, every screen still works from the saved copy and says so with its original time.
-- Low-Battery Mode (suggested under 20%) uses the plain map, turns off animation and live traffic, and polls half as
-  often.
+- Low-Battery Mode (suggested under 20%) uses the app's OpenStreetMap map instead of Google's, turns off animation and
+  live traffic, and polls half as often.
 - No location request, no background GPS, no account, no check-in. Staff see aggregate counts per route only
   (RA 10173). Settings → *Clear offline data* removes everything BIYAHE saved.
 
@@ -425,8 +432,9 @@ Supabase, Lucide icons, Vercel Functions.
 
 ## 12. Known limitations
 
-- Supabase is not configured: campus data is simulated on each device and staff access is enforced in the app only.
-  Staff authentication and row-level security are needed before real use.
+- Supabase (project `biyahe`) shares the demo campus data across devices, but there is no staff sign-in: the
+  "demo write" policies let anyone with the publishable key write, and roles are enforced in the app only. Staff
+  authentication and stricter row-level security are needed before real use.
 - Weather works through the browser key `VITE_GOOGLE_WEATHER_API_KEY` and through `/api/weather` (both verified
   26 November 2026 for all three campuses). The server sends the site's address as the `Referer`, so its key may keep
   the website restriction.

@@ -206,7 +206,8 @@ const retryAfterS = (res: Response) => {
 }
 
 export async function getNews(env: Env, fetchImpl: typeof fetch = fetch, now = Date.now()): Promise<NewsPayload> {
-  const key = env.CURRENTS_API_KEY?.trim()
+  // CURRENTAPI_KEY: an older spelling some local .env files use.
+  const key = (env.CURRENTS_API_KEY || env.CURRENTAPI_KEY)?.trim()
   if (!key) return { items: [], provider: 'none', fetchedAt: now }
   const ctl = new AbortController()
   const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS)

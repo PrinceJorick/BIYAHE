@@ -5,7 +5,7 @@
 -- Safe-spot names, positions and capacities are owned by the app's campus registry (src/campuses); rows supply
 -- live occupancy and amenities (src/lib/spotData.ts).
 
-create extension if not exists postgis;
+create extension if not exists postgis with schema extensions;
 
 -- Reference geometry for the commute corridors out of BatStateU Alangilan.
 create table if not exists corridors (
@@ -73,7 +73,7 @@ create or replace view safe_spots_view with (security_invoker = true) as
 -- Open spots within walking distance of a point, nearest first.
 create or replace function spots_near(lat double precision, lon double precision, meters int default 800)
 returns table (id text, name text, spaces_left int, distance_m double precision)
-language sql stable as $$
+language sql stable set search_path = public, extensions as $$
   select s.id, s.name, s.capacity - s.occupied,
          st_distance(s.geom, st_point(lon, lat)::geography)
   from safe_spots s

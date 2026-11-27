@@ -3,7 +3,7 @@ import { Building2, ChevronRight, House, Route as RouteIcon } from 'lucide-react
 import { fmtMin, fmtRange } from '../lib/derive'
 import { placeArg, placeFacts, type Place, type RoutePlace } from '../lib/places'
 import { hrefOf } from '../lib/router'
-import { useApp } from '../lib/store'
+import { DEMO_DATA } from '../lib/store'
 import { levelOfTraffic, trafficWord, type TrafficReading } from '../lib/traffic'
 import Badge from './Badge'
 import Lvl from './Lvl'
@@ -20,7 +20,7 @@ export const TrafficWord = ({ t, suffix = '' }: { t: TrafficReading; suffix?: st
 
 /** Where a traffic reading came from. A closure from the demo data is labelled simulated, never official. */
 export function TrafficSource({ t, saved }: { t: TrafficReading; saved?: boolean }) {
-  const simulated = useApp().backend === 'device'
+  const simulated = DEMO_DATA
   return saved ? <Badge kind="saved" /> : t.source === 'live' ? <Badge kind="live" label="Live traffic" /> : t.source === 'official' ? <Badge kind={simulated ? 'simulated' : 'official'} /> : <Badge kind="estimate" />
 }
 

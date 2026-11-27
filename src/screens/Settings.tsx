@@ -22,7 +22,7 @@ const scenarios: { id: Scenario; label: string; hint: string }[] = [
   { id: 'disrupted', label: 'Flooding', hint: 'A simulated flood closes every route that passes it. Ponding slows another.' },
   { id: 'stale', label: 'Stale data', hint: 'Last update 38 min ago. Routes show Unknown until new data arrives.' },
   { id: 'offline', label: 'Offline', hint: 'No signal. The app runs from what this device saved.' },
-  { id: 'lowbattery', label: 'Low battery', hint: 'Battery under 20%: simple map, less polling.' },
+  { id: 'lowbattery', label: 'Low battery', hint: 'Battery under 20%: OpenStreetMap map, no live traffic, less polling.' },
 ]
 
 const alertRows: { key: Exclude<keyof AlertPrefs, 'notify'>; label: string; hint: string }[] = [
@@ -186,7 +186,7 @@ function Battery({ s }: { s: State }) {
       <div className="between">
         <span className="item-body">
           <span className="item-title" id="battery"><BatteryLow size={18} aria-hidden="true" /> Low-Battery Mode</span>
-          <span className="meta">Simple map, no animation, less data. Suggested under 20%.</span>
+          <span className="meta">OpenStreetMap instead of Google, no animation or live traffic, less data. Suggested under 20%.</span>
         </span>
         <Toggle label="Low-Battery Mode" hideLabel checked={isLowBattery(s)} onChange={setLowBattery} />
       </div>
