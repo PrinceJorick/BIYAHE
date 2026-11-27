@@ -487,7 +487,7 @@ export function setCorridor(corridorId: string) {
 
 export function setLowBattery(lowBattery: boolean) {
   set({ lowBattery, batteryHint: false, scenario: !lowBattery && state.scenario === 'lowbattery' ? 'disrupted' : state.scenario })
-  toast(lowBattery ? 'Low-Battery Mode on. OpenStreetMap, no live traffic.' : 'Low-Battery Mode off.')
+  toast(lowBattery ? 'Low-Battery Mode on. No live traffic, less data.' : 'Low-Battery Mode off.')
 }
 
 export function dismissBatteryHint() {

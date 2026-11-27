@@ -124,6 +124,9 @@ describe('map wiring (source guards)', () => {
     expect(schematicSource).toContain('attributionControl={false}')
     expect(schematicSource).toContain('{tiles && <TileLayer')
     expect(mapViewSource).toContain('const osm = why !== null')
+    // Online → Google, offline → OpenStreetMap; Low-Battery Mode never switches away from Google, only drops traffic.
+    expect(mapViewSource).toContain("const why = !GOOGLE_MAPS_KEY ? 'nokey' : offline ? 'offline' : gm === 'error' ? 'error' : null")
+    expect(mapViewSource).toContain('traffic={traffic && !battery}')
     expect(mapViewSource).not.toMatch(/dot grid only|plain dot grid/)
     expect(mapViewSource).toContain('tiles={osm}')
   })
