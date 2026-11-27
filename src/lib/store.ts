@@ -196,6 +196,9 @@ function persist(snapshot: Snapshot) {
   void idbSet(SNAPSHOT_KEY, { snapshot, savedAt })
 }
 
+// Flooding demo data saved before every route closed: only the old fixture set ponding (slow, "Heavy") on a route.
+const outdatedDemo = (s: Snapshot) => Object.values(s.corridors ?? {}).some((c) => c.hazard === 'ponding')
+
 function receive(incoming: Snapshot) {
   // An older tab or an old database row may still carry renamed spots or superseded coordinates.
   const next = reconcileSnapshot(incoming, spotSeeds)
@@ -203,6 +206,8 @@ function receive(incoming: Snapshot) {
     held = next
     return
   }
+  // Replace it here, on this device and (shared demo) every device, with the current Flooding data.
+  if (outdatedDemo(next)) return simulate(fixture('disrupted', Date.now()))
   // Every screen re-renders from the new snapshot on its own; a student is also told what changed for them: their
   // route's status, a new advisory, or an update or resolution of one they were shown (src/lib/studentNotice.ts).
   const notice = state.role === 'student'
@@ -306,7 +311,7 @@ export async function init() {
   // Saved copies keep their occupancy, amenities, advisories and route status; safe-spot names, positions and
   // capacities always come from the current registry (src/lib/spotData.ts).
   const saved = stored?.snapshot?.corridors ? { ...stored, snapshot: reconcileSnapshot(stored.snapshot, spotSeeds) } : null
-  if (saved && matchesCampus(saved.snapshot)) {
+  if (saved && matchesCampus(saved.snapshot) && !outdatedDemo(saved.snapshot)) {
     set({ snapshot: saved.snapshot, savedAt: saved.savedAt })
     void idbSet(SNAPSHOT_KEY, saved)
   } else void idbSet(SNAPSHOT_KEY, { snapshot: state.snapshot, savedAt: state.savedAt })
