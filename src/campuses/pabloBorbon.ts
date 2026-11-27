@@ -1,5 +1,5 @@
 import { straightLineWalkMin } from '../lib/coords'
-import { estimateCapacity, type Footprint } from './capacity'
+import { estimateCapacity, type CapacitySource } from './capacity'
 import { selectCorridorGeometry } from '../lib/previewGeometry'
 import type { Campus, Corridor, LatLng } from '../types'
 import { PABLO_BORBON_PREVIEW_ROADS } from './pablo-borbon.preview.roads'
@@ -53,7 +53,7 @@ const SPOT_POS = {
 export const PABLO_BORBON_FOOTPRINTS = {
   'pb-gym': { m2: 1537, use: 'hall', source: 'OpenStreetMap way 334825726 footprint (re-measured 2026-11-28)', verified: true },
   'pb-library': { m2: 776, use: 'library', source: 'OpenStreetMap way 489731778 footprint, one floor (re-measured 2026-11-28)', verified: true },
-} satisfies Record<string, Footprint>
+} satisfies Record<string, CapacitySource>
 
 export const pabloBorbon: Campus = {
   id: 'pablo-borbon',

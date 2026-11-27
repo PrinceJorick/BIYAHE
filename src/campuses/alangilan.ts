@@ -1,5 +1,5 @@
 import { straightLineWalkMin } from '../lib/coords'
-import { estimateCapacity, type Footprint } from './capacity'
+import { estimateCapacity, type CapacitySource } from './capacity'
 import { selectCorridorGeometry } from '../lib/previewGeometry'
 import type { Campus, Corridor, LatLng } from '../types'
 import { alangilanRoads } from './alangilan.roads'
@@ -68,7 +68,8 @@ const SPOT_POS = {
 export const ALANGILAN_FOOTPRINTS = {
   gym: { m2: 2773, use: 'hall', source: 'OpenStreetMap way 489736297 footprint (re-measured 2026-11-28)', verified: true },
   library: { m2: 860, use: 'library', source: 'A third of the Einstein Building floor plate (~2,600 m²), from imagery', verified: false },
-} satisfies Record<string, Footprint>
+  lounge: { people: 150, source: 'Project owner estimate, about 150 students (2026-11-28); not measured', verified: false },
+} satisfies Record<string, CapacitySource>
 
 export const alangilan: Campus = {
   id: 'alangilan',
@@ -82,9 +83,8 @@ export const alangilan: Campus = {
       amenities: { power: true, water: true, food: false }, pos: SPOT_POS.gym },
     { id: 'library', name: 'Einstein Bldg Library, 2nd Floor', walkMin: straightLineWalkMin(LOCATION, SPOT_POS.library), capacity: estimateCapacity(ALANGILAN_FOOTPRINTS.library),
       amenities: { power: true, water: false, food: false }, pos: SPOT_POS.library },
-    // Capacity and amenities have not been supplied or assessed: null capacity ("not yet assessed") and no
-    // amenities until a coordinator confirms them, rather than invented values.
-    { id: 'lounge', name: 'Student Lounge', walkMin: straightLineWalkMin(LOCATION, SPOT_POS.lounge), capacity: null,
+    // Capacity: the project owner's estimate of about 150 (flagged for review). Amenities not confirmed yet.
+    { id: 'lounge', name: 'Student Lounge', walkMin: straightLineWalkMin(LOCATION, SPOT_POS.lounge), capacity: estimateCapacity(ALANGILAN_FOOTPRINTS.lounge),
       amenities: { power: false, water: false, food: false }, pos: SPOT_POS.lounge },
   ],
 }
@@ -105,4 +105,5 @@ export const alangilan: Campus = {
 //   its centre. Area is an estimate: a third of the ~2,600 m² floor plate ≈ 860 m² × 0.6 usable ÷ 2 = 258 → 250.
 //   Not measured: flagged for review (verified: false) until the library's floor area is confirmed.
 // - Student Lounge (renamed in Iteration 3; records saved under the old ID are migrated by src/lib/spotData.ts):
-//   position supplied by the project owner. No capacity or amenity source exists yet.
+//   position supplied by the project owner. Capacity: about 150, the project owner's estimate (2026-11-28), not
+//   measured, so it is flagged for review. No amenity source exists yet.

@@ -15,6 +15,8 @@ export type NewsItem = {
   publishedAt: number
   places: string[]
   topics: NewsTopic[]
+  /** Demo sample written by BIYAHE (src/data.ts sampleNews), never a real article; shown with a Simulated badge. */
+  sample?: boolean
 }
 export type NewsSnapshot = { items: NewsItem[]; provider: 'currents' | 'none'; fetchedAt: number; error?: string; retryAfter?: number }
 

@@ -8,6 +8,7 @@ import { logBuildInfo } from './buildInfo'
 import { fetchNews, readNews, savedNewsUsable, type NewsSnapshot } from './news'
 import { saveOfflineTiles } from './offlineTiles'
 import { reconcileSnapshot } from './spotData'
+import { studentNotice } from './studentNotice'
 import * as remote from './supabase'
 import { resolveWalkRoute, WALK_ROUTER_URL, type WalkRoute } from './walkRoute'
 import { fetchWeather, weatherCacheKey } from './weather'
@@ -18,10 +19,17 @@ export type Role = 'student' | 'staff'
 export type StaffRole = 'DRRMO Coordinator' | 'Building Marshal' | 'Guard on Duty'
 /** Staff roles and what each one does (staff access and staff Settings). */
 export const STAFF_ROLES: { id: StaffRole; hint: string }[] = [
-  { id: 'DRRMO Coordinator', hint: 'Routes, safe spots and advisories' },
-  { id: 'Building Marshal', hint: 'Headcount and amenities for your building' },
-  { id: 'Guard on Duty', hint: 'Headcount at the gate and safe spots' },
+  { id: 'DRRMO Coordinator', hint: 'Advisories, route status and every safe spot' },
+  { id: 'Building Marshal', hint: 'Headcount and amenities for your one building' },
+  { id: 'Guard on Duty', hint: 'Headcount in and out at every safe spot' },
 ]
+
+/** What each role does on the Command screen (shown to the person in that role). */
+export const ROLE_TASKS: Record<StaffRole, string[]> = {
+  'DRRMO Coordinator': ['Publish, update and resolve advisories', 'Set route status when you publish', 'Watch space at every safe spot'],
+  'Building Marshal': ['Keep your building\'s headcount current', 'Mark power, water and food as they change', 'Other spots and advisories are view only'],
+  'Guard on Duty': ['Count people in and out (±1 at the door, ±10 for groups)', 'Turn people away from a full spot to the next one', 'Amenities and advisories are view only'],
+}
 export type Scenario = 'clear' | 'disrupted' | 'stale' | 'offline' | 'lowbattery'
 /** Which new alerts BIYAHE announces. `notify`: also as a system notification while BIYAHE is open (no push service). */
 export type AlertPrefs = { routes: boolean; pagasa: boolean; classes: boolean; notify: boolean }
@@ -31,6 +39,8 @@ export type State = {
   ready: boolean
   role: Role | null
   staffRole: StaffRole
+  // The safe spot a Building Marshal looks after (null: the campus's first spot).
+  staffSpotId: string | null
   corridorId: string | null
   scenario: Scenario
   // Low-Battery Mode chosen by the person; the 'lowbattery' scenario forces it on as well.
@@ -67,7 +77,7 @@ export type State = {
 
 export type TrafficSnapshot = { routes: Partial<Record<string, LiveRoute>>; fetchedAt: number }
 
-type Prefs = Pick<State, 'role' | 'staffRole' | 'corridorId' | 'scenario' | 'lowBattery' | 'alertPrefs'>
+type Prefs = Pick<State, 'role' | 'staffRole' | 'staffSpotId' | 'corridorId' | 'scenario' | 'lowBattery' | 'alertPrefs'>
 
 const PREFS = 'biyahe-prefs'
 const MIN = 60_000
@@ -104,6 +114,7 @@ let state: State = {
   ready: false,
   role: null,
   staffRole: 'DRRMO Coordinator',
+  staffSpotId: null,
   corridorId: null,
   scenario: 'disrupted',
   lowBattery: false,
@@ -135,8 +146,8 @@ const subscribe = (l: () => void) => (listeners.add(l), () => void listeners.del
 function set(patch: Partial<State>) {
   state = { ...state, ...patch }
   try {
-    const { role, staffRole, corridorId, scenario, lowBattery, alertPrefs } = state
-    const prefs = JSON.stringify({ role, staffRole, corridorId, scenario, lowBattery, alertPrefs } satisfies Prefs)
+    const { role, staffRole, staffSpotId, corridorId, scenario, lowBattery, alertPrefs } = state
+    const prefs = JSON.stringify({ role, staffRole, staffSpotId, corridorId, scenario, lowBattery, alertPrefs } satisfies Prefs)
     sessionStorage.setItem(PREFS, prefs)
     localStorage.setItem(PREFS, prefs)
   } catch {
@@ -189,19 +200,16 @@ function receive(incoming: Snapshot) {
     held = next
     return
   }
-  // Notify a student only about advisories that have just become current for them (newly published,
-  // not drafts, edits of ones already shown, resolved or expired ones).
-  const now = Date.now()
-  const known = new Set(adv.studentAdvisories(state.snapshot.advisories, state.corridorId, now).map((a) => a.id))
-  const fresh = adv.studentAdvisories(next.advisories, state.corridorId, now).filter((a) => !known.has(a.id))
+  // Every screen re-renders from the new snapshot on its own; a student is also told what changed for them: their
+  // route's status, a new advisory, or an update or resolution of one they were shown (src/lib/studentNotice.ts).
+  const notice = state.role === 'student'
+    ? studentNotice(state.snapshot, next, corridors, state.corridorId, Date.now(), (a) => wantsAlert(state.alertPrefs, a))
+    : null
   persist(next)
   if (state.scenario === 'stale') set({ scenario: 'disrupted' })
-  const wanted = fresh.filter((a) => wantsAlert(state.alertPrefs, a))
-  if (wanted.length && state.role === 'student') {
-    const a = wanted[0]
-    const text = `New ${a.source === 'Campus' ? 'campus' : a.source} advisory: ${a.title}`
-    toast(text, a.severity === 'critical')
-    notify(text)
+  if (notice) {
+    toast(notice.text, notice.urgent)
+    notify(notice.text)
   }
 }
 
@@ -460,6 +468,10 @@ export function setStaffRole(staffRole: StaffRole) {
   set({ staffRole })
 }
 
+export function setStaffSpot(staffSpotId: string) {
+  set({ staffSpotId })
+}
+
 export function setCorridor(corridorId: string) {
   set({ corridorId })
 }
@@ -573,7 +585,27 @@ export async function refresh(): Promise<boolean> {
   return true
 }
 
+// ── Staff permissions on safe spots ─────────────────────────────────────────
+// DRRMO Coordinator: every spot. Building Marshal: headcount and amenities of their one building. Guard on Duty:
+// headcount at every spot, no amenities (they move between the gate and the spots but do not run the facilities).
+// UI gating for the demo only: there is no staff sign-in yet.
+
+/** The Building Marshal's building: their choice if it is on this campus, otherwise the campus's first spot. */
+export const marshalSpotId = (s: Pick<State, 'staffSpotId'>) =>
+  spotSeeds.some((x) => x.id === s.staffSpotId) ? s.staffSpotId! : spotSeeds[0]?.id ?? null
+
+type Who = Pick<State, 'role' | 'staffRole' | 'staffSpotId'>
+export function canEditOccupancy(s: Who, spotId: string) {
+  if (s.role !== 'staff') return false
+  return s.staffRole === 'Building Marshal' ? marshalSpotId(s) === spotId : true
+}
+export function canEditAmenities(s: Who, spotId: string) {
+  if (s.role !== 'staff' || s.staffRole === 'Guard on Duty') return false
+  return s.staffRole === 'Building Marshal' ? marshalSpotId(s) === spotId : true
+}
+
 export function adjustOccupancy(spotId: string, delta: number) {
+  if (!canEditOccupancy(state, spotId)) return toast('Your role cannot change this spot\'s headcount.')
   const spots = state.snapshot.spots.map((s) =>
     s.id === spotId ? { ...s, occupied: Math.min(s.capacity ?? Infinity, Math.max(0, s.occupied + delta)) } : s,
   )
@@ -582,6 +614,7 @@ export function adjustOccupancy(spotId: string, delta: number) {
 }
 
 export function toggleAmenity(spotId: string, amenity: Amenity) {
+  if (!canEditAmenities(state, spotId)) return toast('Your role cannot change this spot\'s amenities.')
   const spots = state.snapshot.spots.map((s) =>
     s.id === spotId ? { ...s, amenities: { ...s.amenities, [amenity]: !s.amenities[amenity] } } : s,
   )

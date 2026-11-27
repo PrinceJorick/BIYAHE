@@ -131,7 +131,7 @@ describe('spot seeds and fixture snapshots', () => {
     snap.spots[0].pos[0] = 0
     snap.spots[1].occupied = 499
     const state = {
-      ready: true, role: 'student', staffRole: 'DRRMO Coordinator', corridorId: 'lipa', scenario: 'disrupted',
+      ready: true, role: 'student', staffRole: 'DRRMO Coordinator', staffSpotId: null, corridorId: 'lipa', scenario: 'disrupted',
       lowBattery: false, batteryHint: false, online: true, backend: 'device', snapshot: snap, savedAt: NOW,
       weather: fallbackWeather(NOW), spotId: null, walk: null, walkLoading: null, toast: null,
       traffic: null, trafficError: null, departures: {}, news: null,
@@ -207,7 +207,7 @@ describe('Pablo Borbon', () => {
         amenities: { power: true, water: true, food: false }, pos: [13.784276340529747, 121.07413074951742] },
       { id: 'library', name: 'Einstein Bldg Library, 2nd Floor', walkMin: 1, capacity: 250,
         amenities: { power: true, water: false, food: false }, pos: [13.784168707874697, 121.0749349027738] },
-      { id: 'lounge', name: 'Student Lounge', walkMin: 1, capacity: null,
+      { id: 'lounge', name: 'Student Lounge', walkMin: 1, capacity: 150,
         amenities: { power: false, water: false, food: false }, pos: [13.78393267903075, 121.07417575704717] },
     ])
   })

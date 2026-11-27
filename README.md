@@ -36,7 +36,17 @@ A closed route stays closed when its data ages; a clear one becomes Unknown. Onl
 
 **Staff / DRRMO (3-click triage)**
 
-`Welcome` → **Campus staff** → `Staff access` (campus and role) → `Coordinator Command` (`#/coordinator`): route map and status per route with estimated stranded students (aggregated only, RA 10173), safe spots with campus totals (capacity, spaces left, not assessed), `−10 / +10` headcount steppers and amenity toggles, local news, and the **advisory board**: three columns, *Drafts* (hidden from students) → *Active* (students see them) → *Resolved* (resolved, discarded or expired). Cards open their full text; actions: Edit, Publish, Resolve, Discard, Reuse as draft. Enter in the form saves a draft, never publishes. Only the DRRMO Coordinator manages advisories; Building Marshal and Guard on Duty see the board read-only and update headcount and amenities. Staff **Settings** (`#/settings`): role, campus, offline and sync, Low-Battery Mode, demo scenarios, privacy and build info.
+`Welcome` → **Campus staff** → `Staff access` (campus and role) → `Coordinator Command` (`#/coordinator`): route map and status per route with estimated stranded students (aggregated only, RA 10173), safe spots with campus totals (capacity, spaces left, not assessed), headcount steppers and amenity toggles, local news (sample reports marked *Simulated* when no live report is available; the "verify before publishing" warning stays), and the **advisory board**, laid out like a Todoist board: three collapsible columns, *Drafts* (hidden from students) → *Active* (students see them) → *Resolved* (resolved, discarded or expired). Cards show a severity circle (on active cards it resolves), the headline, a one-line description and a meta row, with a ··· menu (Edit, Publish, Resolve, Discard, Reuse as draft). Each column has its own add row: **Add draft** (saves only), **Publish advisory** (publishes only) and **Resolve advisory** (pick an active one), alongside **New advisory** at the top. Enter in the form never publishes. Staff **Settings** (`#/settings`): role (and building for a marshal), campus, offline and sync, Low-Battery Mode, demo scenarios, privacy and build info.
+
+| Role | Safe spots | Advisories | Tasks shown on Command |
+|---|---|---|---|
+| DRRMO Coordinator | Every spot: headcount ±10 and amenities | Create, publish, edit, resolve | Publish, update and resolve advisories; set route status; watch space |
+| Building Marshal | **One assigned building** (picked at staff access or in Settings; defaults to the campus's first spot): headcount ±10 and amenities. Other spots read-only | View only | Keep your building's headcount current; mark power, water and food |
+| Guard on Duty | Every spot: headcount **±1** (door count) and ±10. Amenities read-only | View only | Count people in and out; send people from a full spot to the next |
+
+Permissions are checked in the store (`canEditOccupancy`, `canEditAmenities`), not only in the UI. There is still no staff sign-in, so this is demo gating, not access control.
+
+When the coordinator publishes, edits or resolves an advisory, every open student view updates at once (other tabs on the device through BroadcastChannel; other devices through Supabase Realtime once it is configured), and the student gets one notice: their route's new status, a new advisory, an update, or a resolution (`src/lib/studentNotice.ts`).
 
 In the code and database a route is called a corridor (`Corridor`, `corridor_status`); the UI says "route".
 
@@ -62,7 +72,7 @@ Everything works with no keys (demo data, the app's own map over OpenStreetMap t
 
 Restart `npm run dev` after editing `.env`. Settings → *About this build* shows whether the browser-side Google Maps and Supabase keys are present (never their values); server keys are not visible to the browser. `VITE_*` values end up in the browser bundle, so restrict them in the provider console. Keys without the prefix stay on the server (`api/*.ts`: Vercel Functions in production, Vite middleware locally).
 
-**Demo:** open the app in two tabs. Tab A: *Get started*. Tab B: *Campus staff* → *Open Command Dashboard*. Changes in B (occupancy, amenities, an advisory that closes a route) appear in A at once. Settings → *Demo scenarios* switches between Clear, Flooding, Stale data, Offline and Low battery. *Flooding* places one simulated flood and one ponding site per campus (`DEMO_HAZARDS` in `src/data.ts`, each on the road it names); every route that passes the flood is closed and gets its own LGU advisory, every route through the ponding is slow, every other route is clear (`src/lib/hazards.ts`). Simulated advisories carry a *Simulated* badge. Scenarios change only the device and its open tabs, never Supabase.
+**Demo:** open the app in two tabs. Tab A: *Get started*. Tab B: *Campus staff* → *Open Command Dashboard*. Changes in B (occupancy, amenities, an advisory that closes a route) appear in A at once. Settings → *Demo scenarios* switches between Clear, Flooding, Stale data, Offline and Low battery. *Flooding* places one simulated flood and several ponding sites per campus (`DEMO_HAZARDS` in `src/data.ts`, each on the road it names), so **every route is closed or in heavy traffic**: every route that passes the flood is closed and gets its own LGU advisory, every other route passes a ponding site and is slow (heavy traffic) (`src/lib/hazards.ts`). Simulated advisories carry a *Simulated* badge. Scenarios change only the device and its open tabs, never Supabase.
 
 ```bash
 npm test           # Vitest
@@ -102,14 +112,14 @@ Safe spots (coordinates are the project owner's, at full precision, checked agai
 
 | Campus | Safe spot | Latitude | Longitude | Capacity | OSM check |
 |---|---|---:|---:|---:|---|
-| Alangilan | Student Lounge (formerly CICS Lobby) | 13.78393267903075 | 121.07417575704717 | not assessed | On campus, beside the CICS building and Sparta Gym |
+| Alangilan | Student Lounge (formerly CICS Lobby) | 13.78393267903075 | 121.07417575704717 | about 150 (needs review) | On campus, beside the CICS building and Sparta Gym |
 | Alangilan | Sparta Gymnasium | 13.784276340529747 | 121.07413074951742 | 1,030 | Inside the gym footprint |
 | Alangilan | Einstein Bldg Library, 2nd Floor | 13.784168707874697 | 121.0749349027738 | 250 (needs review) | Inside the Albert Einstein Building |
 | Pablo Borbon | Felistiano "Sanoy" Leviste Multi-Purpose Gymnasium | 13.753079262668649 | 121.05277271784234 | 570 | Inside the gym footprint (OSM spells it *Feliciano*) |
 | Pablo Borbon | Main Library | 13.754549329790514 | 121.0525887000107 | 230 | Inside the Main Library |
 | JPLPC-Malvar | Gymnasium | 14.044572113490197 | 121.15574880496467 | not assessed | Inside a campus building |
 
-Capacity is usable floor area × usable share (0.75 hall, 0.6 library) ÷ 2 m² per person, rounded down to 10, computed in one place (`estimateCapacity` in `src/campuses/capacity.ts`) from each spot's recorded footprint (`*_FOOTPRINTS` in the campus files). Footprints re-measured from OpenStreetMap on 2026-11-28: Sparta Gymnasium 2,773 m² → 1,030; Leviste Gymnasium 1,537 m² → 570; Main Library 776 m² (one floor) → 230. The Einstein library's 860 m² is an estimate from imagery and is flagged *needs review* on the staff screen. Campus totals: Alangilan 1,280 (1 spot not assessed), Pablo Borbon 800, Malvar not assessed. `capacity.test.ts` checks each capacity against its footprint and each total against its spots. Names, positions and capacities belong to the app (`src/campuses`); saved copies, other tabs and Supabase rows supply only occupancy and amenities (`src/lib/spotData.ts`).
+Capacity is usable floor area × usable share (0.75 hall, 0.6 library) ÷ 2 m² per person, rounded down to 10, computed in one place (`estimateCapacity` in `src/campuses/capacity.ts`) from each spot's recorded footprint (`*_FOOTPRINTS` in the campus files). Footprints re-measured from OpenStreetMap on 2026-11-28: Sparta Gymnasium 2,773 m² → 1,030; Leviste Gymnasium 1,537 m² → 570; Main Library 776 m² (one floor) → 230. The Einstein library's 860 m² is an estimate from imagery, and the Student Lounge's 150 is the project owner's headcount estimate (2026-11-28); both are flagged *needs review* on the staff screen. Campus totals: Alangilan 1,430, Pablo Borbon 800, Malvar not assessed. `capacity.test.ts` checks each capacity against its footprint and each total against its spots. Names, positions and capacities belong to the app (`src/campuses`); saved copies, other tabs and Supabase rows supply only occupancy and amenities (`src/lib/spotData.ts`).
 
 ## Brand and design system
 

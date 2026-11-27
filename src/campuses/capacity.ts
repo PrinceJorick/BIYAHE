@@ -10,9 +10,13 @@ export const SPOT_CAPACITY_RULE = { m2PerPerson: 2, usableShare: { hall: 0.75, l
 
 /** A safe spot's floor area and where it comes from. `verified: false` = an estimate that needs review. */
 export type Footprint = { m2: number; use: keyof typeof SPOT_CAPACITY_RULE.usableShare; source: string; verified: boolean }
+/** A headcount estimate given directly (no measured area); always flagged for review. */
+export type PeopleEstimate = { people: number; source: string; verified: false }
+export type CapacitySource = Footprint | PeopleEstimate
 
-export const estimateCapacity = (f: Footprint) =>
-  Math.floor((f.m2 * SPOT_CAPACITY_RULE.usableShare[f.use]) / SPOT_CAPACITY_RULE.m2PerPerson / 10) * 10
+export const estimateCapacity = (f: CapacitySource) => 'people' in f
+  ? f.people
+  : Math.floor((f.m2 * SPOT_CAPACITY_RULE.usableShare[f.use]) / SPOT_CAPACITY_RULE.m2PerPerson / 10) * 10
 
 /** Campus totals. Spots without an assessed capacity add to the people waiting but never to the capacity. */
 export function capacityTotals(spots: readonly Pick<Spot, 'capacity' | 'occupied'>[]) {
