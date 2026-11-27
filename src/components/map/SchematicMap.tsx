@@ -1,13 +1,16 @@
-// The app's own simple map: route lines, safe spots and the campus. Used whenever Google Maps is not available.
-// Online (no key, key rejected) it draws OpenStreetMap street tiles underneath for street context; offline and in
-// Low-Battery Mode it uses the brand dot grid only, so everything it draws ships in the app and needs no network.
-// OSM tiles: tile.openstreetmap.org usage policy (attribution, browser Referer, no offline prefetch); the service
-// worker never caches them.
+// The app's own map: route lines, safe spots and the campus over OpenStreetMap streets. Used whenever Google Maps is
+// not available (no key, key rejected, offline). Offline, the streets come from the service worker's "osm-tiles"
+// cache, which src/lib/offlineTiles.ts fills for every campus. Two tile layers: a base layer that never asks for more
+// than zoom 13 (saved for every route) and is stretched under closer zooms, and the native layer from zoom 14 on top.
+// A close tile that was not saved is simply missing, and the stretched zoom-13 streets show through, so the map
+// never falls back to a blank grid. Low-Battery Mode alone keeps the plain dot grid (no tiles at all).
+// OSM tile usage policy: attribution (MapFrame), browser Referer, cached copies, no bulk download.
 import L from 'leaflet'
 import { useEffect, useRef } from 'react'
 import { MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap, ZoomControl } from 'react-leaflet'
 import { statusLevel, statusWord, type MapLine, type MapModel } from '../../lib/mapModel'
 import { FIT_MAX_ZOOM, fitKey, MAX_ZOOM, MIN_ZOOM } from '../../lib/mapView'
+import { BASE_ZOOM } from '../../lib/offlineTiles'
 import type { LatLng } from '../../types'
 import { GO_PIN } from '../logoGeometry'
 import { declutter } from './declutter'
@@ -105,7 +108,7 @@ export default function SchematicMap({ model, fill, padding, onSpot, still, tile
   model: MapModel; fill: boolean; padding: Padding; onSpot?: (id: string) => void
   /** Low-Battery Mode: no animation, no wheel zoom. */
   still: boolean
-  /** OpenStreetMap street tiles underneath (online only). */
+  /** OpenStreetMap street tiles underneath (live or saved). */
   tiles?: boolean
 }) {
   return (
@@ -113,7 +116,8 @@ export default function SchematicMap({ model, fill, padding, onSpot, still, tile
       scrollWheelZoom={fill && !still} zoomAnimation={!still} fadeAnimation={!still} markerZoomAnimation={!still}>
       <ZoomControl position={fill ? 'topright' : 'bottomright'} />
       <TilesClass on={tiles} />
-      {tiles && <TileLayer url={OSM_TILES} maxZoom={MAX_ZOOM} minZoom={MIN_ZOOM} crossOrigin="anonymous" />}
+      {tiles && <TileLayer url={OSM_TILES} maxNativeZoom={BASE_ZOOM} maxZoom={MAX_ZOOM} minZoom={MIN_ZOOM} crossOrigin="anonymous" />}
+      {tiles && <TileLayer url={OSM_TILES} maxZoom={MAX_ZOOM} minZoom={BASE_ZOOM + 1} crossOrigin="anonymous" />}
       <SizeSync />
       <Fit points={model.fit} padding={padding} />
       <Declutter version={model.lines.map((l) => `${l.id}${l.status}${l.focus}`).join() + model.spots.map((x) => `${x.id}${x.selected}`).join()} />

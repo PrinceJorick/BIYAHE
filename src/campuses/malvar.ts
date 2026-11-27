@@ -58,7 +58,7 @@ export const malvar: Campus = {
   ],
 }
 
-// Capacity (rule: SPOT_CAPACITY_RULE in ./index.ts).
+// Capacity (rule and calculation: ./capacity.ts).
 // - Gymnasium: capacity is null ("not yet assessed"). The earlier 280 estimate measured a barrel-roofed hall in
 //   Esri World Imagery at [14.04492, 121.15685] (about 22 × 35 m). The owner-supplied gymnasium point is about
 //   125 m west of that hall, so the measurement may describe a different building and is no longer used.

@@ -75,7 +75,7 @@ describe('coordinator to student, through one shared snapshot', () => {
     expect(store.publishDraft(id).ok).toBe(true)
     expect(studentSees()).toEqual(['Flooding near Balagtas'])
     expect(store.getState().snapshot.corridors.lipa.status).toBe('closed')
-    expect(store.getState().toast?.text).toMatch(/Advisory published/)
+    expect(store.getState().toast?.text).toMatch(/^Published/)
 
     expect(store.editAdvisory(id, { ...input, title: 'Flooding near Balagtas: knee-deep' }).ok).toBe(true)
     expect(studentSees()).toEqual(['Flooding near Balagtas: knee-deep'])
@@ -120,6 +120,6 @@ describe('server failures', () => {
     expect(r.ok).toBe(true)
     expect(studentSees()).toEqual(['Flooding near Balagtas'])               // still shared on this device
     await flush()
-    expect(store.getState().toast?.text).toMatch(/Could not reach the server/)
+    expect(store.getState().toast?.text).toMatch(/Server unreachable/)
   })
 })

@@ -1,7 +1,7 @@
 // Details for one place (wireframe 2): #/go/route/<id> or #/go/spot/<id>. A clear answer first ("Head home now."
 // or "Wait on campus for now."), the travel time against the usual one, then notifications from advisories,
 // forecasts, traffic and news, and the nearest other places to go. "View on map" opens the full map.
-import { ArrowLeft, CircleCheck, Clock, Droplet, Map as MapIcon, Send, TriangleAlert, Utensils, Zap } from 'lucide-react'
+import { ArrowLeft, CircleCheck, CircleHelp, Clock, Droplet, Map as MapIcon, Send, TriangleAlert, Utensils, Zap } from 'lucide-react'
 import { useEffect } from 'react'
 import { ACTIVE_CAMPUS } from '../campuses/active'
 import Badge from '../components/Badge'
@@ -14,6 +14,7 @@ import type { Amenity } from '../data'
 import { ago, amenityLabel, fmtMin, spaceText } from '../lib/derive'
 import { findPlace, placeArg, walkText, type RoutePlace, type SpotPlace } from '../lib/places'
 import { go, hrefOf, useMedia } from '../lib/router'
+import { routeLevel, routeMessage } from '../lib/routeStatus'
 import { isLowBattery, isOffline, loadWalkRoute, refresh, selectSpot, toast } from '../lib/store'
 import { placeNotifications, useTrip } from './useTrip'
 
@@ -23,24 +24,22 @@ function Back() {
   return <a className="back" href="#/home"><ArrowLeft size={18} aria-hidden="true" />Home</a>
 }
 
-function RouteHero({ r, saved, meta }: { r: RoutePlace; saved: boolean; meta: string }) {
-  const closed = r.cs.status === 'closed'
-  const slow = r.cs.status === 'slow'
-  const title = closed ? 'Wait on campus for now.' : slow ? 'Expect delays.' : r.mine ? 'Head home now.' : 'Route open.'
-  const Icon = closed ? TriangleAlert : slow ? Clock : CircleCheck
+function RouteHero({ r, saved, meta, simulated }: { r: RoutePlace; saved: boolean; meta: string; simulated: boolean }) {
+  const st = r.cs.status
+  const title = st === 'closed' ? 'Wait on campus for now.' : st === 'unknown' ? 'Check before you go.' : st === 'slow' ? 'Expect delays.' : r.mine ? 'Head home now.' : 'Route clear.'
+  const Icon = st === 'closed' ? TriangleAlert : st === 'unknown' ? CircleHelp : st === 'slow' ? Clock : CircleCheck
   return (
     <section className="card hero" aria-labelledby="decision">
       <div className="card-head">
         <p className="eyebrow">{r.mine ? 'Your journey home' : `Route to ${r.corridor.name}`}</p>
-        <Badge kind={saved ? 'saved' : r.cs.provenance} />
+        <Badge kind={saved ? 'saved' : simulated ? 'simulated' : r.cs.provenance} />
       </div>
       <h1 id="decision" className="display">{title}</h1>
       <div className="stack-xs">
-        <p className="status"><Lvl level={closed ? 'high' : slow ? 'mid' : 'low'}><Icon size={18} aria-hidden="true" />{saved ? 'Last known: ' : ''}{closed ? 'Route closed' : slow ? 'Route slow' : 'Route clear'}</Lvl></p>
-        <p className="body">{r.cs.note}</p>
+        <p className="status"><Lvl level={routeLevel[st]}><Icon size={18} aria-hidden="true" />{routeMessage(r.cs)}</Lvl></p>
+        <p className="body">{st === 'unknown' ? <>{r.cs.note} <a href="#/alerts">See alerts</a></> : r.cs.note}</p>
       </div>
-      <hr className="rule" />
-      <TimeCompare route={r} label={`${r.corridor.name}, ${saved ? 'last known' : 'right now'}`} />
+      {st !== 'unknown' && <><hr className="rule" /><TimeCompare route={r} label={`${r.corridor.name}, ${saved ? 'last known' : 'now'}`} /></>}
       <p className="caption hero-meta"><Clock size={14} aria-hidden="true" />{meta}</p>
     </section>
   )
@@ -93,27 +92,27 @@ export default function Destination({ arg }: { arg: string | null }) {
     return (
       <div className="page">
         <Back />
-        <section className="card"><h1 className="h1">Place not found</h1><p className="body">It may belong to another campus. Choose a place from Home.</p></section>
+        <section className="card"><h1 className="h1">Place not found</h1><p className="body">It may be on another campus. Pick a place from Home.</p></section>
       </div>
     )
   }
 
   const n = placeNotifications(s, place, now)
   const meta = view.offline ? `Saved ${fmtMin(view.ageMin)} ago · reconnect to refresh`
-    : view.stale ? `${fmtMin(view.ageMin)} old · waiting for a fresh update`
-      : `Updated ${ago(s.snapshot.updatedAt, now)} · ${place.kind === 'route' ? place.cs.source : 'Campus DRRMO'}`
+    : view.stale ? `${fmtMin(view.ageMin)} old · waiting for an update`
+      : `Updated ${ago(s.snapshot.updatedAt, now)} · ${place.kind === 'route' ? place.cs.source : 'Campus DRRMO'}${s.backend === 'device' ? ' (simulated)' : ''}`
   const nearby = place.kind === 'route'
-    ? (place.cs.status === 'closed' ? spots.filter((x) => !x.full) : [...spots.filter((x) => !x.full).slice(0, 1), ...routes.filter((r) => r.id !== place.id && r.cs.status !== 'closed')]).slice(0, 4)
+    ? (place.cs.status === 'closed' || place.cs.status === 'unknown' ? spots.filter((x) => !x.full) : [...spots.filter((x) => !x.full).slice(0, 1), ...routes.filter((r) => r.id !== place.id && (r.cs.status === 'open' || r.cs.status === 'slow'))]).slice(0, 4)
     : spots.filter((x) => x.id !== place.id)
-  const waitHere = place.kind === 'spot' || place.cs.status === 'closed'
+  const waitHere = place.kind === 'spot' || place.cs.status === 'closed' || place.cs.status === 'unknown'
 
   return (
     <div className={`detail${wide ? ' detail-wide' : ''}`}>
       <div className="page">
         <Back />
-        {place.kind === 'route' ? <RouteHero r={place} saved={saved} meta={meta} /> : <SpotHero p={place} saved={saved} />}
+        {place.kind === 'route' ? <RouteHero r={place} saved={saved} meta={meta} simulated={s.backend === 'device'} /> : <SpotHero p={place} saved={saved} />}
 
-        {place.kind === 'route' && place.cs.status !== 'closed' && (
+        {place.kind === 'route' && (place.cs.status === 'open' || place.cs.status === 'slow') && (
           <section className="card" aria-labelledby="traffic-now">
             <div className="card-head">
               <h2 className="h2" id="traffic-now">Traffic now</h2>
@@ -121,11 +120,11 @@ export default function Destination({ arg }: { arg: string | null }) {
             </div>
             <p className="body">
               {place.traffic.source === 'live'
-                ? `Google's live traffic puts the drive at ${Math.round(place.traffic.ratio * 100 - 100)}% over free-flow; your usual ${fmtMin(place.corridor.usualMin)} commute becomes about ${place.traffic.minLo}–${place.traffic.minHi} min.`
-                : `Based on route reports only${s.trafficError ? ' (live traffic unavailable right now)' : ''}. Times are the usual commute adjusted for the reported status.`}
+                ? `Live traffic: ${Math.round(place.traffic.ratio * 100 - 100)}% over free-flow. Your usual ${fmtMin(place.corridor.usualMin)} becomes about ${place.traffic.minLo}–${place.traffic.minHi} min.`
+                : `From route reports${s.trafficError ? ' (live traffic unavailable)' : ''}: usual time adjusted for the reported status.`}
             </p>
             {view.stale && !view.offline && (
-              <button className="btn btn-quiet btn-sm" onClick={async () => { if (!(await refresh())) toast('No newer update yet. Showing the saved copy.') }}>Check for an update</button>
+              <button className="btn btn-quiet btn-sm" onClick={async () => { if (!(await refresh())) toast('No newer update yet.') }}>Check for an update</button>
             )}
           </section>
         )}
@@ -133,13 +132,13 @@ export default function Destination({ arg }: { arg: string | null }) {
         {place.kind === 'spot' && <WalkPanel spot={place.spot} route={s.walk?.spotId === place.id ? s.walk : null} loading={s.walkLoading === place.id} />}
 
         <Notifications advisories={n.advisories} notices={n.notices} news={n.news} now={now} newsNote={n.newsNote}
-          empty="No advisories or alerts for this place right now." />
+          empty="No alerts for this place." />
 
         {nearby.length > 0 && (
           <section className="card" aria-labelledby="nearby">
             <div>
               <h2 className="h2" id="nearby">{waitHere ? 'Other places to wait' : 'Nearest places to go'}</h2>
-              <p className="meta">{waitHere ? 'Safe spots on campus with room, nearest first' : 'A safe spot nearby, and other open routes'}</p>
+              <p className="meta">{waitHere ? 'Safe spots with room, nearest first' : 'A safe spot and other clear routes'}</p>
             </div>
             <ul className="list">{nearby.map((p) => <li key={placeArg(p)}><PlaceRow place={p} /></li>)}</ul>
           </section>

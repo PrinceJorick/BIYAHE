@@ -25,7 +25,7 @@ Campus disaster officers (DRRMO) have no quick way to tell them.
 | One clear answer: *Head home now* or *Wait on campus for now*, with the trip time against the usual time | Route risk map and estimated stranded students per route (aggregate counts only, RA 10173) |
 | Google Weather conditions, the chance of rain for the next hours and PAGASA public alerts | Occupancy steppers and amenity toggles for every safe spot |
 | Traffic on their route (Google Routes, traffic-aware) and a "When should I leave?" plan | Campus advisories with a draft → publish → resolve lifecycle |
-| Three suggested places to go, explained by the rule that chose them | A Batangas News & LGU Monitor of local weather reports to review before publishing |
+| Three suggested places to go, explained by the rule that chose them | A local news monitor of weather reports to check before publishing |
 | Alerts from PAGASA, the LGU and the campus, forecast and traffic notices and local weather news | Updates reach every open student view at once |
 | A pre-written "I'm safe" message for family | |
 
@@ -153,7 +153,7 @@ On desktop the details are a panel on the left that starts open.
 |---|---|
 | Online, Google key accepted | Google Maps (muted style or the cloud style of `VITE_GOOGLE_MAPS_MAP_ID`), with the live traffic layer and Google's route for each line (Routes API) |
 | Online, no key or key rejected | The app's map over OpenStreetMap street tiles |
-| Offline | The app's map over OpenStreetMap tiles saved on the device ("Offline: saved streets") |
+| Offline | The app's map over OpenStreetMap tiles saved for every campus ("Offline map"); unsaved close zooms show the saved zoom-13 streets stretched, never a blank grid |
 | Low-Battery Mode | The app's plain map: route lines and pins on a dot grid, no tiles |
 
 The OpenStreetMap credit is shown on the app's own map. Over Google's map it is not drawn on the map (Google credits
@@ -177,19 +177,32 @@ article. Offline, it opens the saved copy in a sheet instead. A news report is n
 
 ![Settings](screens/13-settings.png)
 
-Your usual route; which alerts BIYAHE announces (route and LGU disruptions, PAGASA warnings, class suspensions,
-browser notifications while BIYAHE is open); offline data with the time of each source, **Sync now** and **Clear
-offline data** (asks first); Low-Battery Mode; demo scenarios (marked *Simulated*, never written to the shared
-database); privacy; build information; switching role.
+Your usual route; which alerts BIYAHE announces (route closures, PAGASA warnings, class suspensions, browser
+notifications while BIYAHE is open); offline data with the time of each source, **Sync now** and **Clear offline
+data** (asks first); Low-Battery Mode; demo scenarios (Clear, Flooding, Stale data, Offline, Low battery; marked
+*Simulated*, never written to the shared database); privacy; build information; switching role.
+
+Staff have their own Settings (`#/settings`, in the staff navigation) built from the same sections: role (changes what
+the board allows at once), campus, offline and sync, Low-Battery Mode, demo scenarios, staff privacy notes, build
+information and switching role.
 
 ### 3.7 Coordinator Command
 
 ![Coordinator](screens/12-desktop-coordinator.png)
 
-Route risk map and list with estimated affected students per route, safe-spot occupancy and amenities, the advisory
-lifecycle, and the **Batangas News & LGU Monitor** (the four latest local weather reports, marked as third-party
-reports to check before publishing). Only the DRRMO Coordinator role can create, publish or resolve advisories;
-Building Marshal and Guard on Duty see advisories read-only but can update safe-spot occupancy and amenities.
+Route map and list (status, hazard note and estimated stranded, delayed or unconfirmed students per route), safe spots
+with campus totals (capacity, spaces left, spots not assessed; a capacity estimate that needs review is marked),
+headcount steppers and amenity toggles, the **advisory board**, and **Local news** (the four latest local weather
+reports, marked as third-party reports to check before publishing).
+
+The advisory board has three columns: **Drafts** (hidden from students) → **Active** (students see them) →
+**Resolved** (resolved, discarded drafts and expired). Cards show severity, source, a *Simulated* badge for demo
+records, the headline (two lines; the card opens the full text), audience and time. Actions: Edit and Publish or
+Discard for drafts; Edit and Resolve (optionally marking the route clear) for active ones; Reuse as draft for resolved
+ones. Pressing Enter in the form saves a draft; only the Publish button publishes. Columns stack on phones and sit side
+by side from 1100 px, each scrolling on its own when long. Every action goes through the store (device, open tabs and
+Supabase), so student views update at once. Only the DRRMO Coordinator manages advisories; Building Marshal and Guard
+on Duty see the board read-only but can update headcount and amenities.
 
 ---
 
@@ -332,7 +345,9 @@ original five; it must be added there before any reviewed route set is supplied.
 
 | Rule | Value |
 |---|---|
-| Recommendation | Your route first when open or slow; the nearest safe spot with room first when it is closed; then the least-delayed other open route as a *Suggested alternative* |
+| Route status | Flooded or closed → *Closed* ("Route is flooded. Do not proceed through this route."); no hazard → *Clear* ("Route is clear. You may proceed home."); ponding → *Slow*; no report or data over 30 minutes old → *Unknown* ("Unable to confirm route conditions. Verify the latest available advisory."). A closed route stays closed when data ages. One rule for every screen and map: `src/lib/routeStatus.ts` |
+| Simulated hazards | One flood and one ponding point per campus; a route is affected when its path passes within 80 m (`src/lib/hazards.ts`), so routes sharing a flooded road all close |
+| Recommendation | Your route first when clear or slow; the nearest safe spot with room first when it is closed or unknown; then the least-delayed other clear or slow route as a *Suggested alternative* |
 | Source precedence | Official advisories decide route status; live traffic can only make an open route look worse; rain and weather warnings are shown as context and never close a route on their own |
 | Traffic level from delay (traffic-aware ÷ free-flow) | Light < 1.25 ≤ Moderate < 1.6 ≤ Heavy |
 | Live traffic counts as current for | 20 minutes |
@@ -348,9 +363,12 @@ original five; it must be added there before any reviewed route set is supplied.
 - The service worker precaches the app and fonts. IndexedDB keeps route status, safe spots and advisories, local news
   (24 hours), walking routes and which articles were opened. The weather and route cache (`localStorage`) keeps the
   last answers for up to 24 hours as saved copies.
-- OpenStreetMap tiles the app shows are kept for a week (cache `osm-tiles`). Once a week, online, a small area around
-  the campus and its routes is saved for the offline map: zoom 11–13, at most 200 tiles, within the OpenStreetMap tile
-  usage policy.
+- OpenStreetMap tiles are kept for 30 days (cache `osm-tiles`, up to 1,500 tiles). Once a week, online, a fixed set
+  is saved for the offline map of every campus: zoom 9–11 (wide margin) and 12–13 over each campus's routes, and
+  14–16 within about a kilometre of each campus; about 320 tiles, 203 at zoom 13+, within the OpenStreetMap tile
+  usage policy. The map draws zoom-13 tiles stretched under closer zooms, so missing close tiles never leave a blank
+  map. Verified 28 November 2026 with the network off in a fresh browser profile: every campus overview and route map
+  showed streets.
 - Offline, every screen still works from the saved copy and says so with its original time.
 - Low-Battery Mode (suggested under 20%) uses the plain map, turns off animation and live traffic, and polls half as
   often.
@@ -403,8 +421,10 @@ Supabase, Lucide icons, Vercel Functions.
   26 November 2026 for all three campuses). The server sends the site's address as the `Referer`, so its key may keep
   the website restriction.
 - PAGASA alerts arrive only through Google Weather public alerts; LGU advisories are simulated (no public feed).
-- Offline street tiles exist only after the app has been opened online with the service worker active; zooming past
-  the saved levels shows the dot grid.
+- Offline street tiles exist only after the app has been opened online with the service worker active (the first
+  visit installs it; the tiles are saved on the next). Areas far outside the routes show a plain background offline.
+- Safe-spot capacities are footprint estimates, not official figures; the Einstein library's area is not measured and
+  is marked for review.
 - Walking routes start from the campus point, not the student's position (the app does not track location).
 - Route lines and safe-spot positions are map-derived and not checked on site; the map's info icon says so. The
   formal route-approval workflow (`docs/routes/`, `npm run routes:approve`) has no approval records yet.

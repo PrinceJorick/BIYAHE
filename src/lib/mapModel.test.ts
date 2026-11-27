@@ -6,7 +6,7 @@ import type { WalkRoute } from './walkRoute'
 
 const NOW = Date.parse('2026-11-19T09:00:00Z')
 const base = (o: Partial<MapModelInput> = {}): MapModelInput => ({
-  mode: 'student', campus: CAMPUS, corridors, snapshot: fixture('disrupted', NOW), mineId: 'batangas', focus: null,
+  mode: 'student', campus: CAMPUS, corridors, snapshot: fixture('disrupted', NOW), mineId: 'batangas', focus: null, now: NOW,
   showAll: false, googlePaths: null, walk: null, ...o,
 })
 
@@ -53,7 +53,7 @@ describe('map model', () => {
     const staff = buildMapModel(base({ mode: 'staff' }))
     const labelled = staff.lines.filter((l) => l.labelAt)
     expect(labelled.map((l) => l.status).every((st) => st !== 'open')).toBe(true)
-    expect(labelled.map((l) => l.id).sort()).toEqual(['bauan', 'lipa'])   // disrupted: lipa closed, bauan slow
+    expect(labelled.map((l) => l.id).sort()).toEqual(['bauan', 'lipa', 'tanauan'])   // disrupted: lipa and tanauan closed, bauan slow
     for (const a of labelled) for (const b of labelled) if (a !== b) expect(haversineM(a.labelAt!, b.labelAt!)).toBeGreaterThan(1000)
     // …and never on the campus pin; every staff line is drawn strong.
     for (const l of labelled) expect(haversineM(l.labelAt!, CAMPUS)).toBeGreaterThan(1000)

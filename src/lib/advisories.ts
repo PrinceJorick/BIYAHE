@@ -47,9 +47,11 @@ export const studentAdvisories = (list: readonly Advisory[], corridorId: string 
 export const otherCorridorAdvisories = (list: readonly Advisory[], corridorId: string | null, now: number) =>
   list.filter((a) => isActive(a, now) && !concernsStudent(a, corridorId)).sort(newestFirst)
 
-/** Advisories that concerned the student and ended within the last few hours. Never shown as current. */
+/** Advisories that concerned the student and ended within the last few hours. Never shown as current. A withdrawn
+ * draft was never shown, so it never appears here either. */
 export const recentlyEnded = (list: readonly Advisory[], corridorId: string | null, now: number) =>
   list.filter((a) => {
+    if (a.withdrawn) return false
     const end = endedAt(a, now)
     return end != null && now - end <= RECENTLY_ENDED_MS && concernsStudent(a, corridorId)
   }).sort((a, b) => endedAt(b, now)! - endedAt(a, now)!)
@@ -69,6 +71,11 @@ export function scopeLabel(scope: string, corridors: readonly Corridor[]) {
 
 /** Campus advisories are managed here; PAGASA and LGU advisories belong to their issuers. */
 export const isManaged = (a: Advisory) => a.source === 'Campus'
+
+/** The form values to start a new draft from an existing advisory (Resolved → Reuse). */
+export const reuseInput = (a: Advisory): AdvisoryInput => ({
+  scope: a.scope, severity: a.severity, title: a.title, body: a.body, corridorStatus: a.corridorStatus ?? null, expiresInHours: null,
+})
 
 // ── Input and validation ────────────────────────────────────────────────────
 
@@ -181,7 +188,7 @@ export function resolveAdvisory(snapshot: Snapshot, id: string, opts: { now: num
   const found = find(snapshot, id)
   if ('ok' in found) return found
   if (found.status === 'resolved') return fail('This advisory is already resolved.')
-  const a: Advisory = { ...found, status: 'resolved', resolvedAt: opts.now, updatedAt: opts.now }
+  const a: Advisory = { ...found, status: 'resolved', resolvedAt: opts.now, updatedAt: opts.now, ...(found.status === 'draft' ? { withdrawn: true } : {}) }
   let next = replace(snapshot, a, opts.now)
   let corridorChanged: string | null = null
   if (opts.reopenCorridor && isCorridorScope(a.scope) && next.corridors[a.scope]) {

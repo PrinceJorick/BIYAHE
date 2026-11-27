@@ -13,6 +13,7 @@ import { ago, clock, fmtMin, fmtRange, studentView } from '../lib/derive'
 import { placeArg, placeShort, recommend, recommendationReason, routePlaces, spotPlaces, walkText, type Reason, type RoutePlace } from '../lib/places'
 import { hrefOf } from '../lib/router'
 import { isOffline, retryWeather, useApp, useNow, type State } from '../lib/store'
+import { routeLevel, routeMessage, routeWord } from '../lib/routeStatus'
 import { levelOfTraffic, rainLevel } from '../lib/traffic'
 import { currentAlerts, skyOf, WEATHER_NOT_CONFIGURED, type Sky } from '../lib/weather'
 import { visibleNews } from './useTrip'
@@ -46,9 +47,9 @@ function WeatherCard({ s, now, offline }: { s: State; now: number; offline: bool
           <div className="wx-desc">
             <p className="h3">Weather unavailable</p>
             <p className="meta">
-              {offline ? 'No saved weather on this device yet. Weather needs a connection.'
+              {offline ? 'No saved weather yet. Needs a connection.'
                 : s.weatherError === WEATHER_NOT_CONFIGURED ? `${WEATHER_NOT_CONFIGURED}.`
-                  : s.weatherError ? 'Google Weather could not be reached, and no reading is saved on this device yet.' : 'Loading the weather…'}
+                  : s.weatherError ? 'Google Weather unreachable. No saved reading yet.' : 'Loading the weather…'}
             </p>
           </div>
         </div>
@@ -122,16 +123,19 @@ function WhyCard({ reason }: { reason: Reason }) {
 function TrafficCard({ mine, others, saved }: { mine: RoutePlace; others: RoutePlace[]; saved: boolean }) {
   const t = mine.traffic
   // Other routes in one line, by level ("2 light · 1 closed"); each route has its own row under Available places.
-  const counts = (['light', 'moderate', 'heavy', 'closed'] as const).map((l) => [l, others.filter((r) => r.traffic.level === l).length] as const).filter(([, n]) => n > 0)
+  const counts = (['light', 'moderate', 'heavy', 'closed', 'unknown'] as const).map((l) => [l, others.filter((r) => r.traffic.level === l).length] as const).filter(([, n]) => n > 0)
   return (
     <section className="card card-traffic" aria-labelledby="traffic-title">
       <div className="card-head">
-        <p className="eyebrow" id="traffic-title">Traffic flow</p>
+        <p className="eyebrow" id="traffic-title">Your route</p>
         <TrafficSource t={t} saved={saved} />
       </div>
       <p className="h1"><TrafficWord t={t} suffix=" traffic" /></p>
+      <p className="route-msg"><Lvl level={routeLevel[mine.cs.status]} className="strong">{routeMessage(mine.cs)}</Lvl></p>
       <p className="meta">
-        {t.level === 'closed' ? `${mine.corridor.via} to ${mine.corridor.name} is closed.` : `To ${mine.corridor.name} via ${mine.corridor.via}: ${fmtRange(t.minLo, t.minHi)} now, usually ${fmtMin(mine.corridor.usualMin)}.`}
+        {mine.cs.status === 'closed' ? mine.cs.note
+          : mine.cs.status === 'unknown' ? <>{mine.cs.note} <a href="#/alerts">See alerts</a></>
+            : `${mine.corridor.name} via ${mine.corridor.via}: ${fmtRange(t.minLo, t.minHi)} now, usually ${fmtMin(mine.corridor.usualMin)}.`}
       </p>
       {counts.length > 0 && (
         <p className="meta traffic-others">
@@ -172,7 +176,7 @@ export default function Home() {
         <a className="card card-link alert-strip" href="#/alerts">
           <Megaphone size={20} aria-hidden="true" />
           <span className="alert-strip-body">
-            <span className="meta"><Lvl level={urgent.severity === 'critical' ? 'high' : 'mid'} className="strong">{urgent.severity === 'critical' ? 'Critical' : 'Warning'}</Lvl> · {urgent.issuer}</span>
+            <span className="meta"><Lvl level={urgent.severity === 'critical' ? 'high' : 'mid'} className="strong">{urgent.severity === 'critical' ? 'Critical' : 'Warning'}</Lvl> · {urgent.issuer}{urgent.simulated ? ' · Simulated' : ''}</span>
             <span className="item-title">{urgent.title}</span>
           </span>
           <ChevronRight size={18} aria-hidden="true" />
@@ -195,7 +199,7 @@ export default function Home() {
       <section className="card card-options" aria-labelledby="where">
         <div>
           <h2 className="h2" id="where">Where do you want to go?</h2>
-          <p className="meta">Suggested for conditions right now</p>
+          <p className="meta">Suggested for current conditions</p>
         </div>
         <ul className="options">
           {options.map((o) => (
@@ -207,7 +211,7 @@ export default function Home() {
                   <span className="h3 option-title">{placeShort(o.place)}</span>
                   <span className="meta">
                     {o.place.kind === 'route'
-                      ? <>{o.place.traffic.level === 'closed' ? '' : `${fmtRange(o.place.traffic.minLo, o.place.traffic.minHi)} · `}<Lvl level={levelOfTraffic[o.place.traffic.level]}>{o.place.traffic.level === 'closed' ? 'Closed' : o.place.cs.status === 'slow' ? 'Slow' : 'Open'}</Lvl></>
+                      ? <>{o.place.cs.status === 'open' || o.place.cs.status === 'slow' ? `${fmtRange(o.place.traffic.minLo, o.place.traffic.minHi)} · ` : ''}<Lvl level={routeLevel[o.place.cs.status]}>{routeWord[o.place.cs.status]}</Lvl></>
                       : walkText(o.place.spot.walkMin)}
                   </span>
                   {o.verb === 'Suggested alternative' && <span className="option-caveat">Not verified safe</span>}

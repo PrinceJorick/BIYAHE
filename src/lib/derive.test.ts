@@ -62,11 +62,11 @@ describe('studentView decisions', () => {
     expect(v.provenance).toBe(status === 'open' ? 'official' : 'estimate')
   })
 
-  it('in the disrupted fixture, only Lipa says wait', () => {
+  it('in the disrupted fixture, the routes through the flood (Lipa, Tanauan) say wait', () => {
     const decisions = Object.fromEntries(
       corridors.map((c) => [c.id, studentView(makeState({ corridorId: c.id }), NOW).decision]),
     )
-    expect(decisions).toEqual({ lipa: 'wait', batangas: 'go', bauan: 'go', sanjose: 'go', tanauan: 'go', rosario: 'go' })
+    expect(decisions).toEqual({ lipa: 'wait', batangas: 'go', bauan: 'go', sanjose: 'go', tanauan: 'wait', rosario: 'go' })
   })
 })
 
@@ -171,7 +171,7 @@ describe('concernsStudent', () => {
   it('filters the disrupted advisories per corridor', () => {
     const { advisories } = fixture('disrupted', NOW)
     const seen = (id: string) => advisories.filter((a) => concernsStudent(a, id)).map((a) => a.id)
-    expect(seen('lipa')).toEqual(['lgu-jpl-flood', 'pagasa-RA-07', 'campus-suspend'])
+    expect(seen('lipa')).toEqual(['lgu-flood-lipa', 'pagasa-RA-07', 'campus-suspend'])
     expect(seen('batangas')).toEqual(['pagasa-RA-07', 'campus-suspend'])
     expect(seen('bauan')).toEqual(['pagasa-RA-07', 'campus-suspend'])
   })

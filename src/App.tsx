@@ -2,6 +2,7 @@ import { BatteryLow, FlaskConical, Info, TriangleAlert, WifiOff } from 'lucide-r
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { ACTIVE_CAMPUS } from './campuses/active'
 import Logo from './components/Logo'
+import StaffNav from './components/StaffNav'
 import { tabOf, tabs } from './components/navTabs'
 import { studentAdvisories } from './lib/advisories'
 import { clock } from './lib/derive'
@@ -31,7 +32,7 @@ const studentRoutes: Route[] = ['home', 'go', 'map', 'share', 'alerts', 'setting
 // Where the current role is allowed to be.
 function resolve({ name, arg, query }: Loc, s: State): Loc {
   if (!s.role || name === 'welcome') return { name: 'welcome', arg: null }
-  if (s.role === 'staff') return { name: name === 'staff' ? 'staff' : 'coordinator', arg: null }
+  if (s.role === 'staff') return { name: name === 'staff' || name === 'settings' ? name : 'coordinator', arg: null }
   if (name === 'setup' || !s.corridorId) return { name: 'setup', arg: null }
   if (name === 'go' && !arg) return { name: 'home', arg: null }
   if (name && studentRoutes.includes(name)) return { name, arg: name === 'go' || name === 'map' ? arg : null, ...(name === 'alerts' && query ? { query } : {}) }
@@ -83,7 +84,13 @@ export default function App() {
 
   if (!s.ready) return null
 
-  const solo = route === 'welcome' ? <Welcome /> : route === 'setup' ? <Setup /> : route === 'staff' ? <StaffAccess /> : route === 'coordinator' ? <Coordinator /> : null
+  const staffSettings = s.role === 'staff' && route === 'settings' && (
+    <div className="coord">
+      <StaffNav current="settings" />
+      <main id="main" tabIndex={-1} className="coord-main coord-settings"><Settings /></main>
+    </div>
+  )
+  const solo = route === 'welcome' ? <Welcome /> : route === 'setup' ? <Setup /> : route === 'staff' ? <StaffAccess /> : route === 'coordinator' ? <Coordinator /> : staffSettings || null
   // Alerts badge: current advisories and PAGASA warnings, plus local news for this route not opened yet.
   const count = studentAdvisories(s.snapshot.advisories, s.corridorId, now).length + currentAlerts(s.weather?.alerts, now).length + unreadNews(s, now).length
   const isMap = route === 'map'
@@ -128,20 +135,20 @@ export default function App() {
                 {s.backend === 'device' && !isOffline(s) && (
                   <p className="banner">
                     <FlaskConical size={20} aria-hidden="true" />
-                    <span><span className="strong">Simulated campus data.</span> Route status, safe spots and campus advisories are demo data until a campus database is connected. Weather and news are never simulated; traffic is {GOOGLE_MAPS_KEY ? 'live from Google' : 'estimated from route status'}.</span>
+                    <span><span className="strong">Simulated campus data.</span> Route status, safe spots and campus advisories are demo data. Weather and news are live; traffic is {GOOGLE_MAPS_KEY ? 'live from Google' : 'estimated'}.</span>
                   </p>
                 )}
                 {isOffline(s) && (
                   <p className="banner">
                     <WifiOff size={20} aria-hidden="true" />
-                    <span>You're offline. Showing what was saved at {clock(s.savedAt)}.</span>
+                    <span>Offline. Showing data saved at {clock(s.savedAt)}.</span>
                   </p>
                 )}
                 {s.batteryHint && !lowBatt && (
                   <div className="banner">
                     <BatteryLow size={20} aria-hidden="true" />
                     <div className="banner-body">
-                      <span>Battery is under 20%. Low-Battery Mode keeps the guidance and uses a simple map.</span>
+                      <span>Battery under 20%. Low-Battery Mode keeps guidance and simplifies the map.</span>
                       <div className="cluster">
                         <button className="btn btn-primary btn-sm" onClick={() => setLowBattery(true)}>Turn on</button>
                         <button className="btn btn-quiet btn-sm" onClick={dismissBatteryHint}>Not now</button>

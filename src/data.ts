@@ -1,8 +1,9 @@
 // Campus reference data access and the simulated fixtures used when Supabase is unconfigured or unreachable.
 
 import type {
-  Advisory, Corridor, CorridorState, CorridorStatus, LatLng, Severity, Snapshot, Spot, Weather,
+  Advisory, Campus, CampusId, Corridor, CorridorState, CorridorStatus, Hazard, LatLng, Severity, Snapshot, Spot, SpotSeed, Weather,
 } from './types'
+import { hazardStatus } from './lib/hazards'
 import { ACTIVE_CAMPUS, campusKeyPrefix } from './campuses/active'
 
 // The domain types live in ./types; re-exported so existing `import type … from '../data'` keeps working.
@@ -91,8 +92,8 @@ const MIN = 60_000
 // Snapshot spots from the campus seeds, with occupancy as a share of each spot's capacity (by position,
 // repeating). A spot whose capacity is not assessed starts empty. Nested amenities/pos are copied so a snapshot
 // never shares objects with the registry.
-const baseSpots = (share: number[]): Spot[] =>
-  spotSeeds.map((s, i) => ({
+const baseSpots = (share: number[], seeds: readonly SpotSeed[] = spotSeeds): Spot[] =>
+  seeds.map((s, i) => ({
     id: s.id, name: s.name, walkMin: s.walkMin, capacity: s.capacity,
     occupied: s.capacity == null ? 0 : Math.round(s.capacity * share[i % share.length]),
     amenities: { ...s.amenities }, pos: [s.pos[0], s.pos[1]],
@@ -100,32 +101,58 @@ const baseSpots = (share: number[]): Spot[] =>
 
 const spotNames = (names: string[]) => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`)
 
-// Demo scenarios. Disrupted: the first route is closed by flooding, the third (or second) is slow.
-export function fixture(kind: 'clear' | 'disrupted', now = Date.now()): Snapshot {
-  const states: Record<string, CorridorState> = {}
-  for (const c of corridors) states[c.id] = corridorStateFor(c, 'open')
+// Simulated hazards for the "Route disruption" demo, one flood and one ponding site per campus. Each point lies on
+// the road it names (OpenStreetMap, reverse-geocoded 2026-11-28); which routes it affects is worked out from the
+// route geometry (src/lib/hazards.ts), never hand-picked, so the map, statuses and advisories always agree.
+export const DEMO_HAZARDS: Record<CampusId, Hazard[]> = {
+  alangilan: [
+    { id: 'flood', kind: 'flood', pos: [13.90501, 121.10447], road: 'JP Laurel Hwy', place: 'Mojon-Tampoy, San Jose', radiusM: 80 },
+    { id: 'ponding', kind: 'ponding', pos: [13.80452, 121.04823], road: 'Diversion Rd', place: 'Banaba Kanluran', radiusM: 80 },
+  ],
+  'pablo-borbon': [
+    { id: 'flood', kind: 'flood', pos: [13.91881, 121.10572], road: 'JP Laurel Hwy', place: 'Mojon-Tampoy, San Jose', radiusM: 80 },
+    { id: 'ponding', kind: 'ponding', pos: [13.77714, 121.04265], road: 'Bauan–Batangas Rd', place: 'Santa Rita Aplaya', radiusM: 80 },
+  ],
+  malvar: [
+    { id: 'flood', kind: 'flood', pos: [14.00926, 121.16535], road: 'JP Laurel Hwy', place: 'Pusil, Malvar', radiusM: 80 },
+    { id: 'ponding', kind: 'ponding', pos: [14.07141, 121.15199], road: 'JP Laurel Hwy', place: 'Hidalgo, Tanauan', radiusM: 80 },
+  ],
+}
+
+export const hazardNote = (h: Hazard) => h.kind === 'flood' ? `Flooding on ${h.road} at ${h.place}.` : `Ponding and heavy traffic on ${h.road} at ${h.place}.`
+
+/** Route states from hazards: flooded routes closed, ponded routes slow, every other route clear. */
+export function statesFromHazards(list: readonly Corridor[], hazards: readonly Hazard[]): Record<string, CorridorState> {
+  const by = hazardStatus(list, hazards)
+  return Object.fromEntries(list.map((c) => {
+    const { status, hazard } = by[c.id]
+    if (!hazard) return [c.id, corridorStateFor(c, 'open')]
+    return [c.id, { ...corridorStateFor(c, status, hazardNote(hazard), 'LGU road reports'), hazard: hazard.kind }]
+  }))
+}
+
+// Demo scenarios. Clear: no hazards. Disrupted: the campus's DEMO_HAZARDS, with one LGU advisory per flooded route.
+// Every advisory here is marked simulated so it is never mistaken for a real bulletin.
+export function fixture(kind: 'clear' | 'disrupted', now = Date.now(), campus: Campus = ACTIVE_CAMPUS): Snapshot {
+  const hazards = kind === 'clear' ? [] : DEMO_HAZARDS[campus.id]
+  const states = statesFromHazards(campus.corridors, hazards)
   if (kind === 'clear') {
-    return { corridors: states, spots: baseSpots([0.05, 0.25]), advisories: [], updatedAt: now - 2 * MIN }
+    return { corridors: states, spots: baseSpots([0.05, 0.25], campus.spots), advisories: [], updatedAt: now - 2 * MIN }
   }
-  const closed = corridors[0]
-  const slow = corridors[2] ?? corridors[1]
-  const flood = ACTIVE_CAMPUS.id === 'alangilan'
-    ? { headline: 'Flooding on JP Laurel Hwy near Balagtas', note: 'Flooding on JP Laurel Hwy near Balagtas. Classes suspended from 3:30 PM.', barangays: ['Balagtas', 'Alangilan'],
-      text: 'Knee-deep water near Balagtas. Not passable to jeepneys and light vehicles. Avoid the area.' }
-    : { headline: `Flooding on ${closed.via}`, note: `Flooding on ${closed.via}. Classes suspended from 3:30 PM.`, barangays: [],
-      text: `Knee-deep water on ${closed.via} towards ${closed.name}. Not passable to jeepneys and light vehicles. Avoid the area.` }
-  states[closed.id] = corridorStateFor(closed, 'closed', flood.note, 'PAGASA + 3 LGU road reports')
-  if (slow && slow !== closed) states[slow.id] = corridorStateFor(slow, 'slow', `Heavy traffic and ponding on ${slow.via}.`)
-  const open = spotNames(spotSeeds.map((s) => s.name))
+  const office = campus.id === 'malvar' ? 'Batangas PDRRMO' as const : 'Batangas City DRRMO' as const
+  const flood = hazards.find((h) => h.kind === 'flood')!
+  const closed = campus.corridors.filter((c) => states[c.id].status === 'closed')
+  const open = spotNames(campus.spots.map((s) => s.name))
   const advisories = ([
-    fromLgu({ office: ACTIVE_CAMPUS.id === 'malvar' ? 'Batangas PDRRMO' : 'Batangas City DRRMO', kind: 'flood', road: closed.via, barangays: flood.barangays, passable: 'none', corridorId: closed.id,
-      headline: flood.headline, text: flood.text, issuedAt: now - 8 * MIN }, 'jpl-flood'),
+    ...closed.map((c) => fromLgu({ office, kind: 'flood', road: flood.road, barangays: [flood.place], passable: 'none', corridorId: c.id,
+      headline: `Flooding on ${flood.road} at ${flood.place}`,
+      text: `Knee-deep water. Not passable to jeepneys and light vehicles. ${c.name} commuters: wait on campus.`, issuedAt: now - 8 * MIN }, `flood-${c.id}`)),
     fromPagasa({ bulletinNo: 'RA-07', kind: 'rainfall', level: 'orange', area: 'Batangas',
-      headline: 'Orange rainfall warning, Batangas', text: 'Intense rain (15–30 mm/h) expected over the next 3 hours. Flooding is threatening in low-lying areas.', issuedAt: now - 25 * MIN }),
+      headline: 'Orange rainfall warning, Batangas', text: 'Intense rain (15–30 mm/h) in the next 3 hours. Flooding likely in low-lying areas.', issuedAt: now - 25 * MIN }),
     { id: 'campus-suspend', source: 'Campus', issuer: 'Campus DRRMO', title: 'Classes suspended from 3:30 PM',
-      body: `All afternoon and evening classes at ${ACTIVE_CAMPUS.shortName} are suspended.${open ? ` Safe spots are open in ${open}.` : ''}`, severity: 'warning', scope: 'campus', issuedAt: now - 40 * MIN },
-  ] satisfies Advisory[]).map((a): Advisory => ({ ...a, id: advisoryId(a.id) }))
-  return { corridors: states, spots: baseSpots([0.35, 1]), advisories, updatedAt: now - 1 * MIN }
+      body: `All afternoon and evening classes at ${campus.shortName} are suspended.${open ? ` Safe spots open: ${open}.` : ''}`, severity: 'warning', scope: 'campus', issuedAt: now - 40 * MIN },
+  ] satisfies Advisory[]).map((a): Advisory => ({ ...a, id: `${campusKeyPrefix(campus.id)}${a.id}`, simulated: true }))
+  return { corridors: states, spots: baseSpots([0.35, 1], campus.spots), advisories, updatedAt: now - 1 * MIN }
 }
 
 export const fallbackWeather = (now = Date.now()): Weather => ({ tempC: 26, precipMm: 1.2, windKph: 14, label: 'Light rain', fetchedAt: now, live: false, source: 'demo' })

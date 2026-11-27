@@ -39,8 +39,8 @@ export default function MapView({ mode, label, focus = null, showAll = false, tr
   const battery = isLowBattery(s)
   const why = !GOOGLE_MAPS_KEY ? 'nokey' : offline ? 'offline' : battery ? 'battery' : gm === 'error' ? 'error' : null
   const useGoogle = why === null
-  // Without Google: OpenStreetMap streets under the app's lines, also offline (tiles the service worker saved while
-  // online; any not saved stay blank over the dot grid). Low-Battery Mode keeps the plain simple map.
+  // Without Google: OpenStreetMap streets under the app's lines, also offline (tiles saved for every campus while
+  // online; closer zooms that were not saved show the stretched zoom-13 streets). Low-Battery Mode keeps the plain map.
   const osm = why === 'nokey' || why === 'error' || why === 'offline'
   const model = buildMapModel({
     mode, campus: CAMPUS, corridors, snapshot: s.snapshot, mineId: s.corridorId, focus, showAll, extent,
@@ -53,7 +53,7 @@ export default function MapView({ mode, label, focus = null, showAll = false, tr
   const note = why && (
     <p className="map-note">
       <MapPinned size={14} aria-hidden="true" />
-      {why === 'offline' ? 'Offline: saved streets' : why === 'battery' ? 'Simple map: saving battery' : why === 'error' ? 'OpenStreetMap: Google map unavailable'
+      {why === 'offline' ? 'Offline map' : why === 'battery' ? 'Simple map: saving battery' : why === 'error' ? 'OpenStreetMap: Google map unavailable'
         : import.meta.env.DEV ? 'OpenStreetMap: add VITE_GOOGLE_MAPS_API_KEY for the Google map' : 'OpenStreetMap'}
     </p>
   )

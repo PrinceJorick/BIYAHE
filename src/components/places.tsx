@@ -3,6 +3,7 @@ import { Building2, ChevronRight, House, Route as RouteIcon } from 'lucide-react
 import { fmtMin, fmtRange } from '../lib/derive'
 import { placeArg, placeFacts, type Place, type RoutePlace } from '../lib/places'
 import { hrefOf } from '../lib/router'
+import { useApp } from '../lib/store'
 import { levelOfTraffic, trafficWord, type TrafficReading } from '../lib/traffic'
 import Badge from './Badge'
 import Lvl from './Lvl'
@@ -14,12 +15,14 @@ export function PlaceIcon({ place, size = 20 }: { place: Place; size?: number })
 
 /** "Light", "Heavy", "Closed": the traffic word in its level colour. */
 export const TrafficWord = ({ t, suffix = '' }: { t: TrafficReading; suffix?: string }) => (
-  <Lvl level={levelOfTraffic[t.level]}>{trafficWord[t.level]}{t.level === 'closed' ? '' : suffix}</Lvl>
+  <Lvl level={levelOfTraffic[t.level]}>{trafficWord[t.level]}{t.level === 'closed' || t.level === 'unknown' ? '' : suffix}</Lvl>
 )
 
-/** Where a traffic reading came from. */
-export const TrafficSource = ({ t, saved }: { t: TrafficReading; saved?: boolean }) =>
-  saved ? <Badge kind="saved" /> : t.source === 'live' ? <Badge kind="live" label="Live traffic" /> : t.source === 'official' ? <Badge kind="official" /> : <Badge kind="estimate" />
+/** Where a traffic reading came from. A closure from the demo data is labelled simulated, never official. */
+export function TrafficSource({ t, saved }: { t: TrafficReading; saved?: boolean }) {
+  const simulated = useApp().backend === 'device'
+  return saved ? <Badge kind="saved" /> : t.source === 'live' ? <Badge kind="live" label="Live traffic" /> : t.source === 'official' ? <Badge kind={simulated ? 'simulated' : 'official'} /> : <Badge kind="estimate" />
+}
 
 /** A row in a place list: icon, name, facts, level word, chevron. Links to the place's details. */
 export function PlaceRow({ place }: { place: Place }) {

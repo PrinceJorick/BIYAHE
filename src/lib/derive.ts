@@ -1,9 +1,10 @@
 import { ACTIVE_CAMPUS } from '../campuses/active'
-import { corridorById, type Amenity, type Corridor, type CorridorState, type Provenance, type Spot } from '../data'
+import { corridorById, type Amenity, type Corridor, type Provenance, type Spot } from '../data'
+import { isStale, routeState, type RouteState } from './routeStatus'
 import { isOffline, type State } from './store'
 
 const MIN = 60_000
-export const STALE_AFTER_MIN = 30
+export { STALE_AFTER_MIN } from './routeStatus'
 
 export function fmtMin(m: number) {
   if (m < 60) return `${m} min`
@@ -44,8 +45,9 @@ export const bestSpot = (spots: Spot[]) =>
 
 export type StudentView = {
   corridor: Corridor
-  cs: CorridorState
-  decision: 'go' | 'wait'
+  cs: RouteState
+  /** go: route clear or slow; wait: closed; verify: conditions cannot be confirmed. */
+  decision: 'go' | 'wait' | 'verify'
   // 'saved' whenever what is on screen is not a current reading
   provenance: Provenance
   offline: boolean
@@ -56,14 +58,14 @@ export type StudentView = {
 
 export function studentView(s: State, now: number): StudentView {
   const corridor = corridorById(s.corridorId)
-  const cs = s.snapshot.corridors[corridor.id]
   const ageMin = Math.max(0, Math.round((now - s.snapshot.updatedAt) / MIN))
   const offline = isOffline(s)
-  const stale = ageMin > STALE_AFTER_MIN
+  const stale = isStale(s.snapshot, now)
+  const cs = routeState(corridor, s.snapshot.corridors[corridor.id], stale)
   const chosen = s.snapshot.spots.find((x) => x.id === s.spotId && !isFull(x))
   return {
     corridor, cs, offline, stale, ageMin,
-    decision: cs.status === 'closed' ? 'wait' : 'go',
+    decision: cs.status === 'closed' ? 'wait' : cs.status === 'unknown' ? 'verify' : 'go',
     provenance: offline || stale ? 'saved' : cs.provenance,
     spot: chosen ?? bestSpot(s.snapshot.spots),
   }
@@ -77,7 +79,8 @@ export function shareMessage(v: StudentView, mode: 'campus' | 'home') {
   if (mode === 'home') {
     return `I'm heading home from ${ACTIVE_CAMPUS.shortName} via ${corridor.via}. Travel time looks like ${fmtRange(cs.minLo, cs.minHi)}. I'll message you when I arrive.`
   }
-  const why = cs.status === 'closed' ? `${corridor.via} is closed right now` : cs.status === 'slow' ? `${corridor.via} is slow right now` : 'I am staying on campus for now'
+  const why = cs.status === 'closed' ? `${corridor.via} is closed right now` : cs.status === 'slow' ? `${corridor.via} is slow right now`
+    : cs.status === 'unknown' ? `I can't confirm ${corridor.via} is clear` : 'I am staying on campus for now'
   const where = spot
     ? `, so I'm waiting at ${spot.name}${amenityList(spot) ? ` (${amenityList(spot)})` : ''}`
     : ', so I am waiting on campus'

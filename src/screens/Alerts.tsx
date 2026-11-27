@@ -101,6 +101,7 @@ export default function Alerts({ filterParam }: { filterParam: string | null }) 
               ? <span className="chip-label"><Lvl level={sev.level}>{sev.label}</Lvl></span>
               : <span className="chip-label"><CircleCheck size={14} aria-hidden="true" />{phaseOf(a, now) === 'resolved' ? 'Resolved' : 'Expired'}{end != null ? ` ${clock(end)}` : ''}</span>}
             {a.scope === s.corridorId && <span className="chip-label">Your route</span>}
+            {a.simulated && <Badge kind="simulated" />}
             <span className="caption alert-time">{ago(a.issuedAt, now)}</span>
           </div>
           <h2 className="h3" id={`a-${a.id}`}>{a.title}</h2>
@@ -121,10 +122,10 @@ export default function Alerts({ filterParam }: { filterParam: string | null }) 
     <div className="page">
       <div className="page-head">
         <h1 className="h1">Alerts</h1>
-        <p className="meta">Advisories from PAGASA, the LGU and the campus DRRMO, forecast and traffic notices, and local news.</p>
+        <p className="meta">PAGASA, LGU and campus advisories, forecasts and local news.</p>
       </div>
       {!view.offline && view.stale && (
-        <p className="banner"><Clock size={20} aria-hidden="true" /><span>Last update {ago(s.snapshot.updatedAt, now)}. Advisories may have changed since.</span></p>
+        <p className="banner"><Clock size={20} aria-hidden="true" /><span>Last update {ago(s.snapshot.updatedAt, now)}. Advisories may have changed.</span></p>
       )}
       <div className="chips chips-scroll filters" role="group" aria-label="Filter alerts">
         {filters.map((f) => (
@@ -140,13 +141,13 @@ export default function Alerts({ filterParam }: { filterParam: string | null }) 
         <section className="card empty">
           <CircleCheck size={24} aria-hidden="true" />
           <h2 className="h2">{filter === 'all' ? 'No active alerts' : filter === 'news' ? 'No local news right now' : `Nothing under ${label} right now`}</h2>
-          <p className="body">{filter === 'news' ? note ?? 'Reports about Batangas floods, roads, weather and classes appear here.' : 'New advisories appear here the moment they are issued, and are kept for offline reading.'}</p>
+          <p className="body">{filter === 'news' ? note ?? 'Batangas flood, road, weather and class reports appear here.' : 'New advisories appear here and stay readable offline.'}</p>
         </section>
       )}
 
       {mine.length > 0 && (
         <section className="stack" aria-labelledby="for-you">
-          <h2 className="eyebrow" id="for-you">For you and your route <Badge kind={view.offline ? 'saved' : 'official'} /></h2>
+          <h2 className="eyebrow" id="for-you">For you and your route <Badge kind={view.offline ? 'saved' : mine.every((a) => a.simulated) ? 'simulated' : 'official'} /></h2>
           <ul className="stack">{mine.map((a) => card(a, true))}</ul>
         </section>
       )}
@@ -172,7 +173,7 @@ export default function Alerts({ filterParam }: { filterParam: string | null }) 
                   </div>
                   <h3 className="h3" id={`n-${n.id}`}>{n.title}</h3>
                   <p className="body">{n.detail}</p>
-                  <p className="caption">Worked out by BIYAHE from {n.source} · {clock(n.at)}. Not an official advisory.</p>
+                  <p className="caption">From {n.source} · {clock(n.at)}. Not an official advisory.</p>
                 </article>
               </li>
             ))}

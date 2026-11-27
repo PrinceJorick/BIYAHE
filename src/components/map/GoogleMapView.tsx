@@ -80,8 +80,8 @@ function pattern(status: MapLine['status'], color: string, weight: number): goog
   if (status === 'open') return undefined
   const icon: google.maps.Symbol = status === 'slow'
     ? { path: google.maps.SymbolPath.CIRCLE, scale: weight / 2.4, fillColor: color, fillOpacity: 1, strokeOpacity: 0 }
-    : { path: 'M 0,-1 0,1', scale: weight / 1.6, strokeColor: color, strokeOpacity: 1, strokeWeight: weight }
-  return [{ icon, offset: '0', repeat: status === 'slow' ? `${weight * 2.4}px` : `${weight * 4}px` }]
+    : { path: status === 'unknown' ? 'M 0,-0.4 0,0.4' : 'M 0,-1 0,1', scale: weight / 1.6, strokeColor: color, strokeOpacity: 1, strokeWeight: weight }
+  return [{ icon, offset: '0', repeat: status === 'slow' ? `${weight * 2.4}px` : status === 'unknown' ? `${weight * 2}px` : `${weight * 4}px` }]
 }
 
 // The two polylines are created once per line and updated in place: the model is rebuilt on every store update

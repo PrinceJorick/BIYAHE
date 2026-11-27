@@ -51,26 +51,27 @@ describe("fixture('disrupted')", () => {
     expect(snap.updatedAt).toBe(NOW - 1 * MIN)
   })
 
-  it('closes Lipa (JP Laurel Hwy) with the flooding note', () => {
+  it('closes every route through the flood on JP Laurel Hwy (Lipa and Tanauan share it), with the hazard', () => {
     expect(snap.corridors.lipa).toEqual({
       status: 'closed', minLo: 135, minHi: 190,
-      note: 'Flooding on JP Laurel Hwy near Balagtas. Classes suspended from 3:30 PM.',
-      source: 'PAGASA + 3 LGU road reports', provenance: 'estimate',
+      note: 'Flooding on JP Laurel Hwy at Mojon-Tampoy, San Jose.',
+      source: 'LGU road reports', provenance: 'estimate', hazard: 'flood',
     })
+    expect(snap.corridors.tanauan).toMatchObject({ status: 'closed', hazard: 'flood' })
   })
 
-  it('slows Bauan (Diversion Rd)', () => {
+  it('slows Bauan (Diversion Rd) through the ponding site', () => {
     expect(snap.corridors.bauan).toEqual({
       status: 'slow', minLo: 50, minHi: 65,
-      note: 'Heavy traffic and ponding on Diversion Rd.',
-      source: 'LGU road reports', provenance: 'estimate',
+      note: 'Ponding and heavy traffic on Diversion Rd at Banaba Kanluran.',
+      source: 'LGU road reports', provenance: 'estimate', hazard: 'ponding',
     })
   })
 
-  it('leaves the other corridors open', () => {
+  it('leaves the routes that pass no hazard open', () => {
     expect(snap.corridors.batangas).toMatchObject({ status: 'open', minLo: 20, minHi: 20, provenance: 'official' })
     expect(snap.corridors.sanjose).toMatchObject({ status: 'open', minLo: 25, minHi: 35, provenance: 'official' })
-    expect(snap.corridors.tanauan).toMatchObject({ status: 'open', minLo: 60, minHi: 70, provenance: 'official' })
+    expect(snap.corridors.rosario).toMatchObject({ status: 'open', provenance: 'official' })
     expect(Object.keys(snap.corridors)).toEqual(['lipa', 'batangas', 'bauan', 'sanjose', 'tanauan', 'rosario'])
   })
 
@@ -82,12 +83,13 @@ describe("fixture('disrupted')", () => {
     ])
   })
 
-  it('carries LGU, PAGASA and Campus advisories, newest first', () => {
+  it('carries one LGU advisory per flooded route, PAGASA and Campus advisories, newest first, all simulated', () => {
     expect(snap.advisories).toEqual([
       expect.objectContaining({
-        id: 'lgu-jpl-flood', source: 'LGU', issuer: 'Batangas City DRRMO', severity: 'critical', scope: 'lipa',
-        title: 'Flooding on JP Laurel Hwy near Balagtas', issuedAt: NOW - 8 * MIN,
+        id: 'lgu-flood-lipa', source: 'LGU', issuer: 'Batangas City DRRMO', severity: 'critical', scope: 'lipa',
+        title: 'Flooding on JP Laurel Hwy at Mojon-Tampoy, San Jose', issuedAt: NOW - 8 * MIN, simulated: true,
       }),
+      expect.objectContaining({ id: 'lgu-flood-tanauan', scope: 'tanauan', severity: 'critical', simulated: true }),
       expect.objectContaining({
         id: 'pagasa-RA-07', source: 'PAGASA', issuer: 'PAGASA', severity: 'warning', scope: 'all',
         title: 'Orange rainfall warning, Batangas', issuedAt: NOW - 25 * MIN,

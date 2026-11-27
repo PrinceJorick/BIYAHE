@@ -27,6 +27,20 @@ export type CorridorState = {
   note: string
   source: string
   provenance: Exclude<Provenance, 'saved'>
+  // What caused a closed or slow status, when known (simulated hazards, src/lib/hazards.ts).
+  hazard?: HazardKind
+}
+
+export type HazardKind = 'flood' | 'ponding'
+
+/** A reported hazard at one place on the road network. Every route passing within radiusM of it is affected. */
+export type Hazard = {
+  id: string
+  kind: HazardKind
+  pos: LatLng
+  road: string
+  place: string
+  radiusM: number
 }
 
 export type Spot = {
@@ -63,6 +77,10 @@ export type Advisory = {
   resolvedAt?: number
   // corridor-scoped advisories: the corridor status applied when the advisory is published
   corridorStatus?: CorridorStatus
+  // demo fixture (src/data.ts), never a real bulletin; shown with a Simulated badge
+  simulated?: boolean
+  // resolved while still a draft: never shown to students
+  withdrawn?: boolean
 }
 
 export type Snapshot = {

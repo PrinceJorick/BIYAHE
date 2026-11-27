@@ -1,4 +1,5 @@
 import { straightLineWalkMin } from '../lib/coords'
+import { estimateCapacity, type Footprint } from './capacity'
 import { selectCorridorGeometry } from '../lib/previewGeometry'
 import type { Campus, Corridor, LatLng } from '../types'
 import { alangilanRoads } from './alangilan.roads'
@@ -63,6 +64,12 @@ const SPOT_POS = {
   library: [13.784168707874697, 121.0749349027738],
 } satisfies Record<string, LatLng>
 
+// Floor areas behind the capacities (notes at the end of this file).
+export const ALANGILAN_FOOTPRINTS = {
+  gym: { m2: 2773, use: 'hall', source: 'OpenStreetMap way 489736297 footprint (re-measured 2026-11-28)', verified: true },
+  library: { m2: 860, use: 'library', source: 'A third of the Einstein Building floor plate (~2,600 m²), from imagery', verified: false },
+} satisfies Record<string, Footprint>
+
 export const alangilan: Campus = {
   id: 'alangilan',
   name: 'Batangas State University - Alangilan Campus',
@@ -71,9 +78,9 @@ export const alangilan: Campus = {
   corridors: alangilanRouteGeometry.corridors,
   // Fixed attributes only; occupancy comes from the snapshot. Positions and capacities: see the notes below.
   spots: [
-    { id: 'gym', name: 'Sparta Gymnasium', walkMin: straightLineWalkMin(LOCATION, SPOT_POS.gym), capacity: 1030,
+    { id: 'gym', name: 'Sparta Gymnasium', walkMin: straightLineWalkMin(LOCATION, SPOT_POS.gym), capacity: estimateCapacity(ALANGILAN_FOOTPRINTS.gym),
       amenities: { power: true, water: true, food: false }, pos: SPOT_POS.gym },
-    { id: 'library', name: 'Einstein Bldg Library, 2nd Floor', walkMin: straightLineWalkMin(LOCATION, SPOT_POS.library), capacity: 250,
+    { id: 'library', name: 'Einstein Bldg Library, 2nd Floor', walkMin: straightLineWalkMin(LOCATION, SPOT_POS.library), capacity: estimateCapacity(ALANGILAN_FOOTPRINTS.library),
       amenities: { power: true, water: false, food: false }, pos: SPOT_POS.library },
     // Capacity and amenities have not been supplied or assessed: null capacity ("not yet assessed") and no
     // amenities until a coordinator confirms them, rather than invented values.
@@ -83,17 +90,19 @@ export const alangilan: Campus = {
 }
 
 // Where each waiting area's capacity comes from (positions: SPOT_POS above). Capacity = usable floor area ÷ 2 m²
-// per person (see SPOT_CAPACITY_RULE in ./index.ts), rounded down to 10. The capacity estimates below were made
+// per person (SPOT_CAPACITY_RULE and estimateCapacity in ./capacity.ts), rounded down to 10. The capacity estimates below were made
 // from building footprints; the owner-supplied points fall inside the same buildings (within ~20 m of the
 // earlier footprint-derived points), so the estimates still apply.
 // walkMin: straight-line estimate from LOCATION (src/lib/coords.ts, WALK_M_PER_MIN), shown as an estimate.
-// - Sparta Gymnasium: OpenStreetMap way 489736297 (leisure=sports_centre), footprint 2,766 m², which matches the
-//   ~64 × 42 m curved roof in Esri World Imagery. 2,766 × 0.75 usable ÷ 2 = 1,037 → 1,030. BatStateU's
+// - Sparta Gymnasium: OpenStreetMap way 489736297 (leisure=sports_centre), footprint 2,773 m² (re-measured from
+//   the OSM geometry on 2026-11-28; first recorded as 2,766 m²), which matches the ~64 × 42 m curved roof in Esri
+//   World Imagery. 2,773 × 0.75 usable ÷ 2 = 1,039.9 → 1,030. BatStateU's
 //   Fitness Development Center is reported to hold up to 4,000 for events (PIA, Jan 2023); that is event seating,
 //   and it is not confirmed to be this building, so it is not used.
 // - Library: the Alangilan (Foster Wheeler) library is on the 2nd floor of the Albert Einstein Building
 //   (library.batstateu.edu.ph/about), formerly the engineering (CEAFACS) building. Its four-storey U-shaped
 //   red roof east of the gym is matched from the Wikimedia Commons photo and satellite imagery; the point is
 //   its centre. Area is an estimate: a third of the ~2,600 m² floor plate ≈ 860 m² × 0.6 usable ÷ 2 = 258 → 250.
+//   Not measured: flagged for review (verified: false) until the library's floor area is confirmed.
 // - Student Lounge (renamed in Iteration 3; records saved under the old ID are migrated by src/lib/spotData.ts):
 //   position supplied by the project owner. No capacity or amenity source exists yet.

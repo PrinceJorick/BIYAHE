@@ -31,7 +31,7 @@ export default function Notifications({ advisories, notices, news, now, empty, n
                 <a className="item item-top" href="#/alerts">
                   <span className="item-icon"><Icon size={20} aria-hidden="true" /></span>
                   <span className="item-body">
-                    <span className="caption"><Lvl level={sevLevel[a.severity]} className="strong">{sevWord[a.severity]}</Lvl> · {a.issuer} · {ago(a.issuedAt, now)}</span>
+                    <span className="caption"><Lvl level={sevLevel[a.severity]} className="strong">{sevWord[a.severity]}</Lvl> · {a.issuer} · {ago(a.issuedAt, now)}{a.simulated ? ' · Simulated' : ''}</span>
                     <span className="item-title">{a.title}</span>
                   </span>
                 </a>

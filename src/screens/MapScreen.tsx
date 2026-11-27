@@ -15,6 +15,7 @@ import { useGoogleMapsStatus } from '../lib/googleMapsLoader'
 import { findPlace, placeArg, placeShort, placeTitle, walkText, type Place, type RoutePlace } from '../lib/places'
 import { go, hrefOf, useMedia } from '../lib/router'
 import { isLowBattery, isOffline, loadDepartures, loadWalkRoute, selectSpot } from '../lib/store'
+import { routeMessage } from '../lib/routeStatus'
 import { departureOptions, levelOfTraffic, rainLevel, trafficWord } from '../lib/traffic'
 import { useTrip } from './useTrip'
 
@@ -39,12 +40,12 @@ function Departures({ r }: { r: RoutePlace }) {
   }, [r.id, net])
   const forecast = s.departures[r.id]?.forecast
   const options = departureOptions(r.corridor, r.cs, now, s.weather?.hourly, s.traffic?.routes[r.id], forecast)
-  const closed = r.cs.status === 'closed'
+  const closed = r.cs.status === 'closed' || r.cs.status === 'unknown'
   const anyLive = options.some((o) => o.offsetMin > 0 && o.traffic.source === 'live')
   return (
     <section className="sheet-section" aria-labelledby="when">
       <h3 className="h3" id="when">When should I leave?</h3>
-      {closed ? <p className="body">{r.corridor.via} is closed. Wait on campus until an advisory reopens it; this list updates when it does.</p> : null}
+      {closed ? <p className="body">{routeMessage(r.cs)} This list updates when that changes.</p> : null}
       <table className="when">
         <thead>
           <tr><th scope="col">Leave</th><th scope="col">Trip</th><th scope="col">Traffic</th><th scope="col"><CloudRain size={14} aria-hidden="true" /><span className="sr-only">Chance of </span>Rain</th></tr>
@@ -61,8 +62,8 @@ function Departures({ r }: { r: RoutePlace }) {
         </tbody>
       </table>
       <p className="caption">
-        {anyLive ? 'Later trips use Google\'s traffic forecast' : 'Later trips assume today\'s conditions continue'}; rain chance from the Google Weather forecast.
-        {!closed && ' Best balances time on the road and rain; waiting on campus counts for less.'}
+        {anyLive ? 'Later trips: Google traffic forecast' : 'Later trips: current conditions'}. Rain: Google Weather forecast.
+        {!closed && ' Best weighs road time and rain.'}
       </p>
     </section>
   )
@@ -109,7 +110,7 @@ export default function MapScreen({ arg }: { arg: string | null }) {
 
   // No destination in the URL: the student's own route (or the nearest safe spot when it is closed).
   const mine = routes.find((r) => r.mine) ?? routes[0]
-  const fallback: Place = mine.cs.status === 'closed' ? spots.find((x) => !x.full) ?? mine : mine
+  const fallback: Place = mine.cs.status === 'closed' || mine.cs.status === 'unknown' ? spots.find((x) => !x.full) ?? mine : mine
   const place = findPlace(arg, routes, spots) ?? fallback
   const saved = view.provenance === 'saved'
   const googleOn = Boolean(GOOGLE_MAPS_KEY) && !isOffline(s) && !isLowBattery(s) && gm !== 'error'

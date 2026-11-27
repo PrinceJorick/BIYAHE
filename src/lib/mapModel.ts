@@ -5,16 +5,17 @@
 // - Google's road geometry is used when the map is Google's and Google returned it; otherwise the app's
 //   OpenStreetMap-derived paths, which then need the OSM credit.
 // - A walking route is drawn only when it is mapped geometry (never a straight line).
-import type { Corridor, CorridorStatus, LatLng, Snapshot, Spot } from '../types'
+import type { Corridor, LatLng, Snapshot, Spot } from '../types'
 import { isFull, spaceText } from './derive'
 import { haversineM, pathLengthM } from './geo.js'
 import type { LiveRoute } from './googleRoutes'
 import { pathPrefix, NEARBY_ROUTE_M } from './mapView'
 import { shortSpotName } from './places'
+import { routeLevel, routeStates, routeWord, type RouteStatus } from './routeStatus'
 import type { WalkRoute } from './walkRoute'
 
 export type MapLine = {
-  id: string; path: LatLng[]; status: CorridorStatus; focus: boolean; name: string; via: string; source: 'google' | 'osm'
+  id: string; path: LatLng[]; status: RouteStatus; focus: boolean; name: string; via: string; source: 'google' | 'osm'
   /** Drawn in Deep Blue: the route in focus, or every route on the staff overview. Others are Slate. */
   strong: boolean
   /** Where the status label goes; null when the line is unlabelled (open, not in focus) or no clear spot exists. */
@@ -27,8 +28,8 @@ export type MapModel = { campus: LatLng; lines: MapLine[]; spots: MapSpot[]; end
 export type MapFocus = { kind: 'route' | 'spot'; id: string } | null
 
 /** Route status as words and levels for map labels (the status word is the only coloured text on a map). */
-export const statusWord: Record<CorridorStatus, string> = { open: 'Open', slow: 'Slow', closed: 'Closed' }
-export const statusLevel: Record<CorridorStatus, 'low' | 'mid' | 'high'> = { open: 'low', slow: 'mid', closed: 'high' }
+export const statusWord = routeWord
+export const statusLevel = routeLevel
 
 export type MapModelInput = {
   mode: 'student' | 'staff'
@@ -45,6 +46,8 @@ export type MapModelInput = {
   walk: WalkRoute | null
   /** 'nearby' (default for spots): campus, safe spots and the first kilometre of the route. */
   extent?: 'route' | 'nearby'
+  /** For data age: routes whose data is too old to confirm show as unknown (src/lib/routeStatus.ts). */
+  now?: number
 }
 
 export function buildMapModel(i: MapModelInput): MapModel {
@@ -55,10 +58,11 @@ export function buildMapModel(i: MapModelInput): MapModel {
     : i.corridors.filter((c) => c.id === i.mineId || c.id === focusRoute)
   // The line in focus: the chosen route, else (no spot chosen) the student's own route.
   const lineFocus = focusRoute ?? (focusSpot ? null : i.mineId)
+  const states = routeStates(i.snapshot, i.corridors, i.now ?? Date.now())
   const lines: MapLine[] = shown.map((c) => {
     const g = i.googlePaths?.[c.id]?.path
     return {
-      id: c.id, path: g ?? c.path, status: i.snapshot.corridors[c.id]?.status ?? 'open',
+      id: c.id, path: g ?? c.path, status: states[c.id].status,
       focus: i.mode === 'staff' ? false : c.id === lineFocus, name: c.name, via: c.via, source: g ? 'google' : 'osm', labelAt: null,
       strong: i.mode === 'staff' || c.id === lineFocus,
     }
