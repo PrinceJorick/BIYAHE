@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { campuses, CAMPUS_IDS } from '../campuses'
 import { ACTIVE_CAMPUS, switchCampus } from '../campuses/active'
 import Logo from '../components/Logo'
+import MarshalSpotPicker from '../components/MarshalSpotPicker'
 import { go } from '../lib/router'
 import { chooseRole, getState, setStaffRole, STAFF_ROLES, useApp } from '../lib/store'
 import type { CampusId } from '../types'
@@ -39,6 +40,7 @@ export default function StaffAccess() {
             </label>
           ))}
         </fieldset>
+        {s.staffRole === 'Building Marshal' && <MarshalSpotPicker spots={campuses[campusId].spots} />}
         <p className="banner">
           <ShieldCheck size={20} aria-hidden="true" />
           <span>You see counts per route and safe spot only. No student names, IDs or locations (RA 10173).</span>

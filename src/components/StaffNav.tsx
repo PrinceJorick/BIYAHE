@@ -1,5 +1,6 @@
 // Staff navigation (rail on wide screens, top bar on phones), shared by Coordinator Command and staff Settings.
-import { LayoutDashboard, LogOut, Settings as SettingsIcon, Smartphone } from 'lucide-react'
+// Icons are full-width glyphs so their left edges line up in the rail (a narrow phone or door glyph looked offset).
+import { ArrowLeftRight, GraduationCap, LayoutDashboard, Settings as SettingsIcon } from 'lucide-react'
 import { useMedia } from '../lib/router'
 import { chooseRole } from '../lib/store'
 import Logo, { LogoMark } from './Logo'
@@ -13,8 +14,8 @@ export default function StaffNav({ current }: { current: 'coordinator' | 'settin
       <ul>
         <li><a className="tab" href="#/coordinator" aria-current={here('coordinator')}><LayoutDashboard size={20} aria-hidden="true" /><span>Command</span></a></li>
         <li><a className="tab" href="#/settings" aria-current={here('settings')}><SettingsIcon size={20} aria-hidden="true" /><span>Settings</span></a></li>
-        <li><a className="tab" href="#/home" onClick={() => chooseRole('student')}><Smartphone size={20} aria-hidden="true" /><span>Student view</span></a></li>
-        <li><a className="tab" href="#/welcome" onClick={() => chooseRole(null)}><LogOut size={20} aria-hidden="true" /><span>Switch role</span></a></li>
+        <li><a className="tab" href="#/home" onClick={() => chooseRole('student')}><GraduationCap size={20} aria-hidden="true" /><span>Student view</span></a></li>
+        <li><a className="tab" href="#/welcome" onClick={() => chooseRole(null)}><ArrowLeftRight size={20} aria-hidden="true" /><span>Switch role</span></a></li>
       </ul>
     </nav>
   )

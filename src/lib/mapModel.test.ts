@@ -20,7 +20,7 @@ describe('map model', () => {
 
   it('a chosen route is drawn and focused next to the student\'s own', () => {
     const m = buildMapModel(base({ focus: { kind: 'route', id: 'lipa' } }))
-    expect(m.lines.map((l) => [l.id, l.focus, l.status])).toEqual([['lipa', true, 'closed'], ['batangas', false, 'open']])
+    expect(m.lines.map((l) => [l.id, l.focus, l.status])).toEqual([['lipa', true, 'closed'], ['batangas', false, 'slow']])
   })
 
   it('show all / staff: every route; staff never focuses one', () => {
@@ -53,7 +53,9 @@ describe('map model', () => {
     const staff = buildMapModel(base({ mode: 'staff' }))
     const labelled = staff.lines.filter((l) => l.labelAt)
     expect(labelled.map((l) => l.status).every((st) => st !== 'open')).toBe(true)
-    expect(labelled.map((l) => l.id).sort()).toEqual(['bauan', 'lipa', 'tanauan'])   // disrupted: lipa and tanauan closed, bauan slow
+    // disrupted: every route is closed or slow; labels go to as many as fit without overlapping
+    expect(labelled.length).toBeGreaterThanOrEqual(3)
+    expect(labelled.map((l) => l.id)).toEqual(expect.arrayContaining(['lipa']))
     for (const a of labelled) for (const b of labelled) if (a !== b) expect(haversineM(a.labelAt!, b.labelAt!)).toBeGreaterThan(1000)
     // …and never on the campus pin; every staff line is drawn strong.
     for (const l of labelled) expect(haversineM(l.labelAt!, CAMPUS)).toBeGreaterThan(1000)

@@ -63,7 +63,7 @@ describe('canonical safe spots', () => {
   })
 
   it('leaves capacity unassessed (null) where no source supports a number', () => {
-    expect(Object.fromEntries(all.map((s) => [s.id, s.capacity]))).toEqual({ lounge: null, gym: 1030, library: 250, 'pb-gym': 570, 'pb-library': 230, 'mv-gym': null })
+    expect(Object.fromEntries(all.map((s) => [s.id, s.capacity]))).toEqual({ lounge: 150, gym: 1030, library: 250, 'pb-gym': 570, 'pb-library': 230, 'mv-gym': null })
   })
 })
 

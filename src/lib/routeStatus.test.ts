@@ -47,6 +47,16 @@ describe.each(Object.values(campuses))('$id: simulated conditions agree everywhe
     for (const h of DEMO_HAZARDS[campus.id]) expect(routesThrough(h, corridors).length, h.id).toBeGreaterThan(0)
   })
 
+  it('flooding: every route is closed or slow (heavy traffic), none clear', () => {
+    const snap = fixture('disrupted', NOW, campus)
+    const states = routeStates(snap, corridors, NOW)
+    for (const c of corridors) {
+      expect(['closed', 'slow'], c.id).toContain(states[c.id].status)
+      const r = routePlaces(snap, corridors, null, c.id, NOW).find((x) => x.id === c.id)!
+      expect(['closed', 'heavy'], c.id).toContain(r.traffic.level)
+    }
+  })
+
   it('clear: every route is clear and the student is told to head home', () => {
     const snap = fixture('clear', NOW, campus)
     const states = routeStates(snap, corridors, NOW)

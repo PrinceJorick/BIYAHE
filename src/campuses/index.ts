@@ -3,7 +3,7 @@
 // fallback when nothing has been chosen yet.
 import type { Campus, CampusId } from '../types'
 import { alangilan, ALANGILAN_FOOTPRINTS } from './alangilan'
-import type { Footprint } from './capacity'
+import type { CapacitySource } from './capacity'
 import { malvar } from './malvar'
 import { pabloBorbon, PABLO_BORBON_FOOTPRINTS } from './pabloBorbon'
 
@@ -26,6 +26,6 @@ export const getCampus = (id: CampusId): Campus => campuses[id]
 
 export const isCampusId = (v: unknown): v is CampusId => typeof v === 'string' && Object.hasOwn(campuses, v)
 
-// Capacity rule and calculation: ./capacity.ts. Footprints (and whether each is verified) per spot, for review.
+// Capacity rule and calculation: ./capacity.ts. Where each spot's capacity comes from (and whether it is verified).
 export { SPOT_CAPACITY_RULE } from './capacity'
-export const SPOT_FOOTPRINTS: Readonly<Record<string, Footprint>> = { ...ALANGILAN_FOOTPRINTS, ...PABLO_BORBON_FOOTPRINTS }
+export const SPOT_CAPACITY_SOURCES: Readonly<Record<string, CapacitySource>> = { ...ALANGILAN_FOOTPRINTS, ...PABLO_BORBON_FOOTPRINTS }

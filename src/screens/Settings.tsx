@@ -6,14 +6,15 @@ import { useState } from 'react'
 import { ACTIVE_CAMPUS } from '../campuses/active'
 import Badge from '../components/Badge'
 import Dialog from '../components/Dialog'
+import MarshalSpotPicker from '../components/MarshalSpotPicker'
 import Toggle from '../components/Toggle'
 import { buildInfo } from '../lib/buildInfo'
 import { ago, clock, fmtMin, studentView } from '../lib/derive'
 import { NEWS_CACHE_TTL_MS } from '../lib/news'
 import { go, hrefOf } from '../lib/router'
 import {
-  canManageAdvisories, chooseRole, clearOfflineData, isLowBattery, isOffline, setAlertPrefs, setLowBattery, setScenario, setStaffRole,
-  STAFF_ROLES, syncNow, toast, useApp, useNow, type AlertPrefs, type Scenario, type State,
+  chooseRole, clearOfflineData, isLowBattery, isOffline, setAlertPrefs, setLowBattery, setScenario, setStaffRole,
+  ROLE_TASKS, STAFF_ROLES, syncNow, toast, useApp, useNow, type AlertPrefs, type Scenario, type State,
 } from '../lib/store'
 
 const scenarios: { id: Scenario; label: string; hint: string }[] = [
@@ -83,7 +84,8 @@ function StaffRoleCard({ s }: { s: State }) {
           </label>
         ))}
       </fieldset>
-      <p className="meta">{canManageAdvisories(s) ? 'You can create, publish and resolve advisories.' : 'Advisories are view only in this role.'}</p>
+      {s.staffRole === 'Building Marshal' && <MarshalSpotPicker spots={ACTIVE_CAMPUS.spots} />}
+      <ul className="meta bullets">{ROLE_TASKS[s.staffRole].map((t) => <li key={t}>{t}</li>)}</ul>
       <div className="item">
         <span className="item-icon"><Building2 size={20} aria-hidden="true" /></span>
         <span className="item-body">

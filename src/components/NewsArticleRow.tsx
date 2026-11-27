@@ -34,6 +34,20 @@ export default function NewsArticleRow({ item, now, offline, savedAt, compact = 
     </>
   )
 
+  // A demo sample is not an article: no link, no saved-copy sheet, a Simulated badge instead of a publisher link.
+  if (item.sample) {
+    return (
+      <div className="item item-top">
+        <span className="item-icon"><Newspaper size={20} aria-hidden="true" /></span>
+        <span className="item-body">
+          <span className="h3 item-title">{item.title}</span>
+          {!compact && item.summary && <span className="meta clamp-2">{item.summary}</span>}
+          <span className="caption news-meta">Sample report · {when} <Badge kind="simulated" /></span>
+        </span>
+      </div>
+    )
+  }
+
   if (!offline && isSafeArticleUrl(item.url)) {
     return (
       <a className="item item-top" href={item.url} target="_blank" rel="noopener noreferrer" onClick={() => markNewsRead(item.id)}>

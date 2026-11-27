@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { fixture } from '../data'
 import { capacityTotals, estimateCapacity, SPOT_CAPACITY_RULE } from './capacity'
-import { campuses, SPOT_FOOTPRINTS } from './index'
+import { campuses, SPOT_CAPACITY_SOURCES } from './index'
 
 describe('estimateCapacity', () => {
   it('is usable area ÷ 2 m² per person, rounded down to 10', () => {
@@ -11,6 +11,8 @@ describe('estimateCapacity', () => {
     expect(estimateCapacity({ m2: 1537, use: 'hall', source: '', verified: true })).toBe(570)
     expect(estimateCapacity({ m2: 776, use: 'library', source: '', verified: true })).toBe(230)
     expect(estimateCapacity({ m2: 860, use: 'library', source: '', verified: false })).toBe(250)
+    // A direct headcount estimate is used as given (Student Lounge, project owner's estimate).
+    expect(estimateCapacity({ people: 150, source: '', verified: false })).toBe(150)
   })
 })
 
@@ -19,7 +21,7 @@ describe.each(Object.values(campuses))('$id safe spots', (campus) => {
     const ids = campus.spots.map((s) => s.id)
     expect(new Set(ids).size).toBe(ids.length)
     for (const s of campus.spots) {
-      const f = SPOT_FOOTPRINTS[s.id]
+      const f = SPOT_CAPACITY_SOURCES[s.id]
       if (s.capacity == null) expect(f, s.id).toBeUndefined()
       else {
         expect(Number.isInteger(s.capacity), s.id).toBe(true)
@@ -45,5 +47,7 @@ describe.each(Object.values(campuses))('$id safe spots', (campus) => {
 
 it('campus totals (audit record)', () => {
   const totals = Object.fromEntries(Object.values(campuses).map((c) => [c.id, capacityTotals(c.spots.map((s) => ({ ...s, occupied: 0 }))).capacity]))
-  expect(totals).toEqual({ alangilan: 1280, 'pablo-borbon': 800, malvar: 0 })
+  expect(totals).toEqual({ alangilan: 1430, 'pablo-borbon': 800, malvar: 0 })
+  // Unverified figures are flagged, never presented as measured.
+  expect(Object.entries(SPOT_CAPACITY_SOURCES).filter(([, f]) => !f.verified).map(([id]) => id).sort()).toEqual(['library', 'lounge'])
 })

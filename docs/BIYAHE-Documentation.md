@@ -190,18 +190,28 @@ information and switching role.
 
 ![Coordinator](screens/12-desktop-coordinator.png)
 
-Route map and list (status, hazard note and estimated stranded, delayed or unconfirmed students per route), safe spots
-with campus totals (capacity, spaces left, spots not assessed; a capacity estimate that needs review is marked),
-headcount steppers and amenity toggles, the **advisory board**, and **Local news** (the four latest local weather
-reports, marked as third-party reports to check before publishing).
+A *Your tasks* strip for the role in use, route map and list (status, hazard note and estimated stranded, delayed or
+unconfirmed students per route), safe spots with campus totals (capacity, spaces left, spots not assessed; a capacity
+estimate that needs review is marked), headcount steppers and amenity toggles as the role allows, the **advisory
+board**, and **Local news** (the four latest local weather reports, marked as third-party reports to check before
+publishing; when no live report is available, sample reports for the demo scenario, each marked *Simulated*).
 
-The advisory board has three columns: **Drafts** (hidden from students) → **Active** (students see them) →
-**Resolved** (resolved, discarded drafts and expired). Cards show severity, source, a *Simulated* badge for demo
-records, the headline (two lines; the card opens the full text), audience and time. Actions: Edit and Publish or
-Discard for drafts; Edit and Resolve (optionally marking the route clear) for active ones; Reuse as draft for resolved
-ones. Pressing Enter in the form saves a draft; only the Publish button publishes. Columns stack on phones and sit side
-by side from 1100 px, each scrolling on its own when long. Every action goes through the store (device, open tabs and
-Supabase), so student views update at once. Only the DRRMO Coordinator manages advisories; Building Marshal and Guard
+| Role | Safe spots | Advisories |
+|---|---|---|
+| DRRMO Coordinator | Every spot: headcount ±10 and amenities | Create, publish, edit, resolve |
+| Building Marshal | One assigned building (chosen at staff access or in Settings): headcount ±10 and amenities; other spots read-only, own building listed first | View only |
+| Guard on Duty | Every spot: headcount ±1 (door count) and ±10; amenities read-only | View only |
+
+The advisory board follows Todoist's board layout: three collapsible columns with a count, **Drafts** (hidden from
+students) → **Active** (students see them) → **Resolved** (resolved, discarded drafts and expired). Each card has a
+severity circle (red critical, amber warning, blue info; dashed for a draft; on an active card it is the Resolve
+button), the headline (two lines; it opens the full text), a one-line description, a meta row (time, severity,
+audience, *Simulated* for demo records) and a ··· menu with the card's actions (Edit, Publish, Discard, Resolve, Reuse
+as draft). Under each column an add row does that column's job: **Add draft** (the form only saves), **Publish
+advisory** (the form only publishes) and **Resolve advisory** (pick an active campus advisory). **New advisory** at
+the top offers both. Enter never publishes. Columns stack on phones and sit side by side from 1100 px. Every action goes through the store (device, open tabs and
+Supabase), so student views update at once, and the student gets one notice for what changed for them (their
+route's status, a new advisory, an update or a resolution). Only the DRRMO Coordinator manages advisories; Building Marshal and Guard
 on Duty see the board read-only but can update headcount and amenities.
 
 ---
@@ -346,7 +356,7 @@ original five; it must be added there before any reviewed route set is supplied.
 | Rule | Value |
 |---|---|
 | Route status | Flooded or closed → *Closed* ("Route is flooded. Do not proceed through this route."); no hazard → *Clear* ("Route is clear. You may proceed home."); ponding → *Slow*; no report or data over 30 minutes old → *Unknown* ("Unable to confirm route conditions. Verify the latest available advisory."). A closed route stays closed when data ages. One rule for every screen and map: `src/lib/routeStatus.ts` |
-| Simulated hazards | One flood and one ponding point per campus; a route is affected when its path passes within 80 m (`src/lib/hazards.ts`), so routes sharing a flooded road all close |
+| Simulated hazards | One flood and several ponding points per campus, placed so every route passes one (Flooding scenario: every route closed or heavy traffic); a route is affected when its path passes within 80 m (`src/lib/hazards.ts`), so routes sharing a flooded road all close |
 | Recommendation | Your route first when clear or slow; the nearest safe spot with room first when it is closed or unknown; then the least-delayed other clear or slow route as a *Suggested alternative* |
 | Source precedence | Official advisories decide route status; live traffic can only make an open route look worse; rain and weather warnings are shown as context and never close a route on their own |
 | Traffic level from delay (traffic-aware ÷ free-flow) | Light < 1.25 ≤ Moderate < 1.6 ≤ Heavy |
@@ -424,7 +434,8 @@ Supabase, Lucide icons, Vercel Functions.
 - Offline street tiles exist only after the app has been opened online with the service worker active (the first
   visit installs it; the tiles are saved on the next). Areas far outside the routes show a plain background offline.
 - Safe-spot capacities are footprint estimates, not official figures; the Einstein library's area is not measured and
-  is marked for review.
+  the Student Lounge's 150 is an owner estimate, so both are marked for review.
+- Staff roles are chosen, not signed in: the marshal and guard limits are enforced in the app only.
 - Walking routes start from the campus point, not the student's position (the app does not track location).
 - Route lines and safe-spot positions are map-derived and not checked on site; the map's info icon says so. The
   formal route-approval workflow (`docs/routes/`, `npm run routes:approve`) has no approval records yet.

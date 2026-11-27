@@ -18,6 +18,7 @@ function makeState(overrides: Partial<State> = {}): State {
     ready: true,
     role: 'student',
     staffRole: 'DRRMO Coordinator',
+    staffSpotId: null,
     corridorId: 'lipa',
     scenario: 'disrupted',
     lowBattery: false,
@@ -126,7 +127,8 @@ describe('studentView safe spot', () => {
 
   it('never treats a spot with unassessed capacity as full, and prefers known space on equal walks', () => {
     const base = fixture('disrupted', NOW)
-    const known = base.spots.map((s) => (s.capacity == null ? s : { ...s, occupied: s.capacity }))
+    // The lounge stands in for a spot whose capacity has not been assessed.
+    const known = base.spots.map((s) => (s.id === 'lounge' ? { ...s, capacity: null, occupied: 0 } : { ...s, occupied: s.capacity! }))
     expect(studentView(makeState({ snapshot: { ...base, spots: known } }), NOW).spot?.id).toBe('lounge')
     // With the gym open, the gym (known space) comes before the lounge at the same walking estimate.
     expect(studentView(makeState(), NOW).spot?.id).toBe('gym')
@@ -189,7 +191,7 @@ describe('shareMessage', () => {
     })
 
     it('equal low and high collapse to one value', () => {
-      expect(shareMessage(view({ corridorId: 'batangas' }), 'home')).toBe(
+      expect(shareMessage(view({ corridorId: 'batangas', snapshot: clear }), 'home')).toBe(
         "I'm heading home from BatStateU Alangilan via P. Burgos. Travel time looks like 20 min. I'll message you when I arrive.",
       )
     })
@@ -221,7 +223,7 @@ describe('shareMessage', () => {
     })
 
     it('open corridor, waiting at the Gymnasium', () => {
-      expect(shareMessage(view({ corridorId: 'batangas', spotId: 'gym' }), 'campus')).toBe(
+      expect(shareMessage(view({ corridorId: 'batangas', spotId: 'gym', snapshot: clear }), 'campus')).toBe(
         "I'm safe at BatStateU Alangilan. I am staying on campus for now, so I'm waiting at Sparta Gymnasium (power, water). I'll head home when the road clears.",
       )
     })

@@ -123,3 +123,44 @@ describe('server failures', () => {
     expect(store.getState().toast?.text).toMatch(/Server unreachable/)
   })
 })
+
+describe('safe-spot permissions by role', () => {
+  const who = (staffRole: 'DRRMO Coordinator' | 'Building Marshal' | 'Guard on Duty', staffSpotId: string | null = null) => ({ role: 'staff' as const, staffRole, staffSpotId })
+  it('coordinator: every spot, headcount and amenities', () => {
+    for (const id of ['gym', 'library', 'lounge']) {
+      expect(store.canEditOccupancy(who('DRRMO Coordinator'), id)).toBe(true)
+      expect(store.canEditAmenities(who('DRRMO Coordinator'), id)).toBe(true)
+    }
+  })
+  it('marshal: only their own building (default: the first spot), headcount and amenities', () => {
+    expect(store.marshalSpotId({ staffSpotId: null })).toBe('gym')
+    expect(store.marshalSpotId({ staffSpotId: 'pb-gym' })).toBe('gym')   // another campus's spot never applies
+    const m = who('Building Marshal', 'library')
+    expect(store.canEditOccupancy(m, 'library')).toBe(true)
+    expect(store.canEditAmenities(m, 'library')).toBe(true)
+    expect(store.canEditOccupancy(m, 'gym')).toBe(false)
+    expect(store.canEditAmenities(m, 'gym')).toBe(false)
+  })
+  it('guard: headcount at every spot, never amenities', () => {
+    for (const id of ['gym', 'library', 'lounge']) {
+      expect(store.canEditOccupancy(who('Guard on Duty'), id)).toBe(true)
+      expect(store.canEditAmenities(who('Guard on Duty'), id)).toBe(false)
+    }
+  })
+  it('students change nothing', () => {
+    expect(store.canEditOccupancy({ role: 'student', staffRole: 'DRRMO Coordinator', staffSpotId: null }, 'gym')).toBe(false)
+  })
+  it('the store refuses a change the role may not make, and keeps the data', () => {
+    store.setStaffRole('Guard on Duty')
+    const before = store.getState().snapshot.spots.find((s) => s.id === 'gym')!
+    store.toggleAmenity('gym', 'water')
+    expect(store.getState().snapshot.spots.find((s) => s.id === 'gym')!.amenities).toEqual(before.amenities)
+    store.adjustOccupancy('gym', 1)
+    expect(store.getState().snapshot.spots.find((s) => s.id === 'gym')!.occupied).toBe(before.occupied + 1)
+    store.setStaffRole('Building Marshal')
+    store.setStaffSpot('library')
+    store.adjustOccupancy('gym', 10)
+    expect(store.getState().snapshot.spots.find((s) => s.id === 'gym')!.occupied).toBe(before.occupied + 1)
+    expect(store.getState().toast?.text).toMatch(/cannot change/)
+  })
+})
