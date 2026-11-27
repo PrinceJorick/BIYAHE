@@ -16,7 +16,7 @@ Full documentation: [`docs/BIYAHE-Documentation.md`](docs/BIYAHE-Documentation.m
 
 `Welcome` (**Get started**) → `Setup` (campus and route home, once) → `Home`. Four tabs: **Home, Map, Alerts, Settings** (bottom bar on phones, Deep Blue side rail from 900 px).
 
-- **Home**: weather and date with the chance of rain for the next hours, traffic flow on your route, one local weather headline when there is one, *Where do you want to go?* (three suggestions: head home, the nearest safe spot, another route; a closed route is never recommended), *Why this suggestion* (optional Gemini rewording), and every route home and safe spot.
+- **Home**: weather and date with the chance of rain for the next hours, traffic flow on your route, one local weather headline when there is one, *Where do you want to go?* (three suggestions: head home, the nearest safe spot, another route; a closed route is never recommended), *Why this suggestion* (the rule and facts behind the first option), and every route home and safe spot.
 - **Details** (`#/go/route/<id>`, `#/go/spot/<id>`): the answer (*Head home now.* / *Wait on campus for now.*), travel time now against the usual time, notifications (advisories, forecast and traffic notices, local news) and the nearest places to go.
 - **Map** (`#/map/…`): full screen above the tab bar. The place sits in a chip at the top-left; **Show details** opens the trip panel: trip time, **When should I leave?** (now, +30 min, +1 h, +2 h with traffic and rain chance), places, and map layers (all routes, live traffic). On wide screens the panel is docked on the left, open.
 - **Alerts**: advisory cards from PAGASA, the LGU and the campus, forecast and traffic notices, and local news, with filters (`#/alerts?filter=news` opens Local news).
@@ -36,7 +36,7 @@ npm install
 npm run dev        # http://localhost:5173
 ```
 
-Everything works with no keys (demo data, the app's own map over OpenStreetMap tiles, estimated traffic; weather and news show as unavailable). To turn on the street map, live traffic, weather, local news and AI explanations, fill in **`.env`** (git-ignored; template in [`.env.example`](.env.example)):
+Everything works with no keys (demo data, the app's own map over OpenStreetMap tiles, estimated traffic; weather and news show as unavailable). To turn on the street map, live traffic, weather and local news, fill in **`.env`** (git-ignored; template in [`.env.example`](.env.example)):
 
 | Variable | What for | Where to get it |
 |---|---|---|
@@ -46,7 +46,6 @@ Everything works with no keys (demo data, the app's own map over OpenStreetMap t
 | `CURRENTS_API_KEY` | Local news via `/api/news` (server only) | [currentsapi.services](https://currentsapi.services) (free: 250 requests/day) |
 | `VITE_GOOGLE_WEATHER_API_KEY` | Weather, hourly rain chance and PAGASA alerts, asked from the browser (falls back to the Maps key, then to the server key) | Google Cloud: enable **Weather API**; key restricted to your sites and **Weather API**; set a quota and budget alert (billable) |
 | `GOOGLE_WEATHER_API_KEY` | The same via `/api/weather` (server only), used when the build has no browser weather key | Same API; the same website restriction works, because the server sends its own site address as the `Referer` |
-| `GEMINI_API_KEY`, `GEMINI_MODEL` | Optional plain-language explanation of the recommendation via `/api/explain` (server only) | [aistudio.google.com/apikey](https://aistudio.google.com/apikey); model defaults to `gemini-2.5-flash` |
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Shared live data across devices | Supabase project; run `supabase/schema.sql` then `supabase/migrations/*.sql` |
 | `VITE_WALK_ROUTER_URL` | Optional own OSRM foot router | Leave unset for the public FOSSGIS router |
 
@@ -70,7 +69,6 @@ npm run preview    # http://localhost:4173, the installable offline build
 | Google Routes API | Traffic-aware trip times, Google road geometry, traffic forecast for later departures | Times estimated from route reports |
 | Google Weather API (browser key, else `/api/weather`) | Current conditions, hourly chance of rain (Estimate), PAGASA public alerts (Official) | Last reading as a saved copy (cached up to 24 h); otherwise "Weather unavailable" with **Retry**, or "Weather feed not configured for this build" when no key exists |
 | Currents News API (via `/api/news`) | Local Batangas news, matched to campus and route by place | Saved copy for up to 24 hours, then none |
-| Gemini (via `/api/explain`) | Optional rewording of BIYAHE's own recommendation reason | The rule and facts BIYAHE used, shown as is |
 | Supabase (PostgreSQL + PostGIS + Realtime) | Route status, safe spots, advisories | IndexedDB snapshot, fixtures in `src/data.ts` |
 | OSRM foot router (FOSSGIS) | Walking route to a safe spot | Saved route, then straight-line estimate |
 | PAGASA / Batangas City LGU | Advisory schemas | Simulated fixtures; no public feed exists |
@@ -122,6 +120,6 @@ Tokens live in [`src/index.css`](src/index.css): Deep Blue `#0B2D5B`, Sky Blue `
 
 ## Stack
 
-React 19 + TypeScript (Vite 8), `vite-plugin-pwa`, Google Maps JavaScript API + Routes API, Leaflet (the app's own map: OpenStreetMap tiles or plain), `@supabase/supabase-js`, lucide icons, Vercel Functions (`api/news.ts`, `api/weather.ts`, `api/explain.ts`).
+React 19 + TypeScript (Vite 8), `vite-plugin-pwa`, Google Maps JavaScript API + Routes API, Leaflet (the app's own map: OpenStreetMap tiles or plain), `@supabase/supabase-js`, lucide icons, Vercel Functions (`api/news.ts`, `api/weather.ts`).
 
 BeansDev (Team 11) · CS Bootcamp: Build the Way Forward

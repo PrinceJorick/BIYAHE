@@ -46,7 +46,7 @@ export default function Welcome() {
           <li>No account, no check-in and no location request. BIYAHE never sends where you are.</li>
           <li>Campus staff see only how many students use each route, never who. These counts are aggregate.</li>
           <li>Saved on this device: route status, safe spots and advisories; local news, the last weather reading and route times for up to 24 hours.</li>
-          <li>Asked over the internet: Google Weather and Google Routes (campus and town points only), Currents for news, Google Maps and OpenStreetMap for the map, and the OpenStreetMap walking router (campus and safe-spot points only). AI explanations, when you ask for one, send only BIYAHE's own reasons to Google Gemini.</li>
+          <li>Asked over the internet: Google Weather and Google Routes (campus and town points only), Currents for news, Google Maps and OpenStreetMap for the map, and the OpenStreetMap walking router (campus and safe-spot points only).</li>
         </ul>
         <p className="meta">Personal data is handled under the Data Privacy Act of 2012 (RA 10173). You can clear everything BIYAHE saved from Settings.</p>
         <div className="dialog-actions">

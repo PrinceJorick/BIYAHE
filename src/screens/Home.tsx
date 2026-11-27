@@ -1,7 +1,7 @@
 // Home (wireframe 1): weather and date, traffic flow, "Where do you want to go?" with three options, and every
 // place the student can go. Choosing an option or a place opens its details (#/go/<kind>/<id>).
-import { ChevronRight, Cloud, CloudFog, CloudLightning, CloudOff, CloudRain, Megaphone, MessageSquareText, Moon, RefreshCw, ShieldAlert, Sun, type LucideIcon } from 'lucide-react'
-import { createElement, useState } from 'react'
+import { ChevronRight, Cloud, CloudFog, CloudLightning, CloudOff, CloudRain, Megaphone, Moon, RefreshCw, ShieldAlert, Sun, type LucideIcon } from 'lucide-react'
+import { createElement } from 'react'
 import { ACTIVE_CAMPUS } from '../campuses/active'
 import Badge from '../components/Badge'
 import Lvl from '../components/Lvl'
@@ -10,7 +10,6 @@ import { PlaceIcon, PlaceRow, TrafficSource, TrafficWord } from '../components/p
 import { corridors } from '../data'
 import { studentAdvisories } from '../lib/advisories'
 import { ago, clock, fmtMin, fmtRange, studentView } from '../lib/derive'
-import { fetchExplanation } from '../lib/explain'
 import { placeArg, placeShort, recommend, recommendationReason, routePlaces, spotPlaces, walkText, type Reason, type RoutePlace } from '../lib/places'
 import { hrefOf } from '../lib/router'
 import { isOffline, retryWeather, useApp, useNow, type State } from '../lib/store'
@@ -107,12 +106,7 @@ function WeatherCard({ s, now, offline }: { s: State; now: number; offline: bool
   )
 }
 
-function WhyCard({ reason, offline }: { reason: Reason; offline: boolean }) {
-  const [ai, setAi] = useState<{ text: string } | { error: string } | 'loading' | null>(null)
-  const ask = () => {
-    setAi('loading')
-    fetchExplanation(reason).then((text) => setAi({ text }), (e: Error) => setAi({ error: e.message || 'AI explanation unavailable' }))
-  }
+function WhyCard({ reason }: { reason: Reason }) {
   return (
     <section className="card card-why" aria-labelledby="why">
       <div className="card-head">
@@ -121,14 +115,6 @@ function WhyCard({ reason, offline }: { reason: Reason; offline: boolean }) {
       </div>
       <p className="body">{reason.rule}</p>
       <ul className="meta bullets">{reason.facts.map((f) => <li key={f}>{f}</li>)}</ul>
-      <div aria-live="polite">
-        {ai && ai !== 'loading' && 'text' in ai && (
-          <p className="body">{ai.text} <span className="caption">(AI-written summary of the facts above · Gemini)</span></p>
-        )}
-        {ai && ai !== 'loading' && 'error' in ai && <p className="caption">{ai.error}. The facts above are what BIYAHE used.</p>}
-      </div>
-      {!offline && ai === null && <button type="button" className="btn btn-quiet btn-sm" onClick={ask}><MessageSquareText size={16} aria-hidden="true" />Explain in plain words</button>}
-      {ai === 'loading' && <p className="caption" role="status">Asking Gemini…</p>}
     </section>
   )
 }
@@ -233,7 +219,7 @@ export default function Home() {
         </ul>
       </section>
 
-      {reason && <WhyCard reason={reason} offline={v.offline} />}
+      {reason && <WhyCard reason={reason} />}
 
       <section className="card" aria-labelledby="places-routes">
         <h2 className="h2" id="places-routes">Routes home</h2>

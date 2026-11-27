@@ -30,8 +30,8 @@ Campus disaster officers (DRRMO) have no quick way to tell them.
 | A pre-written "I'm safe" message for family | |
 
 **Principles.** Zero input after the one-time setup; offline first; every figure labelled with its source and time
-(*Official*, *Estimate*, *Saved copy*, *Simulated*); a deterministic rule makes every recommendation and AI only
-rewords it; no location tracking, no check-ins, no accounts for students.
+(*Official*, *Estimate*, *Saved copy*, *Simulated*); a deterministic rule makes every recommendation;
+no location tracking, no check-ins, no accounts for students.
 
 ---
 
@@ -114,7 +114,6 @@ stays on the device and can be changed from Settings.
    is open), *Wait at* the nearest safe spot with room, and a *Suggested alternative* route, always captioned *Not
    verified safe*. A closed route is never recommended.
 7. **Why this suggestion**: the rule that chose the first option and the facts it used, each with its source.
-   *Explain in plain words* asks Gemini to reword them (optional; the facts stay on screen).
 8. **Routes home** and **Safe spots on campus**: every place with its trip time or walk and space left.
 
 ### 3.3 Details
@@ -202,7 +201,6 @@ Building Marshal and Guard on Duty see advisories read-only but can update safe-
 | **Google Routes API** (`computeRoutes`, traffic-aware) | Trip time now and free-flow, road geometry, forecasts for later departures | `VITE_GOOGLE_ROUTES_API_KEY` (browser; falls back to the Maps key) | Browser | Times estimated from route reports |
 | **Google Weather API** | Current conditions, hourly forecast, PAGASA public alerts | `VITE_GOOGLE_WEATHER_API_KEY` (browser, website-restricted; falls back to the Maps key), else `GOOGLE_WEATHER_API_KEY` (server only) | Browser, else `/api/weather` | Last reading as a saved copy; with none, "Weather unavailable" and **Retry**; with no key at all, "Weather feed not configured for this build" |
 | **Currents News API** | Local weather news | `CURRENTS_API_KEY` (server only, Bearer token) | `/api/news` | No news section |
-| **Gemini** | Plain-language rewording of BIYAHE's own reason | `GEMINI_API_KEY`, `GEMINI_MODEL` (server only) | `/api/explain` | The rule and facts as they are |
 | **Supabase** (PostgreSQL + Realtime) | Shared route status, safe spots, advisories | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Browser | Device data and cross-tab sync, marked *Simulated* |
 | **OpenStreetMap tiles** | Street tiles for the app's map | none | Browser | Plain map |
 | **OSRM foot router** (FOSSGIS) | Walking route to a safe spot | none (`VITE_WALK_ROUTER_URL` optional) | Browser | Saved route, then a straight-line estimate |
@@ -237,8 +235,6 @@ VITE_GOOGLE_ROUTES_API_KEY=   # optional separate Routes API browser key
 CURRENTS_API_KEY=             # server only
 VITE_GOOGLE_WEATHER_API_KEY=  # browser key; website restriction + API restriction: Weather API (else the Maps key)
 GOOGLE_WEATHER_API_KEY=       # server only, used without a browser key; API restriction: Weather API; website restriction allowed
-GEMINI_API_KEY=               # server only, optional
-GEMINI_MODEL=                 # optional, default gemini-2.5-flash
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 # VITE_WALK_ROUTER_URL=       # optional own OSRM foot router; unset = FOSSGIS, empty = walking routes off
@@ -252,7 +248,7 @@ website restriction, and the request sends the page's `Referer`. Without one, `/
 key works there too. `VITE_*` values are fixed at build time: after changing one in Vercel, redeploy.
 
 **Deploying (Vercel).** `vercel.json` sets the Vite framework, `npm run build` and the `dist` output, and sends every
-non-API path to `index.html`. `api/news.ts`, `api/weather.ts` and `api/explain.ts` deploy as Vercel Functions. Set the
+non-API path to `index.html`. `api/news.ts` and `api/weather.ts` deploy as Vercel Functions. Set the
 same variables under Project → Settings → Environment Variables (server keys as *Sensitive*).
 
 ---
@@ -344,7 +340,6 @@ original five; it must be added there before any reviewed route set is supplied.
 | Rain level | Low < 30% ≤ Medium < 60% ≤ High |
 | Best departure | Least time on the road, rain counted as risk (+15 min for 30–59%, +40 min for 60%+), waiting on campus counted at a quarter |
 | Walking time | Straight-line distance at 75 m per minute, always worded "about" |
-| AI explanation | Gemini receives only the rule and facts; answers that call a route safe, add links or break the JSON shape are rejected |
 
 ---
 
@@ -378,20 +373,20 @@ Supabase, Lucide icons, Vercel Functions.
 | `src/lib/apiCache.ts` | Shared request cache: dedupe, TTL, cooldowns, fallbacks |
 | `src/lib/googleRoutes.ts`, `src/lib/traffic.ts` | Routes API client, traffic levels, departure options |
 | `src/lib/weather.ts`, `src/lib/googleWeather.ts` | Weather in the app (browser key, else `/api/weather`) and the shared Google Weather client used by both |
-| `src/lib/news.ts`, `src/lib/explain.ts` | Clients for `/api/news`, `/api/explain` |
+| `src/lib/news.ts` | Client for `/api/news` |
 | `src/lib/places.ts` | Places, recommendations and their reasons |
 | `src/lib/offlineTiles.ts` | Weekly save of OpenStreetMap tiles for the offline map |
 | `src/lib/store.ts` | App state, sync, polling |
-| `api/` | `news.ts` (Currents), `weather.ts` (Google Weather), `explain.ts` (Gemini) |
+| `api/` | `news.ts` (Currents), `weather.ts` (Google Weather) |
 | `src/campuses/` | Campus registry: locations, routes, safe spots |
 
 ---
 
 ## 11. Quality
 
-- **1001 automated tests in 36 files** (Vitest, 26 November 2026): recommendation rules and reasons, routing data, traffic and departure scoring,
+- **995 automated tests in 35 files** (Vitest, 27 November 2026): recommendation rules and reasons, routing data, traffic and departure scoring,
   Routes API parsing and caching, Google Weather parsing, alerts and caching, Currents parsing and the weather-only
-  filter, Gemini input/output checks, map model and label placement, offline tiles, advisory lifecycle, storage.
+  filter, map model and label placement, offline tiles, advisory lifecycle, storage.
 - **Accessibility**: axe-core clean on every screen; 13 px minimum text; 44 px touch targets; keyboard and dialog
   focus checked; WCAG 2.5.3 label-in-name on links and map markers.
 - **Responsive**: Welcome, Setup, Home and Map checked at 360, 390, 768 and 1280 px with no horizontal overflow; the
@@ -407,7 +402,6 @@ Supabase, Lucide icons, Vercel Functions.
 - Weather works through the browser key `VITE_GOOGLE_WEATHER_API_KEY` and through `/api/weather` (both verified
   26 November 2026 for all three campuses). The server sends the site's address as the `Referer`, so its key may keep
   the website restriction.
-- Gemini explanations depend on the project's AI Studio credit; without it the app keeps its own wording.
 - PAGASA alerts arrive only through Google Weather public alerts; LGU advisories are simulated (no public feed).
 - Offline street tiles exist only after the app has been opened online with the service worker active; zooming past
   the saved levels shows the dot grid.
@@ -422,4 +416,4 @@ Supabase, Lucide icons, Vercel Functions.
 
 Map data © OpenStreetMap contributors (ODbL) for route lines, walking paths and street tiles; Google Maps Platform for
 the street map, traffic, routes and weather (PAGASA alerts via Google Weather); news powered by Currents News API;
-explanations by Google Gemini; icons by Lucide (ISC); Poppins (SIL Open Font License).
+icons by Lucide (ISC); Poppins (SIL Open Font License).

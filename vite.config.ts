@@ -3,7 +3,6 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
-import { handleExplain } from './api/explain.ts'
 import { handleNews } from './api/news.ts'
 import { handleWeather } from './api/weather.ts'
 
@@ -22,7 +21,7 @@ function buildStamp() {
 
 // /api/* locally: the same handlers the Vercel Functions run (api/*.ts), with the server-only keys from .env.
 type Handler = (request: Request, env: Record<string, string>) => Promise<Response>
-const API: Record<string, Handler> = { '/api/news': handleNews, '/api/weather': handleWeather, '/api/explain': handleExplain }
+const API: Record<string, Handler> = { '/api/news': handleNews, '/api/weather': handleWeather }
 
 function localApi(env: Record<string, string>): Plugin {
   const serve = async (handler: Handler, req: IncomingMessage, res: ServerResponse) => {
