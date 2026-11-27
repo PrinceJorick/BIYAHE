@@ -51,25 +51,21 @@ describe("fixture('disrupted')", () => {
     expect(snap.updatedAt).toBe(NOW - 1 * MIN)
   })
 
-  it('closes every route through the flood on JP Laurel Hwy (Lipa and Tanauan share it), with the hazard', () => {
+  it('closes Lipa and Tanauan (JP Laurel Hwy), with its flood hazard', () => {
     expect(snap.corridors.lipa).toEqual({
       status: 'closed', minLo: 135, minHi: 190,
-      note: 'Flooding on JP Laurel Hwy at Mojon-Tampoy, San Jose.',
+      note: 'Flooding on JP Laurel Hwy at Bukal.',
       source: 'LGU road reports', provenance: 'estimate', hazard: 'flood',
     })
     expect(snap.corridors.tanauan).toMatchObject({ status: 'closed', hazard: 'flood' })
   })
 
-  it('slows Bauan (Diversion Rd) through the ponding site', () => {
-    expect(snap.corridors.bauan).toEqual({
-      status: 'slow', minLo: 50, minHi: 65,
-      note: 'Ponding and heavy traffic on Diversion Rd at Banaba Kanluran.',
-      source: 'LGU road reports', provenance: 'estimate', hazard: 'ponding',
-    })
+  it('closes Bauan (Diversion Rd) through its flood site', () => {
+    expect(snap.corridors.bauan).toMatchObject({ status: 'closed', note: 'Flooding on Diversion Rd at Banaba Kanluran.', hazard: 'flood' })
   })
 
-  it('slows every other route through a ponding site, so no route is clear', () => {
-    for (const id of ['batangas', 'sanjose', 'rosario']) expect(snap.corridors[id], id).toMatchObject({ status: 'slow', hazard: 'ponding', provenance: 'estimate' })
+  it('closes every other route through a flood site, so no route is open or slow', () => {
+    for (const id of ['batangas', 'sanjose', 'rosario']) expect(snap.corridors[id], id).toMatchObject({ status: 'closed', hazard: 'flood', provenance: 'estimate' })
     expect(Object.keys(snap.corridors)).toEqual(['lipa', 'batangas', 'bauan', 'sanjose', 'tanauan', 'rosario'])
   })
 
@@ -84,15 +80,15 @@ describe("fixture('disrupted')", () => {
   it('carries one simulated LGU advisory per disrupted route (in route order, with the status it sets), then PAGASA and Campus', () => {
     expect(snap.advisories.map((a) => [a.id, a.scope, a.severity, a.corridorStatus ?? null])).toEqual([
       ['lgu-flood-lipa', 'lipa', 'critical', 'closed'],
-      ['lgu-ponding-batangas', 'batangas', 'warning', 'slow'],
-      ['lgu-ponding-bauan', 'bauan', 'warning', 'slow'],
-      ['lgu-ponding-sanjose', 'sanjose', 'warning', 'slow'],
+      ['lgu-flood-batangas', 'batangas', 'critical', 'closed'],
+      ['lgu-flood-bauan', 'bauan', 'critical', 'closed'],
+      ['lgu-flood-sanjose', 'sanjose', 'critical', 'closed'],
       ['lgu-flood-tanauan', 'tanauan', 'critical', 'closed'],
-      ['lgu-ponding-rosario', 'rosario', 'warning', 'slow'],
+      ['lgu-flood-rosario', 'rosario', 'critical', 'closed'],
       ['pagasa-RA-07', 'all', 'warning', null],
       ['campus-suspend', 'campus', 'warning', null],
     ])
-    expect(snap.advisories[0]).toMatchObject({ source: 'LGU', issuer: 'Batangas City DRRMO', title: 'Flooding on JP Laurel Hwy at Mojon-Tampoy, San Jose', issuedAt: NOW - 8 * MIN })
+    expect(snap.advisories[0]).toMatchObject({ source: 'LGU', issuer: 'Batangas City DRRMO', title: 'Flooding on JP Laurel Hwy at Bukal', issuedAt: NOW - 8 * MIN })
     expect(snap.advisories.every((a) => a.simulated)).toBe(true)
   })
 })

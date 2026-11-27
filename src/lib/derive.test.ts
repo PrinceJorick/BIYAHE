@@ -63,11 +63,11 @@ describe('studentView decisions', () => {
     expect(v.provenance).toBe(status === 'open' ? 'official' : 'estimate')
   })
 
-  it('in the disrupted fixture, the routes through the flood (Lipa, Tanauan) say wait', () => {
+  it('in the disrupted fixture, every route says wait', () => {
     const decisions = Object.fromEntries(
       corridors.map((c) => [c.id, studentView(makeState({ corridorId: c.id }), NOW).decision]),
     )
-    expect(decisions).toEqual({ lipa: 'wait', batangas: 'go', bauan: 'go', sanjose: 'go', tanauan: 'wait', rosario: 'go' })
+    expect(decisions).toEqual({ lipa: 'wait', batangas: 'wait', bauan: 'wait', sanjose: 'wait', tanauan: 'wait', rosario: 'wait' })
   })
 })
 
@@ -174,8 +174,8 @@ describe('concernsStudent', () => {
     const { advisories } = fixture('disrupted', NOW)
     const seen = (id: string) => advisories.filter((a) => concernsStudent(a, id)).map((a) => a.id)
     expect(seen('lipa')).toEqual(['lgu-flood-lipa', 'pagasa-RA-07', 'campus-suspend'])
-    expect(seen('batangas')).toEqual(['lgu-ponding-batangas', 'pagasa-RA-07', 'campus-suspend'])
-    expect(seen('bauan')).toEqual(['lgu-ponding-bauan', 'pagasa-RA-07', 'campus-suspend'])
+    expect(seen('batangas')).toEqual(['lgu-flood-batangas', 'pagasa-RA-07', 'campus-suspend'])
+    expect(seen('bauan')).toEqual(['lgu-flood-bauan', 'pagasa-RA-07', 'campus-suspend'])
   })
 })
 
@@ -216,9 +216,9 @@ describe('shareMessage', () => {
       )
     })
 
-    it('slow corridor', () => {
+    it('closed corridor (Diversion Rd)', () => {
       expect(shareMessage(view({ corridorId: 'bauan' }), 'campus')).toBe(
-        "I'm safe at BatStateU Alangilan. Diversion Rd is slow right now, so I'm waiting at Sparta Gymnasium (power, water). I'll head home when the road clears.",
+        "I'm safe at BatStateU Alangilan. Diversion Rd is closed right now, so I'm waiting at Sparta Gymnasium (power, water). I'll head home when the road clears.",
       )
     })
 

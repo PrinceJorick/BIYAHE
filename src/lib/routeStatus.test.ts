@@ -47,13 +47,13 @@ describe.each(Object.values(campuses))('$id: simulated conditions agree everywhe
     for (const h of DEMO_HAZARDS[campus.id]) expect(routesThrough(h, corridors).length, h.id).toBeGreaterThan(0)
   })
 
-  it('flooding: every route is closed or slow (heavy traffic), none clear', () => {
+  it('flooding: every route is closed', () => {
     const snap = fixture('disrupted', NOW, campus)
     const states = routeStates(snap, corridors, NOW)
     for (const c of corridors) {
-      expect(['closed', 'slow'], c.id).toContain(states[c.id].status)
+      expect(states[c.id].status, c.id).toBe('closed')
       const r = routePlaces(snap, corridors, null, c.id, NOW).find((x) => x.id === c.id)!
-      expect(['closed', 'heavy'], c.id).toContain(r.traffic.level)
+      expect(r.traffic.level, c.id).toBe('closed')
     }
   })
 
@@ -69,33 +69,17 @@ describe.each(Object.values(campuses))('$id: simulated conditions agree everywhe
     }
   })
 
-  it('flooded: exactly the routes through the flood are closed, never recommended, and each has its advisory', () => {
+  it('flooded: every route is closed with its advisory, and every student is told to stay on campus', () => {
     const snap = fixture('disrupted', NOW, campus)
     const states = routeStates(snap, corridors, NOW)
-    const flood = DEMO_HAZARDS[campus.id].find((h) => h.kind === 'flood')!
-    const flooded = routesThrough(flood, corridors)
-    expect(flooded.length).toBeGreaterThan(0)
     for (const c of corridors) {
-      const through = distanceToPathM(flood.pos, c.path) <= flood.radiusM
-      expect(states[c.id].status === 'closed', c.id).toBe(through)
-      if (through) {
-        expect(routeMessage(states[c.id])).toBe('Route is flooded. Do not proceed through this route.')
-        expect(snap.advisories.some((a) => a.scope === c.id && a.severity === 'critical' && a.simulated), c.id).toBe(true)
-        const opts = recommend(routePlaces(snap, corridors, null, c.id, NOW), spotPlaces(snap.spots))
-        // A flooded route is never the recommendation, for its own commuters or anyone else's.
-        for (const o of opts) if (o.place.kind === 'route' && o.place.id === c.id) expect(o.recommended).toBe(false)
-        expect(opts.find((o) => o.recommended)?.place.kind ?? 'spot').toBe('spot')
-      } else {
-        expect(snap.advisories.some((a) => a.scope === c.id && a.severity === 'critical'), c.id).toBe(false)
-      }
-    }
-    // Other students' suggestions never offer a flooded route as the alternative.
-    for (const c of corridors.filter((x) => !flooded.includes(x.id))) {
+      expect(routeMessage(states[c.id])).toBe('Route is flooded. Do not proceed through this route.')
+      expect(snap.advisories.some((a) => a.scope === c.id && a.severity === 'critical' && a.simulated), c.id).toBe(true)
       const opts = recommend(routePlaces(snap, corridors, null, c.id, NOW), spotPlaces(snap.spots))
-      expect(opts.some((o) => o.place.kind === 'route' && flooded.includes(o.place.id) && o.recommended)).toBe(false)
+      expect(opts.some((o) => o.place.kind === 'route' && o.recommended), c.id).toBe(false)
+      expect(opts[0].place.kind, c.id).toBe('spot')
+      expect(opts[0].recommended, c.id).toBe(true)
     }
-    const advised = [...new Set(snap.advisories.filter((a) => a.severity === 'critical').map((a) => a.scope))].sort()
-    expect(advised).toEqual(flooded.toSorted())
   })
 
   it('unknown: old or missing data never shows a route as clear, and the student is asked to verify', () => {

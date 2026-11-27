@@ -20,7 +20,7 @@ describe('map model', () => {
 
   it('a chosen route is drawn and focused next to the student\'s own', () => {
     const m = buildMapModel(base({ focus: { kind: 'route', id: 'lipa' } }))
-    expect(m.lines.map((l) => [l.id, l.focus, l.status])).toEqual([['lipa', true, 'closed'], ['batangas', false, 'slow']])
+    expect(m.lines.map((l) => [l.id, l.focus, l.status])).toEqual([['lipa', true, 'closed'], ['batangas', false, 'closed']])
   })
 
   it('show all / staff: every route; staff never focuses one', () => {
