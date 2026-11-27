@@ -102,30 +102,30 @@ const baseSpots = (share: number[], seeds: readonly SpotSeed[] = spotSeeds): Spo
 
 const spotNames = (names: string[]) => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`)
 
-// Simulated hazards for the "Flooding" demo: one flood and several ponding sites per campus, placed so that every
-// route passes at least one (closed or heavy traffic everywhere, as a storm would). Each point lies on
+// Simulated hazards for the "Flooding" demo: several flood sites per campus, placed so that every route passes at
+// least one (every route closed, so every student is told to stay on campus). Each point lies on
 // the road it names (OpenStreetMap, reverse-geocoded 2026-11-28); which routes it affects is worked out from the
 // route geometry (src/lib/hazards.ts), never hand-picked, so the map, statuses and advisories always agree.
 export const DEMO_HAZARDS: Record<CampusId, Hazard[]> = {
   alangilan: [
     { id: 'flood', kind: 'flood', pos: [13.90501, 121.10447], road: 'JP Laurel Hwy', place: 'Mojon-Tampoy, San Jose', radiusM: 80 },
-    { id: 'ponding', kind: 'ponding', pos: [13.80452, 121.04823], road: 'Diversion Rd', place: 'Banaba Kanluran', radiusM: 80 },
-    { id: 'ponding-2', kind: 'ponding', pos: [13.77421, 121.06621], road: 'National Hwy', place: 'Banaba Ibaba', radiusM: 80 },
-    { id: 'ponding-3', kind: 'ponding', pos: [13.84119, 121.08694], road: 'JP Laurel Hwy', place: 'Bukal', radiusM: 80 },
-    { id: 'ponding-4', kind: 'ponding', pos: [13.81831, 121.13022], road: 'Batangas–Ibaan Rd', place: 'Quilo, Ibaan', radiusM: 80 },
+    { id: 'flood-2', kind: 'flood', pos: [13.80452, 121.04823], road: 'Diversion Rd', place: 'Banaba Kanluran', radiusM: 80 },
+    { id: 'flood-3', kind: 'flood', pos: [13.77421, 121.06621], road: 'National Hwy', place: 'Banaba Ibaba', radiusM: 80 },
+    { id: 'flood-4', kind: 'flood', pos: [13.84119, 121.08694], road: 'JP Laurel Hwy', place: 'Bukal', radiusM: 80 },
+    { id: 'flood-5', kind: 'flood', pos: [13.81831, 121.13022], road: 'Batangas–Ibaan Rd', place: 'Quilo, Ibaan', radiusM: 80 },
   ],
   'pablo-borbon': [
     { id: 'flood', kind: 'flood', pos: [13.91881, 121.10572], road: 'JP Laurel Hwy', place: 'Mojon-Tampoy, San Jose', radiusM: 80 },
-    { id: 'ponding', kind: 'ponding', pos: [13.77714, 121.04265], road: 'Bauan–Batangas Rd', place: 'Santa Rita Aplaya', radiusM: 80 },
-    { id: 'ponding-2', kind: 'ponding', pos: [13.8298, 121.08037], road: 'JP Laurel Hwy', place: 'Banaba Silangan', radiusM: 80 },
-    { id: 'ponding-3', kind: 'ponding', pos: [13.8077, 121.11741], road: 'Batangas–Ibaan Rd', place: 'Quilo, Ibaan', radiusM: 80 },
-    { id: 'ponding-4', kind: 'ponding', pos: [13.81038, 120.99571], road: 'Bauan–Batangas Rd', place: 'Inicbulan, Bauan', radiusM: 80 },
+    { id: 'flood-2', kind: 'flood', pos: [13.77714, 121.04265], road: 'Bauan–Batangas Rd', place: 'Santa Rita Aplaya', radiusM: 80 },
+    { id: 'flood-3', kind: 'flood', pos: [13.8298, 121.08037], road: 'JP Laurel Hwy', place: 'Banaba Silangan', radiusM: 80 },
+    { id: 'flood-4', kind: 'flood', pos: [13.8077, 121.11741], road: 'Batangas–Ibaan Rd', place: 'Quilo, Ibaan', radiusM: 80 },
+    { id: 'flood-5', kind: 'flood', pos: [13.81038, 120.99571], road: 'Bauan–Batangas Rd', place: 'Inicbulan, Bauan', radiusM: 80 },
   ],
   malvar: [
     { id: 'flood', kind: 'flood', pos: [14.00926, 121.16535], road: 'JP Laurel Hwy', place: 'Pusil, Malvar', radiusM: 80 },
-    { id: 'ponding', kind: 'ponding', pos: [14.07141, 121.15199], road: 'JP Laurel Hwy', place: 'Hidalgo, Tanauan', radiusM: 80 },
-    { id: 'ponding-2', kind: 'ponding', pos: [14.06118, 121.13766], road: 'STAR Tollway', place: 'Banjo Laurel, Tanauan', radiusM: 80 },
-    { id: 'ponding-3', kind: 'ponding', pos: [14.03991, 121.12206], road: 'Balete–Malvar Rd', place: 'San Isidro East, Malvar', radiusM: 80 },
+    { id: 'flood-2', kind: 'flood', pos: [14.07141, 121.15199], road: 'JP Laurel Hwy', place: 'Hidalgo, Tanauan', radiusM: 80 },
+    { id: 'flood-3', kind: 'flood', pos: [14.06118, 121.13766], road: 'STAR Tollway', place: 'Banjo Laurel, Tanauan', radiusM: 80 },
+    { id: 'flood-4', kind: 'flood', pos: [14.03991, 121.12206], road: 'Balete–Malvar Rd', place: 'San Isidro East, Malvar', radiusM: 80 },
   ],
 }
 
@@ -190,11 +190,10 @@ export function sampleNews(kind: 'clear' | 'disrupted', now = Date.now(), campus
       item('rain', 'Light rain possible tonight over Batangas', 'Scattered showers expected after 8 PM; no warning issued.', ['rain'], 90),
     ]
   }
-  const flood = DEMO_HAZARDS[campus.id].find((h) => h.kind === 'flood')!
-  const ponding = DEMO_HAZARDS[campus.id].find((h) => h.kind === 'ponding')!
+  const [flood, flood2] = DEMO_HAZARDS[campus.id]
   return [
     item('flood', `Knee-deep flood on ${flood.road} at ${flood.place}`, 'Motorists report the road is impassable to jeepneys and light vehicles.', ['flood', 'road'], 12),
-    item('ponding', `Heavy traffic as water ponds on ${ponding.road}`, `Long queues near ${ponding.place}; expect delays.`, ['road'], 20),
+    item('flood-2', `Flooding closes ${flood2.road} at ${flood2.place}`, 'Road impassable; commuters asked to stay put.', ['flood', 'road'], 20),
     item('pagasa', 'PAGASA raises orange rainfall warning over Batangas', 'Intense rain expected in the next three hours.', ['rain'], 30),
     item('classes', `${campus.shortName} suspends afternoon classes`, 'Students are asked to wait at campus safe spots.', ['classes'], 45),
   ]
