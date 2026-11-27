@@ -46,7 +46,7 @@ A closed route stays closed when its data ages; a clear one becomes Unknown. Onl
 
 Permissions are checked in the store (`canEditOccupancy`, `canEditAmenities`), not only in the UI. There is still no staff sign-in, so this is demo gating, not access control.
 
-When the coordinator publishes, edits or resolves an advisory, every open student view updates at once (other tabs on the device through BroadcastChannel; other devices through Supabase Realtime once it is configured), and the student gets one notice: their route's new status, a new advisory, an update, or a resolution (`src/lib/studentNotice.ts`).
+When the coordinator publishes, edits or resolves an advisory, every open student view updates at once (other tabs on the device through BroadcastChannel; other phones and laptops through Supabase Realtime, about 1.5 s, verified 28 November 2026), and the student gets one notice: their route's new status, a new advisory, an update, or a resolution (`src/lib/studentNotice.ts`).
 
 In the code and database a route is called a corridor (`Corridor`, `corridor_status`); the UI says "route".
 
@@ -72,7 +72,9 @@ Everything works with no keys (demo data, the app's own map over OpenStreetMap t
 
 Restart `npm run dev` after editing `.env`. Settings → *About this build* shows whether the browser-side Google Maps and Supabase keys are present (never their values); server keys are not visible to the browser. `VITE_*` values end up in the browser bundle, so restrict them in the provider console. Keys without the prefix stay on the server (`api/*.ts`: Vercel Functions in production, Vite middleware locally).
 
-**Demo:** open the app in two tabs. Tab A: *Get started*. Tab B: *Campus staff* → *Open Command Dashboard*. Changes in B (occupancy, amenities, an advisory that closes a route) appear in A at once. Settings → *Demo scenarios* switches between Clear, Flooding, Stale data, Offline and Low battery. *Flooding* places one simulated flood and several ponding sites per campus (`DEMO_HAZARDS` in `src/data.ts`, each on the road it names), so **every route is closed or in heavy traffic**: every route that passes the flood is closed and gets its own LGU advisory, every other route passes a ponding site and is slow (heavy traffic) (`src/lib/hazards.ts`). Simulated advisories carry a *Simulated* badge. Scenarios change only the device and its open tabs, never Supabase.
+**Live backend:** Supabase project `biyahe` (ap-southeast-1) holds the shared demo data; `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (publishable key) are set in Vercel for production, preview and development. A successful read confirms the data as of that moment, and the app re-reads every 10 minutes, so a quiet hour never turns routes *Unknown*; only failing to reach the server does. The tables allow writes with the publishable key ("demo write" RLS policies, no staff sign-in), so anyone with the app can change the shared demo data.
+
+**Demo:** open the app on two devices (or two browsers). Tab A: *Get started*. Tab B: *Campus staff* → *Open Command Dashboard*. Changes in B (occupancy, amenities, an advisory that closes a route) appear in A at once. Settings → *Demo scenarios* switches between Clear, Flooding, Stale data, Offline and Low battery. *Flooding* places one simulated flood and several ponding sites per campus (`DEMO_HAZARDS` in `src/data.ts`, each on the road it names), so **every route is closed or in heavy traffic**: every route that passes the flood is closed and gets its own LGU advisory, every other route passes a ponding site and is slow (heavy traffic) (`src/lib/hazards.ts`). Simulated advisories carry a *Simulated* badge. *Clear* and *Flooding* are shared: they rewrite the demo campus data on every device through Supabase (Stale data, Offline and Low battery stay on the device). Every map also has a **Demo · Clear / Flooding** switch (bottom-left, or bottom-right on the full map) for the same thing; it shows the state the data is in, so it stays right when another device switches it. This only makes sense because every campus record is demo data (`DEMO_DATA` in `src/lib/store.ts`); a real feed must turn it off.
 
 ```bash
 npm test           # Vitest
@@ -85,7 +87,7 @@ npm run preview    # http://localhost:4173, the installable offline build
 
 | Source | Used for | Fallback |
 |---|---|---|
-| Google Maps JavaScript API | Street map, live traffic layer | The app's own map over OpenStreetMap tiles (saved tiles offline; plain dot grid in Low-Battery Mode only) |
+| Google Maps JavaScript API | Street map, live traffic layer | The app's own map over OpenStreetMap tiles (also offline from saved tiles, and in Low-Battery Mode) |
 | OpenStreetMap tiles | Streets on the app's own map, online and offline | Saved tiles (zoom-13 streets stretched under closer zooms); plain background where nothing was saved |
 | Google Routes API | Traffic-aware trip times, Google road geometry, traffic forecast for later departures | Times estimated from route reports |
 | Google Weather API (browser key, else `/api/weather`) | Current conditions, hourly chance of rain (Estimate), PAGASA public alerts (Official) | Last reading as a saved copy (cached up to 24 h); otherwise "Weather unavailable" with **Retry**, or "Weather feed not configured for this build" when no key exists |

@@ -3,7 +3,7 @@
 // cache, which src/lib/offlineTiles.ts fills for every campus. Two tile layers: a base layer that never asks for more
 // than zoom 13 (saved for every route) and is stretched under closer zooms, and the native layer from zoom 14 on top.
 // A close tile that was not saved is simply missing, and the stretched zoom-13 streets show through, so the map
-// never falls back to a blank grid. Low-Battery Mode alone keeps the plain dot grid (no tiles at all).
+// never falls back to a blank grid. Low-Battery Mode uses this map too (OSM streets, no animation, no wheel zoom).
 // OSM tile usage policy: attribution (MapFrame), browser Referer, cached copies, no bulk download.
 import L from 'leaflet'
 import { useEffect, useRef } from 'react'
@@ -77,7 +77,7 @@ function Declutter({ version }: { version: string }) {
   return null
 }
 
-// Leaflet applies MapContainer's className only once, so the OSM look follows `tiles` here (offline → dot grid).
+// Leaflet applies MapContainer's className only once, so the OSM look follows `tiles` here.
 function TilesClass({ on }: { on: boolean }) {
   const map = useMap()
   useEffect(() => {

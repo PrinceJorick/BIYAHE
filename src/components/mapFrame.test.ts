@@ -120,10 +120,11 @@ describe('map wiring (source guards)', () => {
     expect(mapViewSource).toContain('<SchematicMap ')
   })
 
-  it('the simple map draws OSM street tiles without Google (online or offline from saved tiles), never on low battery', () => {
+  it('the app map always draws OSM street tiles without Google: no key, key rejected, offline (saved tiles) and Low-Battery Mode', () => {
     expect(schematicSource).toContain('attributionControl={false}')
     expect(schematicSource).toContain('{tiles && <TileLayer')
-    expect(mapViewSource).toContain("const osm = why === 'nokey' || why === 'error' || why === 'offline'")
+    expect(mapViewSource).toContain('const osm = why !== null')
+    expect(mapViewSource).not.toMatch(/dot grid only|plain dot grid/)
     expect(mapViewSource).toContain('tiles={osm}')
   })
 

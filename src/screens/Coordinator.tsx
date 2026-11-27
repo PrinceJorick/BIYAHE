@@ -19,7 +19,7 @@ import { disruptionNews, savedNewsUsable } from '../lib/news'
 import { walkText } from '../lib/places'
 import { routeLevel, routeStates, routeWord, type RouteStatus } from '../lib/routeStatus'
 import {
-  adjustOccupancy, canEditAmenities, canEditOccupancy, canManageAdvisories, createAdvisory, editAdvisory, getState, isOffline,
+  adjustOccupancy, canEditAmenities, DEMO_DATA, canEditOccupancy, canManageAdvisories, createAdvisory, editAdvisory, getState, isOffline,
   marshalSpotId, publishDraft, resolveAdvisory, ROLE_TASKS, toggleAmenity, useApp, useNow,
 } from '../lib/store'
 
@@ -72,8 +72,8 @@ export default function Coordinator() {
               <a href="#/settings">Change<span className="sr-only"> role</span></a>
             </p>
             <p className="cluster meta">
-              <Badge kind={offline ? 'saved' : s.backend === 'device' ? 'simulated' : 'official'} />
-              {offline ? `Offline · saved ${clock(s.savedAt)}` : `${s.backend === 'device' ? 'Demo data · ' : ''}synced ${since(s.savedAt, now)}`}
+              <Badge kind={offline ? 'saved' : DEMO_DATA ? 'simulated' : 'official'} />
+              {offline ? `Offline · saved ${clock(s.savedAt)}` : `${DEMO_DATA ? 'Demo data · ' : ''}${s.backend === 'supabase' ? 'shared live · ' : 'this device · '}synced ${since(s.savedAt, now)}`}
             </p>
           </div>
           {manage && (
@@ -98,7 +98,7 @@ export default function Coordinator() {
                 const Icon = routeIcon[st]
                 return (
                   <li key={c.id}>
-                    <div className="item">
+                    <div className="item route-item">
                       <span className="item-icon"><Icon size={20} aria-hidden="true" /></span>
                       <span className="item-body">
                         <span className="item-title">{c.name}</span>

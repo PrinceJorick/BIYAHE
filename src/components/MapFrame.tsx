@@ -7,13 +7,15 @@ import { OSM_ATTRIBUTION } from '../lib/mapView'
 // `warning` is a development-only notice (see devRoadDataWarning); production passes null.
 // `notice` is the small "About routes" button; `note` says why the simple map is shown. On the full-screen map these
 // sit quietly at the top-right (an info icon and the short credit) so the place chip stands alone.
-export default function MapFrame({ label, warning, notice, note, credit = true, fill = false, children }: {
-  label: string; warning?: string | null; notice?: ReactNode; note?: ReactNode; credit?: boolean; fill?: boolean; children?: ReactNode
+// `demo` is the demo-only Clear / Flooding switch, kept in its own corner so it never mixes with real map notes.
+export default function MapFrame({ label, warning, notice, note, demo, credit = true, fill = false, children }: {
+  label: string; warning?: string | null; notice?: ReactNode; note?: ReactNode; demo?: ReactNode; credit?: boolean; fill?: boolean; children?: ReactNode
 }) {
   return (
     <div className={`map${fill ? ' map-fill' : ''}`} role="group" aria-label={label}>
       {children}
       {warning && <p className="map-dev-warning" role="alert">{warning}</p>}
+      {demo}
       {(notice || note || credit) && (
         <div className="map-meta">
           {note}

@@ -15,7 +15,7 @@ import { ago, amenityLabel, fmtMin, spaceText } from '../lib/derive'
 import { findPlace, placeArg, walkText, type RoutePlace, type SpotPlace } from '../lib/places'
 import { go, hrefOf, useMedia } from '../lib/router'
 import { routeLevel, routeMessage } from '../lib/routeStatus'
-import { isLowBattery, isOffline, loadWalkRoute, refresh, selectSpot, toast } from '../lib/store'
+import { DEMO_DATA, isLowBattery, isOffline, loadWalkRoute, refresh, selectSpot, toast } from '../lib/store'
 import { placeNotifications, useTrip } from './useTrip'
 
 const amenityIcon: Record<Amenity, typeof Zap> = { power: Zap, water: Droplet, food: Utensils }
@@ -100,7 +100,7 @@ export default function Destination({ arg }: { arg: string | null }) {
   const n = placeNotifications(s, place, now)
   const meta = view.offline ? `Saved ${fmtMin(view.ageMin)} ago · reconnect to refresh`
     : view.stale ? `${fmtMin(view.ageMin)} old · waiting for an update`
-      : `Updated ${ago(s.snapshot.updatedAt, now)} · ${place.kind === 'route' ? place.cs.source : 'Campus DRRMO'}${s.backend === 'device' ? ' (simulated)' : ''}`
+      : `Updated ${ago(s.snapshot.updatedAt, now)} · ${place.kind === 'route' ? place.cs.source : 'Campus DRRMO'}${DEMO_DATA ? ' (simulated)' : ''}`
   const nearby = place.kind === 'route'
     ? (place.cs.status === 'closed' || place.cs.status === 'unknown' ? spots.filter((x) => !x.full) : [...spots.filter((x) => !x.full).slice(0, 1), ...routes.filter((r) => r.id !== place.id && (r.cs.status === 'open' || r.cs.status === 'slow'))]).slice(0, 4)
     : spots.filter((x) => x.id !== place.id)
@@ -110,7 +110,7 @@ export default function Destination({ arg }: { arg: string | null }) {
     <div className={`detail${wide ? ' detail-wide' : ''}`}>
       <div className="page">
         <Back />
-        {place.kind === 'route' ? <RouteHero r={place} saved={saved} meta={meta} simulated={s.backend === 'device'} /> : <SpotHero p={place} saved={saved} />}
+        {place.kind === 'route' ? <RouteHero r={place} saved={saved} meta={meta} simulated={DEMO_DATA} /> : <SpotHero p={place} saved={saved} />}
 
         {place.kind === 'route' && (place.cs.status === 'open' || place.cs.status === 'slow') && (
           <section className="card" aria-labelledby="traffic-now">
