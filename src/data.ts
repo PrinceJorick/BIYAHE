@@ -150,13 +150,24 @@ export function fixture(kind: 'clear' | 'disrupted', now = Date.now(), campus: C
     return { corridors: states, spots: baseSpots([0.05, 0.25], campus.spots), advisories: [], updatedAt: now - 2 * MIN }
   }
   const office = campus.id === 'malvar' ? 'Batangas PDRRMO' as const : 'Batangas City DRRMO' as const
-  const flood = hazards.find((h) => h.kind === 'flood')!
-  const closed = campus.corridors.filter((c) => states[c.id].status === 'closed')
+  const by = hazardStatus(campus.corridors, hazards)
   const open = spotNames(campus.spots.map((s) => s.name))
+  // One advisory per disrupted route (its own route, so it can be edited or resolved on its own), carrying the status
+  // it applies: resolving it with "mark clear" turns that route Clear for its students.
+  const routeAdvisories = campus.corridors.filter((c) => by[c.id].hazard).map((c): Advisory => {
+    const h = by[c.id].hazard!
+    const flooded = h.kind === 'flood'
+    return {
+      ...fromLgu({ office, kind: flooded ? 'flood' : 'road-closure', road: h.road, barangays: [h.place], passable: flooded ? 'none' : 'heavy-vehicles-only', corridorId: c.id,
+        headline: flooded ? `Flooding on ${h.road} at ${h.place}` : `Ponding on ${h.road} at ${h.place}`,
+        text: flooded ? `Knee-deep water. Not passable to jeepneys and light vehicles. ${c.name} commuters: wait on campus.`
+          : `Slow traffic through standing water. ${c.name} commuters: allow extra time.`,
+        issuedAt: now - (flooded ? 8 : 12) * MIN }, `${h.kind}-${c.id}`),
+      corridorStatus: flooded ? 'closed' : 'slow',
+    }
+  })
   const advisories = ([
-    ...closed.map((c) => fromLgu({ office, kind: 'flood', road: flood.road, barangays: [flood.place], passable: 'none', corridorId: c.id,
-      headline: `Flooding on ${flood.road} at ${flood.place}`,
-      text: `Knee-deep water. Not passable to jeepneys and light vehicles. ${c.name} commuters: wait on campus.`, issuedAt: now - 8 * MIN }, `flood-${c.id}`)),
+    ...routeAdvisories,
     fromPagasa({ bulletinNo: 'RA-07', kind: 'rainfall', level: 'orange', area: 'Batangas',
       headline: 'Orange rainfall warning, Batangas', text: 'Intense rain (15–30 mm/h) in the next 3 hours. Flooding likely in low-lying areas.', issuedAt: now - 25 * MIN }),
     { id: 'campus-suspend', source: 'Campus', issuer: 'Campus DRRMO', title: 'Classes suspended from 3:30 PM',

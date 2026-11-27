@@ -325,7 +325,7 @@ function AdvisoryCard({ a, now, manage, onOpen }: { a: Advisory; now: number; ma
           <span className={`kcard-when kcard-when-${phase}`}><CalendarClock size={14} aria-hidden="true" />{whenText(a, now)}</span>
           <Lvl level={sv.level} className="strong">{sv.label}</Lvl>
           <span className="clamp-1 kcard-scope">{scopeLabel(a.scope, corridors)}</span>
-          {!isManaged(a) && <span>{a.source}</span>}
+          {a.source !== 'Campus' && <span>{a.source}</span>}
           {a.simulated && <Badge kind="simulated" />}
         </p>
       </div>
@@ -337,7 +337,7 @@ function AdvisoryCard({ a, now, manage, onOpen }: { a: Advisory; now: number; ma
 function AdvisoryBoard({ now, manage, onOpen }: { now: number; manage: boolean; onOpen: (o: Open) => void }) {
   const s = useApp()
   const [closed, setClosed] = useState<Record<string, boolean>>({})
-  const { drafts, active, ended } = coordinatorGroups(s.snapshot.advisories, now)
+  const { drafts, active, ended } = coordinatorGroups(s.snapshot.advisories, now, corridors.map((c) => c.id))
   const resolvable = active.filter((a) => isManaged(a))
   // Each column's own add button does that column's job: a new draft, a published advisory, or resolving one.
   const columns = [
@@ -385,7 +385,7 @@ function AdvisoryBoard({ now, manage, onOpen }: { now: number; manage: boolean; 
 /** Resolved column → Resolve advisory: choose which active campus advisory to resolve. */
 function PickResolve({ now, onOpen }: { now: number; onOpen: (o: Open) => void }) {
   const s = useApp()
-  const list = coordinatorGroups(s.snapshot.advisories, now).active.filter((a) => isManaged(a))
+  const list = coordinatorGroups(s.snapshot.advisories, now, corridors.map((c) => c.id)).active.filter((a) => isManaged(a))
   if (!list.length) return <p className="body">No active campus advisories to resolve.</p>
   return (
     <ul className="list">
@@ -569,7 +569,9 @@ function ResolveForm({ advisory, onDone }: { advisory: Advisory; onDone: () => v
   const s = useApp()
   const corridor = isCorridorScope(advisory.scope) ? corridors.find((c) => c.id === advisory.scope) : undefined
   const corridorNotOpen = Boolean(corridor && s.snapshot.corridors[corridor.id]?.status !== 'open')
-  const [reopen, setReopen] = useState(false)
+  // Resolving a route's advisory marks the route clear by default (the student view then shows Clear), unless
+  // another current advisory still sets that route's status.
+  const [reopen, setReopen] = useState(true)
   const draft = advisory.status === 'draft'
   return (
     <form className="stack-lg" onSubmit={(e) => {
@@ -581,7 +583,7 @@ function ResolveForm({ advisory, onDone }: { advisory: Advisory; onDone: () => v
       {!draft && corridor && corridorNotOpen && (
         <label className="cluster">
           <input type="checkbox" checked={reopen} onChange={(e) => setReopen(e.target.checked)} />
-          <span>Also mark {corridor.via} clear</span>
+          <span>Mark the {corridor.name} route clear for students</span>
         </label>
       )}
       <div className="dialog-actions">

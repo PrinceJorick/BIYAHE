@@ -81,22 +81,19 @@ describe("fixture('disrupted')", () => {
     ])
   })
 
-  it('carries one LGU advisory per flooded route, PAGASA and Campus advisories, newest first, all simulated', () => {
-    expect(snap.advisories).toEqual([
-      expect.objectContaining({
-        id: 'lgu-flood-lipa', source: 'LGU', issuer: 'Batangas City DRRMO', severity: 'critical', scope: 'lipa',
-        title: 'Flooding on JP Laurel Hwy at Mojon-Tampoy, San Jose', issuedAt: NOW - 8 * MIN, simulated: true,
-      }),
-      expect.objectContaining({ id: 'lgu-flood-tanauan', scope: 'tanauan', severity: 'critical', simulated: true }),
-      expect.objectContaining({
-        id: 'pagasa-RA-07', source: 'PAGASA', issuer: 'PAGASA', severity: 'warning', scope: 'all',
-        title: 'Orange rainfall warning, Batangas', issuedAt: NOW - 25 * MIN,
-      }),
-      expect.objectContaining({
-        id: 'campus-suspend', source: 'Campus', issuer: 'Campus DRRMO', severity: 'warning', scope: 'campus',
-        title: 'Classes suspended from 3:30 PM', issuedAt: NOW - 40 * MIN,
-      }),
+  it('carries one simulated LGU advisory per disrupted route (in route order, with the status it sets), then PAGASA and Campus', () => {
+    expect(snap.advisories.map((a) => [a.id, a.scope, a.severity, a.corridorStatus ?? null])).toEqual([
+      ['lgu-flood-lipa', 'lipa', 'critical', 'closed'],
+      ['lgu-ponding-batangas', 'batangas', 'warning', 'slow'],
+      ['lgu-ponding-bauan', 'bauan', 'warning', 'slow'],
+      ['lgu-ponding-sanjose', 'sanjose', 'warning', 'slow'],
+      ['lgu-flood-tanauan', 'tanauan', 'critical', 'closed'],
+      ['lgu-ponding-rosario', 'rosario', 'warning', 'slow'],
+      ['pagasa-RA-07', 'all', 'warning', null],
+      ['campus-suspend', 'campus', 'warning', null],
     ])
+    expect(snap.advisories[0]).toMatchObject({ source: 'LGU', issuer: 'Batangas City DRRMO', title: 'Flooding on JP Laurel Hwy at Mojon-Tampoy, San Jose', issuedAt: NOW - 8 * MIN })
+    expect(snap.advisories.every((a) => a.simulated)).toBe(true)
   })
 })
 
